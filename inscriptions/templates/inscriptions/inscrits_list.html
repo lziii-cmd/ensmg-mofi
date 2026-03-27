@@ -1,0 +1,220 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Inscrits — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Inscrits</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-people-fill me-2 text-primary"></i>Liste des inscrits</h1>
+        <p>{{ inscrits.count }} inscrit{{ inscrits.count|pluralize }} trouvé{{ inscrits.count|pluralize }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i>Nouvel inscrit
+        </a>
+        <a href="{% url 'import_excel' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-file-earmark-excel me-1"></i>Importer Excel
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label mb-1 small fw-500">Recherche</label>
+                <div class="input-group search-form">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" name="q" value="{{ query }}" class="form-control border-start-0"
+                           placeholder="Nom, prénom, email, téléphone...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1 small fw-500">Formation</label>
+                <select name="activite" class="form-select">
+                    <option value="">Toutes les formations</option>
+                    {% for act in activites %}
+                    <option value="{{ act }}" {% if activite_filter == act %}selected{% endif %}>
+                        {{ act|truncatechars:35 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1 small fw-500">Source</label>
+                <select name="source" class="form-select">
+                    <option value="">Toutes sources</option>
+                    <option value="manuel" {% if source_filter == 'manuel' %}selected{% endif %}>Manuel</option>
+                    <option value="excel" {% if source_filter == 'excel' %}selected{% endif %}>Excel</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrer
+                </button>
+                {% if query or activite_filter or source_filter %}
+                <a href="{% url 'inscrits_list' %}" class="btn btn-outline-secondary" title="Réinitialiser">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if inscrits %}
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Inscrit</th>
+                        <th>Téléphone</th>
+                        <th>Formation / Activité</th>
+                        <th>Date d'inscription</th>
+                        <th>Source</th>
+                        <th>Total payé</th>
+                        <th>Statut</th>
+                        <th class="pe-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscrit in inscrits %}
+                    <tr>
+                        <td class="ps-3 text-muted" style="font-size:0.8rem;">{{ inscrit.pk }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.8rem;">
+                                    {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'inscrit_detail' inscrit.pk %}"
+                                       class="fw-500 text-decoration-none text-dark" style="font-weight:500;">
+                                        {{ inscrit.prenom }} {{ inscrit.nom }}
+                                    </a>
+                                    <div class="text-muted" style="font-size:0.75rem;">{{ inscrit.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-size:0.85rem;">{{ inscrit.telephone|default:"—" }}</td>
+                        <td>
+                            <span class="text-truncate d-inline-block" style="max-width:160px;" title="{{ inscrit.activite }}">
+                                {{ inscrit.activite|default:"—"|truncatechars:30 }}
+                            </span>
+                        </td>
+                        <td style="font-size:0.85rem; white-space:nowrap;">
+                            {{ inscrit.date_inscription|date:"d/m/Y" }}
+                        </td>
+                        <td>
+                            {% if inscrit.source == 'excel' %}
+                                <span class="badge badge-source-excel rounded-pill px-2">
+                                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                                </span>
+                            {% else %}
+                                <span class="badge badge-source-manuel rounded-pill px-2">
+                                    <i class="bi bi-pencil me-1"></i>Manuel
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-500" style="font-weight:500; white-space:nowrap;">
+                            {% if inscrit.total_paye %}
+                                <span class="text-success">{{ inscrit.total_paye|floatformat:0 }} FCFA</span>
+                            {% else %}
+                                <span class="text-muted">0 FCFA</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inscrit.statut_paiement == 'payé' %}
+                                <span class="badge badge-paye rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i>Payé
+                                </span>
+                            {% else %}
+                                <span class="badge badge-non-paye rounded-pill">
+                                    <i class="bi bi-hourglass me-1"></i>En attente
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3 text-end" style="white-space:nowrap;">
+                            <a href="{% url 'inscrit_detail' inscrit.pk %}"
+                               class="btn btn-sm btn-outline-secondary me-1" title="Voir le détail">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'inscrit_modifier' inscrit.pk %}"
+                               class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    title="Supprimer"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ inscrit.pk }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="deleteModal{{ inscrit.pk }}" tabindex="-1">
+                        <div class="modal-dialog modal-sm">
+                            <div class="modal-content">
+                                <div class="modal-header border-0 pb-0">
+                                    <h6 class="modal-title text-danger">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>Supprimer
+                                    </h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body pt-2">
+                                    <p class="mb-0" style="font-size:0.875rem;">
+                                        Confirmer la suppression de <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong>
+                                        et tous ses paiements associés ?
+                                    </p>
+                                </div>
+                                <div class="modal-footer border-0 pt-0">
+                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                    <form method="post" action="{% url 'inscrit_supprimer' inscrit.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash me-1"></i>Supprimer
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            {% if query or activite_filter or source_filter %}
+                <p class="mb-2">Aucun inscrit ne correspond à votre recherche.</p>
+                <a href="{% url 'inscrits_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x me-1"></i>Réinitialiser les filtres
+                </a>
+            {% else %}
+                <p class="mb-2">Aucun inscrit enregistré pour le moment.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-person-plus me-1"></i>Ajouter manuellement
+                    </a>
+                    <a href="{% url 'import_excel' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Importer Excel
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

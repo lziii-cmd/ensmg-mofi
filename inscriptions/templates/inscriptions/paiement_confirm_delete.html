@@ -1,0 +1,70 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Supprimer le paiement — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'paiements_list' %}" class="text-decoration-none text-muted">Paiements</a></li>
+<li class="breadcrumb-item"><a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="text-decoration-none text-muted">{{ paiement.inscrit }}</a></li>
+<li class="breadcrumb-item active">Supprimer</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card border-danger" style="border-width:2px;">
+            <div class="card-header" style="background:#fff5f5; border-color:#fed7d7;">
+                <h5 class="text-danger mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Supprimer le paiement
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                         style="width:64px;height:64px;border-radius:50%;background:#fed7d7;">
+                        <i class="bi bi-cash-coin text-danger" style="font-size:1.8rem;"></i>
+                    </div>
+                    <h4 class="text-danger mb-1">{{ paiement.montant|floatformat:0 }} FCFA</h4>
+                    <div class="text-muted small">{{ paiement.get_moyen_paiement_display }} — {{ paiement.date_paiement|date:"d/m/Y" }}</div>
+                </div>
+
+                <div class="alert alert-danger small">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>
+                    <strong>Attention !</strong> Ce paiement sera définitivement supprimé.
+                    Cette action est <strong>irréversible</strong>.
+                </div>
+
+                <dl class="row small mb-3">
+                    <dt class="col-5 text-muted fw-normal">Inscrit</dt>
+                    <dd class="col-7">
+                        <a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="text-decoration-none">
+                            {{ paiement.inscrit }}
+                        </a>
+                    </dd>
+                    <dt class="col-5 text-muted fw-normal">Montant</dt>
+                    <dd class="col-7 fw-bold text-success">{{ paiement.montant|floatformat:0 }} FCFA</dd>
+                    <dt class="col-5 text-muted fw-normal">Date</dt>
+                    <dd class="col-7">{{ paiement.date_paiement|date:"d/m/Y" }}</dd>
+                    <dt class="col-5 text-muted fw-normal">Moyen</dt>
+                    <dd class="col-7">{{ paiement.get_moyen_paiement_display }}</dd>
+                    {% if paiement.reference %}
+                    <dt class="col-5 text-muted fw-normal">Référence</dt>
+                    <dd class="col-7">{{ paiement.reference }}</dd>
+                    {% endif %}
+                </dl>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="btn btn-outline-secondary flex-fill">
+                            <i class="bi bi-arrow-left me-1"></i>Annuler
+                        </a>
+                        <button type="submit" class="btn btn-danger flex-fill">
+                            <i class="bi bi-trash me-1"></i>Supprimer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

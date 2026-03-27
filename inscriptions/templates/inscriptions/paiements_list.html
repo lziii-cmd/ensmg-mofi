@@ -1,0 +1,203 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Paiements — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Paiements</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-cash-stack me-2 text-success"></i>Liste des paiements</h1>
+        <p>{{ paiements.count }} paiement{{ paiements.count|pluralize }} — Total : <strong class="text-success">{{ total_filtre|floatformat:0 }} FCFA</strong></p>
+    </div>
+    <a href="{% url 'paiement_ajouter' %}" class="btn btn-success">
+        <i class="bi bi-plus-circle me-1"></i>Nouveau paiement
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label mb-1 small fw-500">Recherche</label>
+                <div class="input-group search-form">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" name="q" value="{{ query }}" class="form-control border-start-0"
+                           placeholder="Nom, prénom, email, référence...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1 small fw-500">Moyen de paiement</label>
+                <select name="moyen" class="form-select">
+                    <option value="">Tous les moyens</option>
+                    {% for value, label in moyen_choices %}
+                    <option value="{{ value }}" {% if moyen_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrer
+                </button>
+                {% if query or moyen_filter %}
+                <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary" title="Réinitialiser">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if paiements %}
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Inscrit</th>
+                        <th>Montant</th>
+                        <th>Date</th>
+                        <th>Moyen</th>
+                        <th>Référence</th>
+                        <th>Notes</th>
+                        <th class="pe-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in paiements %}
+                    <tr>
+                        <td class="ps-3 text-muted" style="font-size:0.8rem;">{{ p.pk }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder" style="width:32px;height:32px;font-size:0.75rem;">
+                                    {{ p.inscrit.prenom.0|upper }}{{ p.inscrit.nom.0|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'inscrit_detail' p.inscrit.pk %}"
+                                       class="text-decoration-none text-dark fw-500" style="font-weight:500; font-size:0.875rem;">
+                                        {{ p.inscrit.prenom }} {{ p.inscrit.nom }}
+                                    </a>
+                                    <div class="text-muted" style="font-size:0.72rem;">{{ p.inscrit.activite|truncatechars:25 }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="fw-bold text-success" style="white-space:nowrap;">
+                            {{ p.montant|floatformat:0 }} FCFA
+                        </td>
+                        <td style="font-size:0.85rem; white-space:nowrap;">
+                            {{ p.date_paiement|date:"d/m/Y" }}
+                        </td>
+                        <td>
+                            {% if p.moyen_paiement == 'wave' %}
+                                <span class="badge badge-wave rounded-pill px-2">
+                                    <i class="bi bi-phone me-1"></i>Wave
+                                </span>
+                            {% elif p.moyen_paiement == 'orange_money' %}
+                                <span class="badge badge-orange_money rounded-pill px-2">
+                                    <i class="bi bi-phone me-1"></i>Orange Money
+                                </span>
+                            {% elif p.moyen_paiement == 'stripe' %}
+                                <span class="badge badge-stripe rounded-pill px-2">
+                                    <i class="bi bi-credit-card me-1"></i>Stripe
+                                </span>
+                            {% elif p.moyen_paiement == 'especes' %}
+                                <span class="badge badge-especes rounded-pill px-2">
+                                    <i class="bi bi-cash me-1"></i>Espèces
+                                </span>
+                            {% elif p.moyen_paiement == 'virement' %}
+                                <span class="badge badge-virement rounded-pill px-2">
+                                    <i class="bi bi-bank me-1"></i>Virement
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="font-size:0.82rem;">
+                            {{ p.reference|default:"—"|truncatechars:20 }}
+                        </td>
+                        <td class="text-muted" style="font-size:0.82rem;">
+                            {{ p.notes|truncatechars:25|default:"—" }}
+                        </td>
+                        <td class="pe-3 text-end" style="white-space:nowrap;">
+                            <a href="{% url 'inscrit_detail' p.inscrit.pk %}"
+                               class="btn btn-sm btn-outline-secondary me-1" title="Voir l'inscrit">
+                                <i class="bi bi-person"></i>
+                            </a>
+                            <a href="{% url 'paiement_modifier' p.pk %}"
+                               class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ p.pk }}"
+                                    title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="deleteModal{{ p.pk }}" tabindex="-1">
+                        <div class="modal-dialog modal-sm">
+                            <div class="modal-content">
+                                <div class="modal-header border-0 pb-0">
+                                    <h6 class="modal-title text-danger">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>Supprimer
+                                    </h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body pt-2">
+                                    <p class="mb-0 small">
+                                        Supprimer le paiement de <strong>{{ p.montant|floatformat:0 }} FCFA</strong>
+                                        pour <strong>{{ p.inscrit }}</strong> ?
+                                    </p>
+                                </div>
+                                <div class="modal-footer border-0 pt-0">
+                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                    <form method="post" action="{% url 'paiement_supprimer' p.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash me-1"></i>Supprimer
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:#f7fafc; font-weight:600;">
+                        <td class="ps-3" colspan="2">Total</td>
+                        <td class="text-success" style="white-space:nowrap;">{{ total_filtre|floatformat:0 }} FCFA</td>
+                        <td colspan="5"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-cash-coin"></i>
+            {% if query or moyen_filter %}
+                <p class="mb-2">Aucun paiement ne correspond à votre recherche.</p>
+                <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x me-1"></i>Réinitialiser les filtres
+                </a>
+            {% else %}
+                <p class="mb-2">Aucun paiement enregistré pour le moment.</p>
+                <a href="{% url 'paiement_ajouter' %}" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus me-1"></i>Enregistrer le premier paiement
+                </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

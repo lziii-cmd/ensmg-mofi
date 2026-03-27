@@ -1,0 +1,297 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}{{ inscrit }} — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a></li>
+<li class="breadcrumb-item active">{{ inscrit }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-person-circle me-2 text-primary"></i>{{ inscrit.prenom }} {{ inscrit.nom }}</h1>
+        <p>Fiche détaillée de l'inscrit</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'inscrit_modifier' inscrit.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <button type="button" class="btn btn-outline-danger"
+                data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="bi bi-trash me-1"></i>Supprimer
+        </button>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Fiche inscrit -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6><i class="bi bi-person-badge me-2 text-primary"></i>Informations personnelles</h6>
+            </div>
+            <div class="card-body">
+                <!-- Avatar -->
+                <div class="text-center mb-3">
+                    <div class="avatar-placeholder mx-auto mb-2"
+                         style="width:64px;height:64px;font-size:1.4rem;border-radius:50%;">
+                        {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                    </div>
+                    <h5 class="mb-0 fw-600">{{ inscrit.prenom }} {{ inscrit.nom }}</h5>
+                    <div class="text-muted small">{{ inscrit.activite }}</div>
+                </div>
+
+                <hr class="my-2">
+
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted fw-normal">Email</dt>
+                    <dd class="col-7">
+                        <a href="mailto:{{ inscrit.email }}" class="text-decoration-none">{{ inscrit.email }}</a>
+                    </dd>
+
+                    <dt class="col-5 text-muted fw-normal">Téléphone</dt>
+                    <dd class="col-7">{{ inscrit.telephone|default:"—" }}</dd>
+
+                    <dt class="col-5 text-muted fw-normal">Formation</dt>
+                    <dd class="col-7">{{ inscrit.activite|default:"—" }}</dd>
+
+                    <dt class="col-5 text-muted fw-normal">Inscrit le</dt>
+                    <dd class="col-7">{{ inscrit.date_inscription|date:"d/m/Y" }}</dd>
+
+                    <dt class="col-5 text-muted fw-normal">Source</dt>
+                    <dd class="col-7">
+                        {% if inscrit.source == 'excel' %}
+                            <span class="badge badge-source-excel rounded-pill">Excel</span>
+                        {% else %}
+                            <span class="badge badge-source-manuel rounded-pill">Manuel</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+
+                {% if inscrit.notes %}
+                <hr class="my-2">
+                <div class="small">
+                    <div class="text-muted mb-1 fw-500">Notes</div>
+                    <p class="mb-0">{{ inscrit.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Résumé paiements -->
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-wallet2 me-2 text-success"></i>Résumé des paiements</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Total encaissé</span>
+                    <span class="fw-bold fs-5 text-success">{{ inscrit.total_paye|floatformat:0 }} FCFA</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Nombre de paiements</span>
+                    <span class="fw-bold">{{ paiements.count }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">Statut</span>
+                    {% if inscrit.statut_paiement == 'payé' %}
+                        <span class="badge badge-paye rounded-pill px-3 py-2">
+                            <i class="bi bi-check-circle me-1"></i>Payé
+                        </span>
+                    {% else %}
+                        <span class="badge badge-non-paye rounded-pill px-3 py-2">
+                            <i class="bi bi-hourglass me-1"></i>En attente
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paiements -->
+    <div class="col-lg-8">
+        <!-- Ajouter un paiement -->
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-plus-circle me-2 text-success"></i>Enregistrer un paiement</h6>
+                <button class="btn btn-sm btn-link p-0 text-muted" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#paiementFormCollapse">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+            <div class="collapse show" id="paiementFormCollapse">
+                <div class="card-body">
+                    <form method="post" action="{% url 'paiement_ajouter_pour_inscrit' inscrit.pk %}">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-sm-6 col-md-3">
+                                {{ form.montant.label_tag }}
+                                {{ form.montant }}
+                                {% if form.montant.errors %}
+                                    <div class="text-danger small">{{ form.montant.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                {{ form.date_paiement.label_tag }}
+                                {{ form.date_paiement }}
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                {{ form.moyen_paiement.label_tag }}
+                                {{ form.moyen_paiement }}
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                {{ form.reference.label_tag }}
+                                {{ form.reference }}
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-check-lg me-1"></i>Enregistrer le paiement
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique des paiements -->
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Historique des paiements</h6>
+                <a href="{% url 'paiement_ajouter' %}?inscrit={{ inscrit.pk }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-plus me-1"></i>Ajouter
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if paiements %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Date</th>
+                                <th>Montant</th>
+                                <th>Moyen</th>
+                                <th>Référence</th>
+                                <th>Notes</th>
+                                <th class="pe-3 text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in paiements %}
+                            <tr>
+                                <td class="ps-3" style="white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
+                                <td class="fw-bold text-success" style="white-space:nowrap;">{{ p.montant|floatformat:0 }} FCFA</td>
+                                <td>
+                                    {% if p.moyen_paiement == 'wave' %}
+                                        <span class="badge badge-wave rounded-pill">Wave</span>
+                                    {% elif p.moyen_paiement == 'orange_money' %}
+                                        <span class="badge badge-orange_money rounded-pill">Orange Money</span>
+                                    {% elif p.moyen_paiement == 'stripe' %}
+                                        <span class="badge badge-stripe rounded-pill">Stripe</span>
+                                    {% elif p.moyen_paiement == 'especes' %}
+                                        <span class="badge badge-especes rounded-pill">Espèces</span>
+                                    {% elif p.moyen_paiement == 'virement' %}
+                                        <span class="badge badge-virement rounded-pill">Virement</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ p.reference|default:"—" }}</td>
+                                <td class="text-muted small">{{ p.notes|truncatechars:30|default:"—" }}</td>
+                                <td class="pe-3 text-end" style="white-space:nowrap;">
+                                    <a href="{% url 'paiement_modifier' p.pk %}"
+                                       class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deletePaiementModal{{ p.pk }}"
+                                            title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Delete Paiement Modal -->
+                            <div class="modal fade" id="deletePaiementModal{{ p.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h6 class="modal-title text-danger">
+                                                <i class="bi bi-exclamation-triangle me-2"></i>Supprimer le paiement
+                                            </h6>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body pt-2">
+                                            <p class="mb-0 small">
+                                                Supprimer le paiement de <strong>{{ p.montant|floatformat:0 }} FCFA</strong>
+                                                du {{ p.date_paiement|date:"d/m/Y" }} ?
+                                            </p>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                            <form method="post" action="{% url 'paiement_supprimer' p.pk %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="bi bi-trash me-1"></i>Supprimer
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background:#f7fafc;">
+                                <td class="ps-3 fw-bold">Total</td>
+                                <td class="fw-bold text-success">{{ inscrit.total_paye|floatformat:0 }} FCFA</td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state py-4">
+                    <i class="bi bi-cash" style="font-size:2.5rem;"></i>
+                    <p class="mb-2">Aucun paiement enregistré pour cet inscrit.</p>
+                    <a href="{% url 'paiement_ajouter' %}?inscrit={{ inscrit.pk }}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus me-1"></i>Enregistrer un paiement
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Inscrit Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer l'inscrit <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong> ?</p>
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    Cette action supprimera également tous les <strong>{{ paiements.count }} paiement{{ paiements.count|pluralize }}</strong> associé{{ paiements.count|pluralize }}.
+                    Cette action est <strong>irréversible</strong>.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form method="post" action="{% url 'inscrit_supprimer' inscrit.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

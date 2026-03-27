@@ -1,0 +1,176 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}{{ titre }} — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'paiements_list' %}" class="text-decoration-none text-muted">Paiements</a></li>
+{% if paiement %}
+<li class="breadcrumb-item"><a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="text-decoration-none text-muted">{{ paiement.inscrit }}</a></li>
+{% endif %}
+<li class="breadcrumb-item active">{{ titre }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        {% if paiement %}
+            <i class="bi bi-pencil-square me-2 text-success"></i>{{ titre }}
+        {% else %}
+            <i class="bi bi-plus-circle-fill me-2 text-success"></i>{{ titre }}
+        {% endif %}
+    </h1>
+    <p>{% if paiement %}Modifier les informations du paiement{% else %}Enregistrer un nouveau paiement{% endif %}</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-cash-coin me-2 text-success"></i>
+                    Détails du paiement
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.META.HTTP_REFERER }}">
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger small">
+                        {% for error in form.non_field_errors %}
+                            <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Inscrit -->
+                        <div class="col-12">
+                            <label for="{{ form.inscrit.id_for_label }}" class="form-label">
+                                {{ form.inscrit.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.inscrit }}
+                            {% if form.inscrit.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.inscrit.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Montant -->
+                        <div class="col-sm-6">
+                            <label for="{{ form.montant.id_for_label }}" class="form-label">
+                                {{ form.montant.label }} <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                {{ form.montant }}
+                                <span class="input-group-text bg-white">FCFA</span>
+                            </div>
+                            {% if form.montant.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.montant.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Date paiement -->
+                        <div class="col-sm-6">
+                            <label for="{{ form.date_paiement.id_for_label }}" class="form-label">
+                                {{ form.date_paiement.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.date_paiement }}
+                            {% if form.date_paiement.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.date_paiement.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Moyen de paiement -->
+                        <div class="col-sm-6">
+                            <label for="{{ form.moyen_paiement.id_for_label }}" class="form-label">
+                                {{ form.moyen_paiement.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.moyen_paiement }}
+                            {% if form.moyen_paiement.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.moyen_paiement.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Référence -->
+                        <div class="col-sm-6">
+                            <label for="{{ form.reference.id_for_label }}" class="form-label">
+                                {{ form.reference.label }}
+                            </label>
+                            {{ form.reference }}
+                            {% if form.reference.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.reference.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="col-12">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                {{ form.notes.label }}
+                            </label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.notes.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        {% if paiement %}
+                            <a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x me-1"></i>Annuler
+                            </a>
+                        {% else %}
+                            <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x me-1"></i>Annuler
+                            </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-lg me-1"></i>{{ action }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Info card -->
+        <div class="card mt-3 border-0" style="background:#f0fff4;">
+            <div class="card-body py-3">
+                <div class="d-flex gap-2 align-items-start">
+                    <i class="bi bi-shield-check-fill text-success mt-1"></i>
+                    <div class="small text-muted">
+                        <strong class="text-dark">Note :</strong>
+                        Les champs marqués <span class="text-danger">*</span> sont obligatoires.
+                        La référence de transaction est utile pour les paiements Wave, Orange Money ou Stripe.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fix montant input inside input-group
+    const montantInput = document.querySelector('#id_montant');
+    if (montantInput) {
+        montantInput.style.borderRight = '0';
+        montantInput.style.borderRadius = '8px 0 0 8px';
+    }
+</script>
+{% endblock %}

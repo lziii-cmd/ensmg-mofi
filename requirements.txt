@@ -1,0 +1,2 @@
+django>=4.2
+openpyxl>=3.1

@@ -1,0 +1,219 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Tableau de bord — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Tableau de bord</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+    <div>
+        <h1><i class="bi bi-speedometer2 me-2 text-primary"></i>Tableau de bord</h1>
+        <p>Vue d'ensemble des inscriptions et paiements</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i>Nouvel inscrit
+        </a>
+        <a href="{% url 'import_excel' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-file-earmark-excel me-1"></i>Importer
+        </a>
+    </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#3182ce;">{{ nb_inscrits }}</div>
+                <div class="stat-label">Inscrits total</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#e6fffa; color:#2c7a7b;">
+                <i class="bi bi-receipt-cutoff"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#2c7a7b;">{{ nb_paiements }}</div>
+                <div class="stat-label">Paiements enregistrés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#fef3c7; color:#b45309;">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#b45309; font-size:1.3rem;">{{ total_encaisse|floatformat:0 }}</div>
+                <div class="stat-label">FCFA encaissés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#f0fff4; color:#276749;">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#276749; font-size:1.3rem;">
+                    {% if nb_inscrits > 0 %}
+                        {{ total_encaisse|floatformat:0 }}
+                    {% else %}0{% endif %}
+                </div>
+                <div class="stat-label">Moy. / inscrit (FCFA)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Inscrits récents -->
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6><i class="bi bi-person-lines-fill me-2 text-primary"></i>Inscrits récents</h6>
+                <a href="{% url 'inscrits_list' %}" class="btn btn-sm btn-outline-primary">
+                    Voir tous <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if inscrits_recents %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Inscrit</th>
+                                <th>Formation</th>
+                                <th>Statut</th>
+                                <th class="pe-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inscrit in inscrits_recents %}
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="avatar-placeholder">
+                                            {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-500" style="font-weight:500;">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">{{ inscrit.email }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width:120px;" title="{{ inscrit.activite }}">
+                                        {{ inscrit.activite|truncatechars:25 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if inscrit.statut_paiement == 'payé' %}
+                                        <span class="badge badge-paye rounded-pill">
+                                            <i class="bi bi-check me-1"></i>Payé
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-non-paye rounded-pill">
+                                            <i class="bi bi-clock me-1"></i>En attente
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="pe-3">
+                                    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
+                    <p>Aucun inscrit pour le moment.</p>
+                    <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-person-plus me-1"></i>Ajouter le premier inscrit
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Paiements récents & Stats moyens -->
+    <div class="col-lg-5">
+        <!-- Derniers paiements -->
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6><i class="bi bi-cash-stack me-2 text-success"></i>Derniers paiements</h6>
+                <a href="{% url 'paiements_list' %}" class="btn btn-sm btn-outline-success">
+                    Voir tous <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if paiements_recents %}
+                <ul class="list-group list-group-flush">
+                    {% for p in paiements_recents %}
+                    <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
+                        <div>
+                            <div style="font-size:0.85rem; font-weight:500;">{{ p.inscrit.prenom }} {{ p.inscrit.nom }}</div>
+                            <div class="text-muted" style="font-size:0.75rem;">{{ p.date_paiement|date:"d/m/Y" }} &mdash; {{ p.get_moyen_paiement_display }}</div>
+                        </div>
+                        <span class="fw-bold text-success" style="font-size:0.9rem;">{{ p.montant|floatformat:0 }} FCFA</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-cash" style="font-size:2rem;"></i>
+                    <p class="mb-0" style="font-size:0.85rem;">Aucun paiement enregistré.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stats par moyen -->
+        {% if stats_moyens %}
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Répartition par moyen</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for stat in stats_moyens %}
+                    <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if stat.moyen_paiement == 'wave' %}
+                                <span class="badge badge-wave rounded-pill px-2 py-1">Wave</span>
+                            {% elif stat.moyen_paiement == 'orange_money' %}
+                                <span class="badge badge-orange_money rounded-pill px-2 py-1">Orange Money</span>
+                            {% elif stat.moyen_paiement == 'stripe' %}
+                                <span class="badge badge-stripe rounded-pill px-2 py-1">Stripe</span>
+                            {% elif stat.moyen_paiement == 'especes' %}
+                                <span class="badge badge-especes rounded-pill px-2 py-1">Espèces</span>
+                            {% elif stat.moyen_paiement == 'virement' %}
+                                <span class="badge badge-virement rounded-pill px-2 py-1">Virement</span>
+                            {% else %}
+                                <span class="badge bg-secondary rounded-pill px-2 py-1">{{ stat.moyen_paiement }}</span>
+                            {% endif %}
+                            <span class="text-muted" style="font-size:0.78rem;">{{ stat.count }} pmt.</span>
+                        </div>
+                        <span class="fw-500" style="font-size:0.85rem; font-weight:500;">{{ stat.total|floatformat:0 }} FCFA</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

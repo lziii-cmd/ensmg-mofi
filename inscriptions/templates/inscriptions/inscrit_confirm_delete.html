@@ -1,0 +1,61 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Supprimer {{ inscrit }} — ENSMG MOFI{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a></li>
+<li class="breadcrumb-item"><a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a></li>
+<li class="breadcrumb-item active">Supprimer</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card border-danger" style="border-width:2px;">
+            <div class="card-header" style="background:#fff5f5; border-color:#fed7d7;">
+                <h5 class="text-danger mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmer la suppression
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="avatar-placeholder mx-auto mb-3"
+                         style="width:64px;height:64px;font-size:1.4rem;border-radius:50%;background:#fed7d7;color:#9b2c2c;">
+                        {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                    </div>
+                    <h5 class="mb-1">{{ inscrit.prenom }} {{ inscrit.nom }}</h5>
+                    <div class="text-muted small">{{ inscrit.email }}</div>
+                </div>
+
+                <div class="alert alert-danger small">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>
+                    <strong>Attention !</strong> Cette action est <strong>irréversible</strong>.
+                    Toutes les données de cet inscrit seront définitivement supprimées,
+                    y compris l'historique de ses paiements.
+                </div>
+
+                <dl class="row small mb-3">
+                    <dt class="col-6 text-muted fw-normal">Formation</dt>
+                    <dd class="col-6">{{ inscrit.activite|default:"—" }}</dd>
+                    <dt class="col-6 text-muted fw-normal">Inscrit le</dt>
+                    <dd class="col-6">{{ inscrit.date_inscription|date:"d/m/Y" }}</dd>
+                    <dt class="col-6 text-muted fw-normal">Total payé</dt>
+                    <dd class="col-6 text-success fw-bold">{{ inscrit.total_paye|floatformat:0 }} FCFA</dd>
+                </dl>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-outline-secondary flex-fill">
+                            <i class="bi bi-arrow-left me-1"></i>Annuler
+                        </a>
+                        <button type="submit" class="btn btn-danger flex-fill">
+                            <i class="bi bi-trash me-1"></i>Supprimer définitivement
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

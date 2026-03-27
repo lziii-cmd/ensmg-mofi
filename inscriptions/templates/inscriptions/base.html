@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ENSMG MOFI{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    {% load static %}
+    <link href="{% static 'css/custom.css' %}" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --sidebar-bg: #1a2340;
+            --sidebar-hover: #2a3560;
+            --sidebar-active: #3a4a7f;
+            --accent: #4f6ef7;
+            --accent-light: #e8ecff;
+            --text-muted-sidebar: #8898b3;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f8;
+            color: #2d3748;
+            margin: 0;
+        }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .sidebar-brand .brand-icon {
+            width: 42px; height: 42px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: #fff;
+            margin-bottom: 0.6rem;
+        }
+
+        .sidebar-brand .brand-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-brand .brand-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted-sidebar);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+            flex: 1;
+        }
+
+        .nav-section-title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted-sidebar);
+            padding: 0.75rem 1.25rem 0.4rem;
+            font-weight: 600;
+        }
+
+        .sidebar-nav .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 1.25rem;
+            color: #c5cfe8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .sidebar-nav .nav-link:hover {
+            background: var(--sidebar-hover);
+            color: #fff;
+        }
+
+        .sidebar-nav .nav-link.active {
+            background: var(--sidebar-active);
+            color: #fff;
+        }
+
+        .sidebar-nav .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 2px 2px 0;
+        }
+
+        .sidebar-nav .nav-link .nav-icon {
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-muted-sidebar);
+            font-size: 0.75rem;
+        }
+
+        /* ── Main content ── */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Topbar ── */
+        #topbar {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        .topbar-title strong {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .topbar-actions .btn {
+            font-size: 0.8rem;
+        }
+
+        /* ── Page content ── */
+        .page-content {
+            padding: 1.75rem 1.5rem;
+            flex: 1;
+        }
+
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a2340;
+            margin: 0;
+        }
+
+        .page-header p {
+            color: #718096;
+            font-size: 0.875rem;
+            margin: 0.25rem 0 0;
+        }
+
+        /* ── Stat cards ── */
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            border: 1px solid #e2e8f0;
+            transition: box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .stat-card .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.8rem;
+            color: #718096;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Cards ── */
+        .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: none;
+        }
+
+        .card-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 1.25rem;
+            border-radius: 12px 12px 0 0 !important;
+        }
+
+        .card-header h5, .card-header h6 {
+            font-weight: 600;
+            margin: 0;
+            color: #1a2340;
+        }
+
+        /* ── Tables ── */
+        .table {
+            font-size: 0.875rem;
+        }
+
+        .table th {
+            font-weight: 600;
+            color: #4a5568;
+            background: #f7fafc;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .table td {
+            vertical-align: middle;
+            color: #2d3748;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: #f7fafc;
+        }
+
+        /* ── Badges ── */
+        .badge-source-manuel {
+            background: #ebf4ff;
+            color: #3182ce;
+            font-weight: 500;
+        }
+
+        .badge-source-excel {
+            background: #e6fffa;
+            color: #2c7a7b;
+            font-weight: 500;
+        }
+
+        .badge-paye {
+            background: #c6f6d5;
+            color: #276749;
+            font-weight: 500;
+        }
+
+        .badge-non-paye {
+            background: #fed7d7;
+            color: #9b2c2c;
+            font-weight: 500;
+        }
+
+        /* Moyen paiement badges */
+        .badge-wave { background: #ebf4ff; color: #2b6cb0; }
+        .badge-orange_money { background: #fffaf0; color: #c05621; }
+        .badge-stripe { background: #f0f4ff; color: #4c51bf; }
+        .badge-especes { background: #f0fff4; color: #276749; }
+        .badge-virement { background: #faf5ff; color: #6b46c1; }
+
+        /* ── Forms ── */
+        .form-label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: #4a5568;
+        }
+
+        .form-control, .form-select {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.15);
+        }
+
+        .form-text {
+            font-size: 0.78rem;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: #3d5ae3;
+            border-color: #3d5ae3;
+        }
+
+        .btn-sm {
+            font-size: 0.78rem;
+            padding: 0.25rem 0.6rem;
+        }
+
+        /* ── Search bar ── */
+        .search-form .input-group .form-control {
+            border-right: 0;
+        }
+
+        .search-form .input-group .btn {
+            border-left: 0;
+            border-color: #e2e8f0;
+            background: #fff;
+            color: #718096;
+        }
+
+        /* ── Alerts ── */
+        .alert {
+            border-radius: 10px;
+            font-size: 0.875rem;
+        }
+
+        /* ── Breadcrumb ── */
+        .breadcrumb {
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
+
+        /* ── Avatar placeholder ── */
+        .avatar-placeholder {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--accent-light);
+            color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        /* ── Mobile toggle ── */
+        #sidebarToggle {
+            display: none;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 991.98px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+            #sidebar.show {
+                transform: translateX(0);
+            }
+            #main-content {
+                margin-left: 0;
+            }
+            #sidebarToggle {
+                display: flex;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.4);
+                z-index: 999;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #a0aec0;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        /* ── Timeline paiement ── */
+        .payment-timeline .payment-item {
+            border-left: 2px solid #e2e8f0;
+            padding: 0 0 1rem 1.25rem;
+            position: relative;
+        }
+        .payment-timeline .payment-item:last-child {
+            padding-bottom: 0;
+        }
+        .payment-timeline .payment-item::before {
+            content: '';
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            position: absolute;
+            left: -6px; top: 4px;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar overlay for mobile -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- ── SIDEBAR ── -->
+<nav id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon">
+            <i class="bi bi-mortarboard-fill"></i>
+        </div>
+        <div class="brand-title">ENSMG MOFI</div>
+        <div class="brand-subtitle">Gestion des inscriptions</div>
+    </div>
+
+    <div class="sidebar-nav">
+        <div class="nav-section-title">Principal</div>
+
+        <a href="{% url 'dashboard' %}"
+           class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2 nav-icon"></i>
+            Tableau de bord
+        </a>
+
+        <div class="nav-section-title">Inscrits</div>
+
+        <a href="{% url 'inscrits_list' %}"
+           class="nav-link {% if active_page == 'inscrits' %}active{% endif %}">
+            <i class="bi bi-people-fill nav-icon"></i>
+            Liste des inscrits
+        </a>
+
+        <a href="{% url 'inscrit_ajouter' %}"
+           class="nav-link">
+            <i class="bi bi-person-plus-fill nav-icon"></i>
+            Ajouter un inscrit
+        </a>
+
+        <a href="{% url 'import_excel' %}"
+           class="nav-link">
+            <i class="bi bi-file-earmark-excel-fill nav-icon"></i>
+            Importer Excel
+        </a>
+
+        <div class="nav-section-title">Paiements</div>
+
+        <a href="{% url 'paiements_list' %}"
+           class="nav-link {% if active_page == 'paiements' %}active{% endif %}">
+            <i class="bi bi-cash-stack nav-icon"></i>
+            Liste des paiements
+        </a>
+
+        <a href="{% url 'paiement_ajouter' %}"
+           class="nav-link">
+            <i class="bi bi-plus-circle-fill nav-icon"></i>
+            Enregistrer un paiement
+        </a>
+
+        <div class="nav-section-title">Système</div>
+
+        <a href="/admin/" class="nav-link" target="_blank">
+            <i class="bi bi-gear-fill nav-icon"></i>
+            Administration
+        </a>
+    </div>
+
+    <div class="sidebar-footer">
+        <i class="bi bi-circle-fill me-1" style="color:#4ade80; font-size:0.5rem;"></i>
+        Système actif &mdash; v1.0
+    </div>
+</nav>
+
+<!-- ── MAIN CONTENT ── -->
+<div id="main-content">
+
+    <!-- Topbar -->
+    <div id="topbar">
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-sm btn-outline-secondary" id="sidebarToggle" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'dashboard' %}" class="text-decoration-none text-muted">Accueil</a>
+                    </li>
+                    {% block breadcrumb %}{% endblock %}
+                </ol>
+            </nav>
+        </div>
+        <div class="topbar-actions d-flex align-items-center gap-2">
+            <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-person-plus me-1"></i>Nouvel inscrit
+            </a>
+            <a href="{% url 'paiement_ajouter' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i>Paiement
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages / Alerts -->
+    {% if messages %}
+    <div class="px-4 pt-3">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            {% if message.tags == 'error' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+            {% elif message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+            {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+            {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page Content -->
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center py-3 text-muted" style="font-size:0.75rem; border-top:1px solid #e2e8f0; background:#fff;">
+        &copy; 2024 ENSMG MOFI &mdash; Gestion des inscriptions et paiements
+    </footer>
+</div>
+
+<!-- Bootstrap 5 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        sidebar.classList.toggle('show');
+        overlay.classList.toggle('show');
+    }
+
+    // Auto-dismiss alerts after 5 seconds
+    document.addEventListener('DOMContentLoaded', function () {
+        const alerts = document.querySelectorAll('.alert.alert-success, .alert.alert-info');
+        alerts.forEach(function (alert) {
+            setTimeout(function () {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                bsAlert.close();
+            }, 5000);
+        });
+    });
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
