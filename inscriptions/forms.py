@@ -23,9 +23,8 @@ class InscritForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': '+221 77 000 00 00'
             }),
-            'activite': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ex: Formation Python, Certification PMP...'
+            'activite': forms.Select(attrs={
+                'class': 'form-select',
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'form-control',
@@ -43,7 +42,7 @@ class InscritForm(forms.ModelForm):
         }
         help_texts = {
             'email': 'Doit être unique dans le système.',
-            'activite': 'Nom de la formation ou certification.',
+            'activite': 'Sélectionner le profil de l\'inscrit.',
         }
 
 
@@ -127,5 +126,5 @@ class ImportExcelForm(forms.Form):
             'class': 'form-control',
             'accept': '.xlsx'
         }),
-        help_text='Formats acceptés : .xlsx. Colonnes attendues : nom, prenom, email, telephone, activite'
+        help_text='Formats acceptés : .xlsx. Colonnes attendues : nom, prenom, email, telephone, activite (etudiant ou professionnel)'
     )

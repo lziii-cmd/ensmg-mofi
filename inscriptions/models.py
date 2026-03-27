@@ -8,11 +8,20 @@ class Inscrit(models.Model):
         ('excel', 'Import Excel'),
     ]
 
+    ACTIVITE_CHOICES = [
+        ('etudiant', 'Étudiant'),
+        ('professionnel', 'Professionnel'),
+    ]
+
     nom = models.CharField(max_length=100, verbose_name='Nom')
     prenom = models.CharField(max_length=100, verbose_name='Prénom')
     email = models.EmailField(unique=True, verbose_name='Email')
     telephone = models.CharField(max_length=20, verbose_name='Téléphone')
-    activite = models.CharField(max_length=200, verbose_name='Formation / Activité')
+    activite = models.CharField(
+        max_length=20,
+        choices=ACTIVITE_CHOICES,
+        verbose_name='Profil'
+    )
     date_inscription = models.DateField(auto_now_add=True, verbose_name='Date d\'inscription')
     source = models.CharField(
         max_length=10,
