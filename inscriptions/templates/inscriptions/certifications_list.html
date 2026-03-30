@@ -1,0 +1,152 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Certifications — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Certifications</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-award me-2 text-primary"></i>Certifications</h1>
+        <p>Gérez l'ensemble des programmes de certification</p>
+    </div>
+    <a href="{% url 'certification_ajouter' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle certification
+    </a>
+</div>
+
+<!-- Search bar -->
+<form method="get" class="mb-4">
+    <div class="input-group" style="max-width:400px;">
+        <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" name="q" value="{{ query }}"
+               class="form-control border-start-0 ps-0"
+               placeholder="Rechercher une certification...">
+        {% if query %}
+        <a href="{% url 'certifications_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-x"></i>
+        </a>
+        {% else %}
+        <button type="submit" class="btn btn-primary">Rechercher</button>
+        {% endif %}
+    </div>
+</form>
+
+{% if certifications %}
+<div class="row g-3">
+    {% for cert in certifications %}
+    <div class="col-md-6 col-xl-4">
+        <div class="cert-card d-flex flex-column">
+            <!-- Header -->
+            <div class="d-flex align-items-start justify-content-between mb-2">
+                <div class="flex-grow-1 me-2">
+                    <h6 class="mb-1 fw-bold" style="color:#1a2340; font-size:0.95rem;">{{ cert.nom }}</h6>
+                    {% if cert.actif %}
+                        <span class="badge bg-success-subtle text-success" style="font-size:0.7rem;">
+                            <i class="bi bi-circle-fill me-1" style="font-size:0.5rem;"></i>Active
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.7rem;">
+                            <i class="bi bi-circle me-1" style="font-size:0.5rem;"></i>Inactive
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <a href="{% url 'certification_modifier' cert.pk %}" class="btn btn-sm btn-outline-secondary"
+                       title="Modifier"><i class="bi bi-pencil"></i></a>
+                    <a href="{% url 'certification_supprimer' cert.pk %}" class="btn btn-sm btn-outline-danger"
+                       title="Supprimer"><i class="bi bi-trash"></i></a>
+                </div>
+            </div>
+
+            <!-- Description -->
+            {% if cert.description %}
+            <p class="text-muted mb-3" style="font-size:0.8rem; line-height:1.4;">
+                {{ cert.description|truncatechars:100 }}
+            </p>
+            {% endif %}
+
+            <!-- Meta info -->
+            <div class="row g-2 mb-3">
+                {% if cert.duree %}
+                <div class="col-6">
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-clock text-primary"></i>
+                        {{ cert.duree }}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="col-6">
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-cash-coin text-success"></i>
+                        {{ cert.cout_total|floatformat:0 }} FCFA
+                    </div>
+                </div>
+                {% if cert.date_debut %}
+                <div class="col-6">
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-calendar-event text-info"></i>
+                        {{ cert.date_debut|date:"d/m/Y" }}
+                    </div>
+                </div>
+                {% endif %}
+                {% if cert.date_fin %}
+                <div class="col-6">
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-calendar-check text-warning"></i>
+                        {{ cert.date_fin|date:"d/m/Y" }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Stats -->
+            <div class="d-flex gap-3 mb-3 pt-2 border-top">
+                <div class="text-center">
+                    <div class="fw-bold text-primary" style="font-size:1.1rem;">{{ cert.nb_inscrits }}</div>
+                    <div class="text-muted" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px;">Inscrits</div>
+                </div>
+                <div class="text-center">
+                    <div class="fw-bold text-success" style="font-size:1.1rem;">{{ cert.nb_certifies }}</div>
+                    <div class="text-muted" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px;">Certifiés</div>
+                </div>
+                <div class="text-center">
+                    <div class="fw-bold text-warning" style="font-size:1.1rem;">{{ cert.montant_encaisse|floatformat:0 }}</div>
+                    <div class="text-muted" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px;">FCFA encaissés</div>
+                </div>
+            </div>
+
+            <!-- Action -->
+            <div class="mt-auto">
+                <a href="{% url 'certification_detail' cert.pk %}" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-eye me-1"></i>Voir le détail
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-award"></i>
+            <p class="fw-bold">Aucune certification trouvée</p>
+            {% if query %}
+            <p class="text-muted">Aucun résultat pour « {{ query }} ».</p>
+            <a href="{% url 'certifications_list' %}" class="btn btn-outline-secondary btn-sm me-2">
+                Réinitialiser
+            </a>
+            {% endif %}
+            <a href="{% url 'certification_ajouter' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Créer une certification
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

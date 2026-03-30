@@ -1,0 +1,72 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Supprimer l'inscription — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' inscription.inscrit.pk %}"
+       class="text-decoration-none text-muted">{{ inscription.inscrit }}</a>
+</li>
+<li class="breadcrumb-item active">Supprimer l'inscription</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card border-danger" style="border-width:2px;">
+            <div class="card-header" style="background:#fff5f5; border-color:#fed7d7;">
+                <h5 class="text-danger mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Supprimer l'inscription
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                         style="width:64px;height:64px;border-radius:12px;background:#fed7d7;">
+                        <i class="bi bi-person-x text-danger" style="font-size:1.8rem;"></i>
+                    </div>
+                    <h5 class="mb-1">{{ inscription.inscrit }}</h5>
+                    <div class="text-muted" style="font-size:0.83rem;">
+                        Inscription à : <strong>{{ inscription.certification.nom }}</strong>
+                    </div>
+                </div>
+
+                <div class="alert alert-danger" style="font-size:0.84rem;">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>
+                    <strong>Attention !</strong> Cette action supprimera également
+                    tous les paiements associés à cette inscription. Elle est <strong>irréversible</strong>.
+                </div>
+
+                <dl class="row mb-3" style="font-size:0.84rem;">
+                    <dt class="col-6 text-muted fw-normal">Statut</dt>
+                    <dd class="col-6">
+                        <span class="badge badge-statut-{{ inscription.statut }} rounded-pill">
+                            {{ inscription.get_statut_display }}
+                        </span>
+                    </dd>
+                    <dt class="col-6 text-muted fw-normal">Total payé</dt>
+                    <dd class="col-6 fw-bold text-success">{{ inscription.total_paye|floatformat:0 }} FCFA</dd>
+                    <dt class="col-6 text-muted fw-normal">Inscrit le</dt>
+                    <dd class="col-6">{{ inscription.date_inscription|date:"d/m/Y" }}</dd>
+                </dl>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'inscrit_detail' inscription.inscrit.pk %}"
+                           class="btn btn-outline-secondary flex-fill">
+                            <i class="bi bi-arrow-left me-1"></i>Annuler
+                        </a>
+                        <button type="submit" class="btn btn-danger flex-fill">
+                            <i class="bi bi-trash me-1"></i>Supprimer l'inscription
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

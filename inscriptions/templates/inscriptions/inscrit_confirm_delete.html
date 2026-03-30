@@ -1,10 +1,14 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}Supprimer {{ inscrit }} — ENSMG MOFI{% endblock %}
+{% block title %}Supprimer {{ inscrit }} — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a></li>
-<li class="breadcrumb-item"><a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a></li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a>
+</li>
 <li class="breadcrumb-item active">Supprimer</li>
 {% endblock %}
 
@@ -24,23 +28,22 @@
                         {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
                     </div>
                     <h5 class="mb-1">{{ inscrit.prenom }} {{ inscrit.nom }}</h5>
-                    <div class="text-muted small">{{ inscrit.email }}</div>
+                    <div class="text-muted" style="font-size:0.83rem;">{{ inscrit.email }}</div>
                 </div>
 
-                <div class="alert alert-danger small">
+                <div class="alert alert-danger" style="font-size:0.84rem;">
                     <i class="bi bi-exclamation-circle-fill me-2"></i>
                     <strong>Attention !</strong> Cette action est <strong>irréversible</strong>.
-                    Toutes les données de cet inscrit seront définitivement supprimées,
-                    y compris l'historique de ses paiements.
+                    Toutes les inscriptions aux certifications et l'historique des paiements seront supprimés.
                 </div>
 
-                <dl class="row small mb-3">
-                    <dt class="col-6 text-muted fw-normal">Formation</dt>
-                    <dd class="col-6">{{ inscrit.activite|default:"—" }}</dd>
+                <dl class="row mb-3" style="font-size:0.84rem;">
+                    <dt class="col-6 text-muted fw-normal">Activité</dt>
+                    <dd class="col-6">{{ inscrit.get_activite_display|default:"—" }}</dd>
                     <dt class="col-6 text-muted fw-normal">Inscrit le</dt>
                     <dd class="col-6">{{ inscrit.date_inscription|date:"d/m/Y" }}</dd>
-                    <dt class="col-6 text-muted fw-normal">Total payé</dt>
-                    <dd class="col-6 text-success fw-bold">{{ inscrit.total_paye|floatformat:0 }} FCFA</dd>
+                    <dt class="col-6 text-muted fw-normal">Nb certifications</dt>
+                    <dd class="col-6">{{ inscrit.inscriptions.count }}</dd>
                 </dl>
 
                 <form method="post">

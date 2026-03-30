@@ -1,18 +1,21 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}Tableau de bord — ENSMG MOFI{% endblock %}
+{% block title %}Tableau de bord — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active">Tableau de bord</li>
 {% endblock %}
 
 {% block content %}
-<div class="page-header d-flex align-items-start justify-content-between">
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
         <h1><i class="bi bi-speedometer2 me-2 text-primary"></i>Tableau de bord</h1>
-        <p>Vue d'ensemble des inscriptions et paiements</p>
+        <p>Vue d'ensemble des certifications, inscrits et paiements</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'certification_ajouter' %}" class="btn btn-outline-primary">
+            <i class="bi bi-plus-square me-1"></i>Nouvelle certification
+        </a>
         <a href="{% url 'inscrit_ajouter' %}" class="btn btn-primary">
             <i class="bi bi-person-plus me-1"></i>Nouvel inscrit
         </a>
@@ -22,8 +25,19 @@
     </div>
 </div>
 
-<!-- Stat Cards -->
+<!-- ── Stat Cards ── -->
 <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#eef1ff; color:#4f6ef7;">
+                <i class="bi bi-award-fill"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#4f6ef7;">{{ nb_certifications }}</div>
+                <div class="stat-label">Certifications</div>
+            </div>
+        </div>
+    </div>
     <div class="col-sm-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;">
@@ -37,42 +51,109 @@
     </div>
     <div class="col-sm-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#e6fffa; color:#2c7a7b;">
-                <i class="bi bi-receipt-cutoff"></i>
-            </div>
-            <div>
-                <div class="stat-value" style="color:#2c7a7b;">{{ nb_paiements }}</div>
-                <div class="stat-label">Paiements enregistrés</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon" style="background:#fef3c7; color:#b45309;">
                 <i class="bi bi-cash-coin"></i>
             </div>
             <div>
-                <div class="stat-value" style="color:#b45309; font-size:1.3rem;">{{ total_encaisse|floatformat:0 }}</div>
+                <div class="stat-value" style="color:#b45309; font-size:1.35rem;">{{ total_encaisse|floatformat:0 }}</div>
                 <div class="stat-label">FCFA encaissés</div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#f0fff4; color:#276749;">
-                <i class="bi bi-graph-up-arrow"></i>
+            <div class="stat-icon" style="background:#dcfce7; color:#15803d;">
+                <i class="bi bi-patch-check-fill"></i>
             </div>
             <div>
-                <div class="stat-value" style="color:#276749; font-size:1.3rem;">
-                    {% if nb_inscrits > 0 %}
-                        {{ total_encaisse|floatformat:0 }}
-                    {% else %}0{% endif %}
-                </div>
-                <div class="stat-label">Moy. / inscrit (FCFA)</div>
+                <div class="stat-value" style="color:#15803d;">{{ taux_certification }}%</div>
+                <div class="stat-label">Taux de certification</div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- ── Répartition par statut ── -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Répartition par statut</h6>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-statut-inscrit px-3 py-2 rounded-pill" style="font-size:0.82rem;">Inscrit</span>
+                <span class="fw-bold">{{ stats_statut_dict.inscrit|default:0 }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-statut-en_formation px-3 py-2 rounded-pill" style="font-size:0.82rem;">En formation</span>
+                <span class="fw-bold">{{ stats_statut_dict.en_formation|default:0 }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-statut-abandon px-3 py-2 rounded-pill" style="font-size:0.82rem;">Abandon</span>
+                <span class="fw-bold">{{ stats_statut_dict.abandon|default:0 }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-statut-formation_terminee px-3 py-2 rounded-pill" style="font-size:0.82rem;">Formation terminée</span>
+                <span class="fw-bold">{{ stats_statut_dict.formation_terminee|default:0 }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-statut-certifie px-3 py-2 rounded-pill" style="font-size:0.82rem;">Certifié</span>
+                <span class="fw-bold">{{ stats_statut_dict.certifie|default:0 }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Stats par certification ── -->
+{% if stats_certifications %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6><i class="bi bi-award me-2 text-primary"></i>Stats par certification</h6>
+        <a href="{% url 'certifications_list' %}" class="btn btn-sm btn-outline-primary">
+            Voir toutes <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Certification</th>
+                        <th>Inscrits</th>
+                        <th>En formation</th>
+                        <th>Certifiés</th>
+                        <th>Encaissé (FCFA)</th>
+                        <th class="pe-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in stats_certifications %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-500" style="font-weight:500;">{{ stat.certification.nom }}</div>
+                            {% if stat.certification.actif %}
+                                <span class="badge bg-success-subtle text-success" style="font-size:0.68rem;">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.68rem;">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="fw-bold text-primary">{{ stat.nb_inscrits }}</span></td>
+                        <td><span class="badge badge-statut-en_formation rounded-pill">{{ stat.nb_en_formation }}</span></td>
+                        <td><span class="badge badge-statut-certifie rounded-pill">{{ stat.nb_certifies }}</span></td>
+                        <td><span class="fw-bold text-success">{{ stat.montant_encaisse|floatformat:0 }}</span></td>
+                        <td class="pe-3">
+                            <a href="{% url 'certification_detail' stat.certification.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="row g-3">
     <!-- Inscrits récents -->
@@ -91,9 +172,9 @@
                         <thead>
                             <tr>
                                 <th class="ps-3">Inscrit</th>
-                                <th>Formation</th>
-                                <th>Statut</th>
-                                <th class="pe-3">Action</th>
+                                <th>Activité</th>
+                                <th>Certifications</th>
+                                <th class="pe-3"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -105,27 +186,19 @@
                                             {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
                                         </div>
                                         <div>
-                                            <div class="fw-500" style="font-weight:500;">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
-                                            <div class="text-muted" style="font-size:0.75rem;">{{ inscrit.email }}</div>
+                                            <div style="font-weight:500;">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                            <div class="text-muted" style="font-size:0.73rem;">{{ inscrit.email }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="text-truncate d-inline-block" style="max-width:120px;" title="{{ inscrit.activite }}">
-                                        {{ inscrit.activite|truncatechars:25 }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if inscrit.statut_paiement == 'payé' %}
-                                        <span class="badge badge-paye rounded-pill">
-                                            <i class="bi bi-check me-1"></i>Payé
-                                        </span>
+                                    {% if inscrit.activite == 'etudiant' %}
+                                        <span class="badge badge-etudiant rounded-pill">Étudiant</span>
                                     {% else %}
-                                        <span class="badge badge-non-paye rounded-pill">
-                                            <i class="bi bi-clock me-1"></i>En attente
-                                        </span>
+                                        <span class="badge badge-professionnel rounded-pill">Professionnel</span>
                                     {% endif %}
                                 </td>
+                                <td><span class="fw-bold">{{ inscrit.inscriptions.count }}</span></td>
                                 <td class="pe-3">
                                     <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-eye"></i>
@@ -149,10 +222,9 @@
         </div>
     </div>
 
-    <!-- Paiements récents & Stats moyens -->
+    <!-- Derniers paiements -->
     <div class="col-lg-5">
-        <!-- Derniers paiements -->
-        <div class="card mb-3">
+        <div class="card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h6><i class="bi bi-cash-stack me-2 text-success"></i>Derniers paiements</h6>
                 <a href="{% url 'paiements_list' %}" class="btn btn-sm btn-outline-success">
@@ -165,10 +237,17 @@
                     {% for p in paiements_recents %}
                     <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
                         <div>
-                            <div style="font-size:0.85rem; font-weight:500;">{{ p.inscrit.prenom }} {{ p.inscrit.nom }}</div>
-                            <div class="text-muted" style="font-size:0.75rem;">{{ p.date_paiement|date:"d/m/Y" }} &mdash; {{ p.get_moyen_paiement_display }}</div>
+                            <div style="font-size:0.84rem; font-weight:500;">
+                                {{ p.inscription.inscrit.prenom }} {{ p.inscription.inscrit.nom }}
+                            </div>
+                            <div class="text-muted" style="font-size:0.73rem;">
+                                {{ p.inscription.certification.nom|truncatechars:28 }}
+                                &mdash; {{ p.date_paiement|date:"d/m/Y" }}
+                            </div>
                         </div>
-                        <span class="fw-bold text-success" style="font-size:0.9rem;">{{ p.montant|floatformat:0 }} FCFA</span>
+                        <span class="fw-bold text-success" style="font-size:0.88rem; white-space:nowrap;">
+                            {{ p.montant|floatformat:0 }} FCFA
+                        </span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -180,40 +259,6 @@
                 {% endif %}
             </div>
         </div>
-
-        <!-- Stats par moyen -->
-        {% if stats_moyens %}
-        <div class="card">
-            <div class="card-header">
-                <h6><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Répartition par moyen</h6>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    {% for stat in stats_moyens %}
-                    <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
-                        <div class="d-flex align-items-center gap-2">
-                            {% if stat.moyen_paiement == 'wave' %}
-                                <span class="badge badge-wave rounded-pill px-2 py-1">Wave</span>
-                            {% elif stat.moyen_paiement == 'orange_money' %}
-                                <span class="badge badge-orange_money rounded-pill px-2 py-1">Orange Money</span>
-                            {% elif stat.moyen_paiement == 'stripe' %}
-                                <span class="badge badge-stripe rounded-pill px-2 py-1">Stripe</span>
-                            {% elif stat.moyen_paiement == 'especes' %}
-                                <span class="badge badge-especes rounded-pill px-2 py-1">Espèces</span>
-                            {% elif stat.moyen_paiement == 'virement' %}
-                                <span class="badge badge-virement rounded-pill px-2 py-1">Virement</span>
-                            {% else %}
-                                <span class="badge bg-secondary rounded-pill px-2 py-1">{{ stat.moyen_paiement }}</span>
-                            {% endif %}
-                            <span class="text-muted" style="font-size:0.78rem;">{{ stat.count }} pmt.</span>
-                        </div>
-                        <span class="fw-500" style="font-size:0.85rem; font-weight:500;">{{ stat.total|floatformat:0 }} FCFA</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}Paiements — ENSMG MOFI{% endblock %}
+{% block title %}Paiements — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active">Paiements</li>
@@ -10,7 +10,10 @@
 <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
         <h1><i class="bi bi-cash-stack me-2 text-success"></i>Liste des paiements</h1>
-        <p>{{ paiements.count }} paiement{{ paiements.count|pluralize }} — Total : <strong class="text-success">{{ total_filtre|floatformat:0 }} FCFA</strong></p>
+        <p>
+            {{ paiements.count }} paiement{{ paiements.count|pluralize }}
+            — Total : <strong class="text-success">{{ total_filtre|floatformat:0 }} FCFA</strong>
+        </p>
     </div>
     <a href="{% url 'paiement_ajouter' %}" class="btn btn-success">
         <i class="bi bi-plus-circle me-1"></i>Nouveau paiement
@@ -22,17 +25,17 @@
     <div class="card-body py-3">
         <form method="get" class="row g-2 align-items-end">
             <div class="col-md-6">
-                <label class="form-label mb-1 small fw-500">Recherche</label>
-                <div class="input-group search-form">
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Recherche</label>
+                <div class="input-group">
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search text-muted"></i>
                     </span>
                     <input type="text" name="q" value="{{ query }}" class="form-control border-start-0"
-                           placeholder="Nom, prénom, email, référence...">
+                           placeholder="Nom, prénom, certification, référence...">
                 </div>
             </div>
             <div class="col-md-3">
-                <label class="form-label mb-1 small fw-500">Moyen de paiement</label>
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Moyen de paiement</label>
                 <select name="moyen" class="form-select">
                     <option value="">Tous les moyens</option>
                     {% for value, label in moyen_choices %}
@@ -59,79 +62,65 @@
     <div class="card-body p-0">
         {% if paiements %}
         <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0">
+            <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3">#</th>
+                        <th class="ps-3">Date</th>
                         <th>Inscrit</th>
+                        <th>Certification</th>
                         <th>Montant</th>
-                        <th>Date</th>
                         <th>Moyen</th>
                         <th>Référence</th>
-                        <th>Notes</th>
                         <th class="pe-3 text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in paiements %}
                     <tr>
-                        <td class="ps-3 text-muted" style="font-size:0.8rem;">{{ p.pk }}</td>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="avatar-placeholder" style="width:32px;height:32px;font-size:0.75rem;">
-                                    {{ p.inscrit.prenom.0|upper }}{{ p.inscrit.nom.0|upper }}
-                                </div>
-                                <div>
-                                    <a href="{% url 'inscrit_detail' p.inscrit.pk %}"
-                                       class="text-decoration-none text-dark fw-500" style="font-weight:500; font-size:0.875rem;">
-                                        {{ p.inscrit.prenom }} {{ p.inscrit.nom }}
-                                    </a>
-                                    <div class="text-muted" style="font-size:0.72rem;">{{ p.inscrit.activite|truncatechars:25 }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="fw-bold text-success" style="white-space:nowrap;">
-                            {{ p.montant|floatformat:0 }} FCFA
-                        </td>
-                        <td style="font-size:0.85rem; white-space:nowrap;">
+                        <td class="ps-3" style="white-space:nowrap; font-size:0.84rem;">
                             {{ p.date_paiement|date:"d/m/Y" }}
                         </td>
                         <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder" style="width:30px;height:30px;font-size:0.72rem;">
+                                    {{ p.inscription.inscrit.prenom.0|upper }}{{ p.inscription.inscrit.nom.0|upper }}
+                                </div>
+                                <a href="{% url 'inscrit_detail' p.inscription.inscrit.pk %}"
+                                   class="text-decoration-none text-dark" style="font-size:0.84rem; font-weight:500;">
+                                    {{ p.inscription.inscrit.prenom }} {{ p.inscription.inscrit.nom }}
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'certification_detail' p.inscription.certification.pk %}"
+                               class="text-decoration-none text-muted" style="font-size:0.82rem;">
+                                {{ p.inscription.certification.nom|truncatechars:30 }}
+                            </a>
+                        </td>
+                        <td class="fw-bold text-success" style="white-space:nowrap; font-size:0.9rem;">
+                            {{ p.montant|floatformat:0 }} FCFA
+                        </td>
+                        <td>
                             {% if p.moyen_paiement == 'wave' %}
-                                <span class="badge badge-wave rounded-pill px-2">
-                                    <i class="bi bi-phone me-1"></i>Wave
-                                </span>
+                                <span class="badge badge-wave rounded-pill"><i class="bi bi-phone me-1"></i>Wave</span>
                             {% elif p.moyen_paiement == 'orange_money' %}
-                                <span class="badge badge-orange_money rounded-pill px-2">
-                                    <i class="bi bi-phone me-1"></i>Orange Money
-                                </span>
+                                <span class="badge badge-orange_money rounded-pill"><i class="bi bi-phone me-1"></i>Orange Money</span>
                             {% elif p.moyen_paiement == 'stripe' %}
-                                <span class="badge badge-stripe rounded-pill px-2">
-                                    <i class="bi bi-credit-card me-1"></i>Stripe
-                                </span>
+                                <span class="badge badge-stripe rounded-pill"><i class="bi bi-credit-card me-1"></i>Stripe</span>
                             {% elif p.moyen_paiement == 'especes' %}
-                                <span class="badge badge-especes rounded-pill px-2">
-                                    <i class="bi bi-cash me-1"></i>Espèces
-                                </span>
+                                <span class="badge badge-especes rounded-pill"><i class="bi bi-cash me-1"></i>Espèces</span>
                             {% elif p.moyen_paiement == 'virement' %}
-                                <span class="badge badge-virement rounded-pill px-2">
-                                    <i class="bi bi-bank me-1"></i>Virement
-                                </span>
+                                <span class="badge badge-virement rounded-pill"><i class="bi bi-bank me-1"></i>Virement</span>
+                            {% else %}
+                                <span class="badge bg-secondary rounded-pill">{{ p.get_moyen_paiement_display }}</span>
                             {% endif %}
                         </td>
                         <td class="text-muted" style="font-size:0.82rem;">
                             {{ p.reference|default:"—"|truncatechars:20 }}
                         </td>
-                        <td class="text-muted" style="font-size:0.82rem;">
-                            {{ p.notes|truncatechars:25|default:"—" }}
-                        </td>
                         <td class="pe-3 text-end" style="white-space:nowrap;">
-                            <a href="{% url 'inscrit_detail' p.inscrit.pk %}"
-                               class="btn btn-sm btn-outline-secondary me-1" title="Voir l'inscrit">
-                                <i class="bi bi-person"></i>
-                            </a>
                             <a href="{% url 'paiement_modifier' p.pk %}"
-                               class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                               class="btn btn-sm btn-outline-primary" title="Modifier">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <button type="button" class="btn btn-sm btn-outline-danger"
@@ -153,10 +142,10 @@
                                     </h6>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body pt-2">
-                                    <p class="mb-0 small">
+                                <div class="modal-body pt-2" style="font-size:0.875rem;">
+                                    <p class="mb-0">
                                         Supprimer le paiement de <strong>{{ p.montant|floatformat:0 }} FCFA</strong>
-                                        pour <strong>{{ p.inscrit }}</strong> ?
+                                        pour <strong>{{ p.inscription.inscrit }}</strong> ?
                                     </p>
                                 </div>
                                 <div class="modal-footer border-0 pt-0">
@@ -174,10 +163,10 @@
                     {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr style="background:#f7fafc; font-weight:600;">
-                        <td class="ps-3" colspan="2">Total</td>
+                    <tr style="background:#f8fafc; font-weight:600;">
+                        <td class="ps-3" colspan="3">Total</td>
                         <td class="text-success" style="white-space:nowrap;">{{ total_filtre|floatformat:0 }} FCFA</td>
-                        <td colspan="5"></td>
+                        <td colspan="3"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -186,15 +175,15 @@
         <div class="empty-state">
             <i class="bi bi-cash-coin"></i>
             {% if query or moyen_filter %}
-                <p class="mb-2">Aucun paiement ne correspond à votre recherche.</p>
-                <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-x me-1"></i>Réinitialiser les filtres
-                </a>
+            <p class="mb-2">Aucun paiement ne correspond à votre recherche.</p>
+            <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x me-1"></i>Réinitialiser les filtres
+            </a>
             {% else %}
-                <p class="mb-2">Aucun paiement enregistré pour le moment.</p>
-                <a href="{% url 'paiement_ajouter' %}" class="btn btn-success btn-sm">
-                    <i class="bi bi-plus me-1"></i>Enregistrer le premier paiement
-                </a>
+            <p class="mb-2">Aucun paiement enregistré pour le moment.</p>
+            <a href="{% url 'paiement_ajouter' %}" class="btn btn-success btn-sm">
+                <i class="bi bi-plus me-1"></i>Enregistrer le premier paiement
+            </a>
             {% endif %}
         </div>
         {% endif %}

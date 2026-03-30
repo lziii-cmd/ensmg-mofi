@@ -1,97 +1,198 @@
 from django.db import models
-from django.db.models import Sum
+from django.utils import timezone
+
+
+class Certification(models.Model):
+    nom = models.CharField(max_length=200, verbose_name="Nom de la certification")
+    description = models.TextField(blank=True, verbose_name="Description")
+    duree = models.CharField(max_length=100, blank=True, verbose_name="Durée")
+    cout_total = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, verbose_name="Coût total (FCFA)"
+    )
+    date_debut = models.DateField(null=True, blank=True, verbose_name="Date de début")
+    date_fin = models.DateField(null=True, blank=True, verbose_name="Date de fin")
+    actif = models.BooleanField(default=True, verbose_name="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Certification"
+        verbose_name_plural = "Certifications"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.nom
+
+    @property
+    def nb_inscrits(self):
+        return self.inscriptions.count()
+
+    @property
+    def nb_certifies(self):
+        return self.inscriptions.filter(statut="certifie").count()
+
+    @property
+    def nb_en_formation(self):
+        return self.inscriptions.filter(statut="en_formation").count()
+
+    @property
+    def montant_encaisse(self):
+        total = sum(
+            p.montant
+            for ic in self.inscriptions.all()
+            for p in ic.paiements.all()
+        )
+        return total
 
 
 class Inscrit(models.Model):
-    SOURCE_CHOICES = [
-        ('manuel', 'Saisie manuelle'),
-        ('excel', 'Import Excel'),
-    ]
-
     ACTIVITE_CHOICES = [
-        ('etudiant', 'Étudiant'),
-        ('professionnel', 'Professionnel'),
+        ("etudiant", "Étudiant"),
+        ("professionnel", "Professionnel"),
+    ]
+    SOURCE_CHOICES = [
+        ("manuel", "Manuel"),
+        ("excel", "Import Excel"),
     ]
 
-    nom = models.CharField(max_length=100, verbose_name='Nom')
-    prenom = models.CharField(max_length=100, verbose_name='Prénom')
-    email = models.EmailField(unique=True, verbose_name='Email')
-    telephone = models.CharField(max_length=20, verbose_name='Téléphone')
+    nom = models.CharField(max_length=100, verbose_name="Nom")
+    prenom = models.CharField(max_length=100, verbose_name="Prénom")
+    email = models.EmailField(blank=True, verbose_name="Email")
+    telephone = models.CharField(max_length=30, blank=True, verbose_name="Téléphone")
     activite = models.CharField(
         max_length=20,
         choices=ACTIVITE_CHOICES,
-        verbose_name='Profil'
+        default="etudiant",
+        verbose_name="Activité",
     )
-    date_inscription = models.DateField(auto_now_add=True, verbose_name='Date d\'inscription')
     source = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=SOURCE_CHOICES,
-        default='manuel',
-        verbose_name='Source'
+        default="manuel",
+        verbose_name="Source",
     )
-    notes = models.TextField(blank=True, verbose_name='Notes')
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    date_inscription = models.DateTimeField(
+        auto_now_add=True, verbose_name="Date d'inscription"
+    )
 
     class Meta:
-        verbose_name = 'Inscrit'
-        verbose_name_plural = 'Inscrits'
-        ordering = ['-date_inscription', 'nom']
+        verbose_name = "Inscrit"
+        verbose_name_plural = "Inscrits"
+        ordering = ["-date_inscription"]
 
     def __str__(self):
         return f"{self.prenom} {self.nom}"
 
     @property
-    def total_paye(self):
-        result = self.paiements.aggregate(total=Sum('montant'))
-        return result['total'] or 0
-
-    @property
-    def statut_paiement(self):
-        if self.paiements.exists():
-            return 'payé'
-        return 'non payé'
-
-    def get_nom_complet(self):
+    def nom_complet(self):
         return f"{self.prenom} {self.nom}"
 
 
-class Paiement(models.Model):
-    MOYEN_CHOICES = [
-        ('wave', 'Wave'),
-        ('orange_money', 'Orange Money'),
-        ('stripe', 'Stripe'),
-        ('especes', 'Espèces'),
-        ('virement', 'Virement bancaire'),
+class InscriptionCertification(models.Model):
+    STATUT_CHOICES = [
+        ("inscrit", "Inscrit"),
+        ("en_formation", "En formation"),
+        ("abandon", "Abandon"),
+        ("formation_terminee", "Formation terminée"),
+        ("certifie", "Certifié"),
     ]
 
     inscrit = models.ForeignKey(
         Inscrit,
         on_delete=models.CASCADE,
-        related_name='paiements',
-        verbose_name='Inscrit'
+        related_name="inscriptions",
+        verbose_name="Inscrit",
+    )
+    certification = models.ForeignKey(
+        Certification,
+        on_delete=models.CASCADE,
+        related_name="inscriptions",
+        verbose_name="Certification",
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default="inscrit",
+        verbose_name="Statut",
+    )
+    date_inscription = models.DateTimeField(
+        auto_now_add=True, verbose_name="Date d'inscription"
+    )
+    notes = models.TextField(blank=True, verbose_name="Notes")
+
+    class Meta:
+        verbose_name = "Inscription à une certification"
+        verbose_name_plural = "Inscriptions aux certifications"
+        unique_together = [["inscrit", "certification"]]
+        ordering = ["-date_inscription"]
+
+    def __str__(self):
+        return f"{self.inscrit} — {self.certification}"
+
+    @property
+    def total_paye(self):
+        return sum(p.montant for p in self.paiements.all())
+
+    @property
+    def reste_a_payer(self):
+        reste = self.certification.cout_total - self.total_paye
+        return max(reste, 0)
+
+    @property
+    def pourcentage_paye(self):
+        if self.certification.cout_total <= 0:
+            return 100
+        pct = (self.total_paye / self.certification.cout_total) * 100
+        return min(int(pct), 100)
+
+    def get_statut_display_badge(self):
+        mapping = {
+            "inscrit": "primary",
+            "en_formation": "warning",
+            "abandon": "danger",
+            "formation_terminee": "secondary",
+            "certifie": "success",
+        }
+        return mapping.get(self.statut, "secondary")
+
+
+class Paiement(models.Model):
+    MOYEN_CHOICES = [
+        ("wave", "Wave"),
+        ("orange_money", "Orange Money"),
+        ("stripe", "Stripe"),
+        ("especes", "Espèces"),
+        ("virement", "Virement bancaire"),
+    ]
+
+    inscription = models.ForeignKey(
+        InscriptionCertification,
+        on_delete=models.CASCADE,
+        related_name="paiements",
+        verbose_name="Inscription",
     )
     montant = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        verbose_name='Montant (FCFA)'
+        max_digits=12, decimal_places=2, verbose_name="Montant (FCFA)"
     )
-    date_paiement = models.DateField(verbose_name='Date de paiement')
+    date_paiement = models.DateField(
+        default=timezone.now, verbose_name="Date de paiement"
+    )
     moyen_paiement = models.CharField(
         max_length=20,
         choices=MOYEN_CHOICES,
-        verbose_name='Moyen de paiement'
+        default="especes",
+        verbose_name="Moyen de paiement",
     )
     reference = models.CharField(
-        max_length=200,
-        blank=True,
-        verbose_name='Référence / N° de transaction'
+        max_length=100, blank=True, verbose_name="Référence"
     )
-    notes = models.TextField(blank=True, verbose_name='Notes')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Créé le')
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Paiement'
-        verbose_name_plural = 'Paiements'
-        ordering = ['-date_paiement', '-created_at']
+        verbose_name = "Paiement"
+        verbose_name_plural = "Paiements"
+        ordering = ["-date_paiement", "-created_at"]
 
     def __str__(self):
-        return f"Paiement {self.montant} FCFA - {self.inscrit} ({self.date_paiement})"
+        return f"{self.inscription} — {self.montant} FCFA"

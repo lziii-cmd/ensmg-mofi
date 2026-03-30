@@ -1,59 +1,76 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}Importer Excel — ENSMG MOFI{% endblock %}
+{% block title %}Importer Excel — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a></li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
 <li class="breadcrumb-item active">Import Excel</li>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
     <h1><i class="bi bi-file-earmark-excel-fill me-2 text-success"></i>Importer des inscrits via Excel</h1>
-    <p>Chargez un fichier .xlsx pour importer plusieurs inscrits en une seule opération</p>
+    <p>Chargez un fichier .xlsx pour importer plusieurs inscrits et les inscrire à une certification</p>
 </div>
 
 <div class="row g-3">
+    <!-- Upload form -->
     <div class="col-lg-7">
-        <!-- Upload form -->
         <div class="card">
             <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-upload me-2 text-success"></i>Charger un fichier Excel</h6>
             </div>
             <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" novalidate>
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger small">
+                    <div class="alert alert-danger" style="font-size:0.84rem;">
                         {% for error in form.non_field_errors %}
-                            <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                        <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
                     <!-- Drag & drop zone -->
-                    <div class="upload-zone mb-3 p-4 text-center rounded-3 border border-2 border-dashed"
+                    <div class="upload-zone mb-3 p-4 text-center rounded-3"
                          id="uploadZone"
-                         style="border-color:#c3d0f5 !important; background:#f8faff; cursor:pointer; transition:all 0.2s;">
+                         style="border: 2px dashed #c3d0f5; background:#f8faff; cursor:pointer; transition:all 0.2s; position:relative;">
                         <i class="bi bi-cloud-upload-fill text-primary mb-2" style="font-size:2.5rem; display:block;"></i>
-                        <p class="mb-1 fw-500" style="font-weight:500;">Glissez-déposez votre fichier ici</p>
-                        <p class="text-muted small mb-3">ou cliquez pour parcourir</p>
-                        <div>
-                            {{ form.fichier }}
-                        </div>
-                        <div id="fileName" class="mt-2 small text-success fw-500" style="display:none;"></div>
+                        <p class="mb-1" style="font-weight:500;">Glissez-déposez votre fichier ici</p>
+                        <p class="text-muted mb-3" style="font-size:0.83rem;">ou cliquez pour parcourir</p>
+                        {{ form.fichier }}
+                        <div id="fileName" class="mt-2 text-success" style="display:none; font-size:0.84rem; font-weight:500;"></div>
                     </div>
 
                     {% if form.fichier.errors %}
-                        <div class="alert alert-danger small">
-                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.fichier.errors.0 }}
-                        </div>
+                    <div class="alert alert-danger" style="font-size:0.84rem;">
+                        <i class="bi bi-exclamation-circle me-1"></i>{{ form.fichier.errors.0 }}
+                    </div>
                     {% endif %}
 
                     <div class="form-text mb-3">
-                        <i class="bi bi-info-circle me-1"></i>
-                        {{ form.fichier.help_text }}
+                        <i class="bi bi-info-circle me-1"></i>{{ form.fichier.help_text }}
+                    </div>
+
+                    <!-- Certification selection -->
+                    <div class="mb-4">
+                        <label for="{{ form.certification.id_for_label }}" class="form-label">
+                            {{ form.certification.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.certification }}
+                        {% if form.certification.help_text %}
+                        <div class="form-text">
+                            <i class="bi bi-award me-1"></i>{{ form.certification.help_text }}
+                        </div>
+                        {% endif %}
+                        {% if form.certification.errors %}
+                        <div class="text-danger mt-1" style="font-size:0.8rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.certification.errors.0 }}
+                        </div>
+                        {% endif %}
                     </div>
 
                     <div class="d-flex gap-2">
@@ -69,41 +86,42 @@
         </div>
     </div>
 
+    <!-- Guide -->
     <div class="col-lg-5">
-        <!-- Instructions -->
+        <!-- Format guide -->
         <div class="card mb-3">
             <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-question-circle me-2 text-primary"></i>Format attendu</h6>
             </div>
             <div class="card-body">
-                <p class="small text-muted mb-3">
-                    La première ligne du fichier doit contenir les en-têtes de colonnes.
+                <p class="text-muted mb-3" style="font-size:0.83rem;">
+                    La première ligne doit contenir les en-têtes de colonnes.
                     Les colonnes suivantes sont reconnues automatiquement :
                 </p>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0" style="font-size:0.8rem;">
-                        <thead style="background:#f7fafc;">
+                    <table class="table table-sm table-bordered mb-0" style="font-size:0.79rem;">
+                        <thead style="background:#f8fafc;">
                             <tr>
                                 <th>Colonne</th>
                                 <th>Noms acceptés</th>
-                                <th>Obligatoire</th>
+                                <th>Requis</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td><strong>Nom</strong></td>
                                 <td><code>nom</code>, <code>name</code>, <code>last_name</code></td>
-                                <td><span class="text-danger">✓</span></td>
+                                <td><span class="text-danger fw-bold">✓</span></td>
                             </tr>
                             <tr>
                                 <td><strong>Prénom</strong></td>
                                 <td><code>prenom</code>, <code>first_name</code></td>
-                                <td><span class="text-danger">✓</span></td>
+                                <td><span class="text-danger fw-bold">✓</span></td>
                             </tr>
                             <tr>
                                 <td><strong>Email</strong></td>
                                 <td><code>email</code>, <code>mail</code>, <code>courriel</code></td>
-                                <td><span class="text-danger">✓</span></td>
+                                <td><span class="text-muted">—</span></td>
                             </tr>
                             <tr>
                                 <td><strong>Téléphone</strong></td>
@@ -111,8 +129,8 @@
                                 <td><span class="text-muted">—</span></td>
                             </tr>
                             <tr>
-                                <td><strong>Formation</strong></td>
-                                <td><code>activite</code>, <code>formation</code>, <code>cours</code></td>
+                                <td><strong>Activité</strong></td>
+                                <td><code>activite</code>, <code>profil</code></td>
                                 <td><span class="text-muted">—</span></td>
                             </tr>
                         </tbody>
@@ -121,44 +139,64 @@
             </div>
         </div>
 
-        <!-- Exemple -->
-        <div class="card border-0" style="background:#f0fff4;">
+        <!-- Example -->
+        <div class="card border-0 mb-3" style="background:#f0fff4;">
             <div class="card-body">
                 <h6 class="text-success mb-2">
                     <i class="bi bi-lightbulb-fill me-2"></i>Exemple de fichier
                 </h6>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0" style="font-size:0.78rem; background:#fff;">
-                        <thead style="background:#e6fffa;">
+                    <table class="table table-sm table-bordered mb-0" style="font-size:0.77rem; background:#fff;">
+                        <thead style="background:#dcfce7;">
                             <tr>
                                 <th>nom</th>
                                 <th>prenom</th>
                                 <th>email</th>
                                 <th>telephone</th>
-                                <th>formation</th>
+                                <th>activite</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>Diallo</td>
                                 <td>Amadou</td>
-                                <td>amadou@ex.com</td>
+                                <td>amadou@email.com</td>
                                 <td>+221 77 123 45 67</td>
-                                <td>Python Django</td>
+                                <td>etudiant</td>
                             </tr>
                             <tr>
                                 <td>Sow</td>
                                 <td>Fatou</td>
-                                <td>fatou@ex.com</td>
+                                <td>fatou@email.com</td>
                                 <td>+221 76 987 65 43</td>
-                                <td>Certification PMP</td>
+                                <td>professionnel</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-2 small text-muted">
+                <div class="mt-2 text-muted" style="font-size:0.79rem;">
                     <i class="bi bi-arrow-repeat me-1"></i>
                     Si un email existe déjà, les informations seront mises à jour.
+                    <br>
+                    <i class="bi bi-award me-1"></i>
+                    Les inscrits seront automatiquement inscrits à la certification sélectionnée.
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="card border-0" style="background:#eef1ff;">
+            <div class="card-body py-3">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-info-circle-fill text-primary mt-1" style="flex-shrink:0;"></i>
+                    <div style="font-size:0.82rem; color:#4a5568;">
+                        <strong class="text-dark">À savoir :</strong>
+                        <ul class="mb-0 ps-3 mt-1">
+                            <li>La colonne <code>activite</code> : valeur « professionnel » ou autre (étudiant par défaut)</li>
+                            <li>Les inscrits sans email seront créés en doublon si importés plusieurs fois</li>
+                            <li>Seules les 10 premières erreurs sont affichées</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -168,52 +206,52 @@
 
 {% block extra_js %}
 <script>
-    const fileInput = document.querySelector('input[type="file"]');
-    const uploadZone = document.getElementById('uploadZone');
-    const fileNameDiv = document.getElementById('fileName');
+const fileInput = document.querySelector('input[type="file"]');
+const uploadZone = document.getElementById('uploadZone');
+const fileNameDiv = document.getElementById('fileName');
 
-    // Style the file input to be visually hidden but clickable
-    if (fileInput) {
-        fileInput.style.opacity = '0';
-        fileInput.style.position = 'absolute';
-        fileInput.style.width = '100%';
-        fileInput.style.height = '100%';
-        fileInput.style.top = '0';
-        fileInput.style.left = '0';
-        fileInput.style.cursor = 'pointer';
+if (fileInput) {
+    // Hide native input visually but keep it clickable via the zone
+    fileInput.style.opacity = '0';
+    fileInput.style.position = 'absolute';
+    fileInput.style.width = '100%';
+    fileInput.style.height = '100%';
+    fileInput.style.top = '0';
+    fileInput.style.left = '0';
+    fileInput.style.cursor = 'pointer';
 
-        uploadZone.style.position = 'relative';
-
-        fileInput.addEventListener('change', function () {
-            if (this.files && this.files[0]) {
-                fileNameDiv.textContent = '✓ Fichier sélectionné : ' + this.files[0].name;
-                fileNameDiv.style.display = 'block';
-                uploadZone.style.borderColor = '#38a169 !important';
-                uploadZone.style.background = '#f0fff4';
-            }
-        });
-
-        // Drag & drop visual feedback
-        uploadZone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            uploadZone.style.background = '#ebf4ff';
-            uploadZone.style.borderColor = '#4f6ef7';
-        });
-
-        uploadZone.addEventListener('dragleave', function() {
-            uploadZone.style.background = '#f8faff';
-            uploadZone.style.borderColor = '#c3d0f5';
-        });
-
-        uploadZone.addEventListener('drop', function(e) {
-            e.preventDefault();
+    fileInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            fileNameDiv.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Fichier sélectionné : ' + this.files[0].name;
+            fileNameDiv.style.display = 'block';
+            uploadZone.style.borderColor = '#38a169';
             uploadZone.style.background = '#f0fff4';
-            if (e.dataTransfer.files[0]) {
+        }
+    });
+
+    uploadZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        uploadZone.style.background = '#ebf4ff';
+        uploadZone.style.borderColor = '#4f6ef7';
+    });
+
+    uploadZone.addEventListener('dragleave', function () {
+        uploadZone.style.background = '#f8faff';
+        uploadZone.style.borderColor = '#c3d0f5';
+    });
+
+    uploadZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        uploadZone.style.background = '#f0fff4';
+        uploadZone.style.borderColor = '#38a169';
+        if (e.dataTransfer.files[0]) {
+            try {
                 fileInput.files = e.dataTransfer.files;
-                fileNameDiv.textContent = '✓ Fichier sélectionné : ' + e.dataTransfer.files[0].name;
-                fileNameDiv.style.display = 'block';
-            }
-        });
-    }
+            } catch (err) {}
+            fileNameDiv.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Fichier sélectionné : ' + e.dataTransfer.files[0].name;
+            fileNameDiv.style.display = 'block';
+        }
+    });
+}
 </script>
 {% endblock %}

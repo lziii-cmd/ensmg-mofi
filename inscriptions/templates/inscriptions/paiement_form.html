@@ -1,11 +1,16 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}{{ titre }} — ENSMG MOFI{% endblock %}
+{% block title %}{{ titre }} — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="{% url 'paiements_list' %}" class="text-decoration-none text-muted">Paiements</a></li>
+<li class="breadcrumb-item">
+    <a href="{% url 'paiements_list' %}" class="text-decoration-none text-muted">Paiements</a>
+</li>
 {% if paiement %}
-<li class="breadcrumb-item"><a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="text-decoration-none text-muted">{{ paiement.inscrit }}</a></li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' paiement.inscription.inscrit.pk %}"
+       class="text-decoration-none text-muted">{{ paiement.inscription.inscrit }}</a>
+</li>
 {% endif %}
 <li class="breadcrumb-item active">{{ titre }}</li>
 {% endblock %}
@@ -13,11 +18,8 @@
 {% block content %}
 <div class="page-header">
     <h1>
-        {% if paiement %}
-            <i class="bi bi-pencil-square me-2 text-success"></i>{{ titre }}
-        {% else %}
-            <i class="bi bi-plus-circle-fill me-2 text-success"></i>{{ titre }}
-        {% endif %}
+        <i class="bi bi-{% if paiement %}pencil-square{% else %}plus-circle-fill{% endif %} me-2 text-success"></i>
+        {{ titre }}
     </h1>
     <p>{% if paiement %}Modifier les informations du paiement{% else %}Enregistrer un nouveau paiement{% endif %}</p>
 </div>
@@ -34,27 +36,29 @@
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.META.HTTP_REFERER }}">
 
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger small">
+                    <div class="alert alert-danger" style="font-size:0.84rem;">
                         {% for error in form.non_field_errors %}
-                            <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                        <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
                     <div class="row g-3">
-                        <!-- Inscrit -->
+                        <!-- Inscription -->
                         <div class="col-12">
-                            <label for="{{ form.inscrit.id_for_label }}" class="form-label">
-                                {{ form.inscrit.label }} <span class="text-danger">*</span>
+                            <label for="{{ form.inscription.id_for_label }}" class="form-label">
+                                {{ form.inscription.label }} <span class="text-danger">*</span>
                             </label>
-                            {{ form.inscrit }}
-                            {% if form.inscrit.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.inscrit.errors.0 }}
-                                </div>
+                            {{ form.inscription }}
+                            <div class="form-text">
+                                Format : Prénom Nom — Certification
+                            </div>
+                            {% if form.inscription.errors %}
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.inscription.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
 
@@ -68,9 +72,9 @@
                                 <span class="input-group-text bg-white">FCFA</span>
                             </div>
                             {% if form.montant.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.montant.errors.0 }}
-                                </div>
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.montant.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
 
@@ -81,9 +85,9 @@
                             </label>
                             {{ form.date_paiement }}
                             {% if form.date_paiement.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.date_paiement.errors.0 }}
-                                </div>
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.date_paiement.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
 
@@ -94,9 +98,9 @@
                             </label>
                             {{ form.moyen_paiement }}
                             {% if form.moyen_paiement.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.moyen_paiement.errors.0 }}
-                                </div>
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.moyen_paiement.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
 
@@ -107,9 +111,9 @@
                             </label>
                             {{ form.reference }}
                             {% if form.reference.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.reference.errors.0 }}
-                                </div>
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.reference.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
 
@@ -120,9 +124,9 @@
                             </label>
                             {{ form.notes }}
                             {% if form.notes.errors %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.notes.errors.0 }}
-                                </div>
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.notes.errors.0 }}
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -131,13 +135,14 @@
 
                     <div class="d-flex gap-2 justify-content-end">
                         {% if paiement %}
-                            <a href="{% url 'inscrit_detail' paiement.inscrit.pk %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-x me-1"></i>Annuler
-                            </a>
+                        <a href="{% url 'inscrit_detail' paiement.inscription.inscrit.pk %}"
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i>Annuler
+                        </a>
                         {% else %}
-                            <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-x me-1"></i>Annuler
-                            </a>
+                        <a href="{% url 'paiements_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i>Annuler
+                        </a>
                         {% endif %}
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-lg me-1"></i>{{ action }}
@@ -147,12 +152,12 @@
             </div>
         </div>
 
-        <!-- Info card -->
+        <!-- Info tip -->
         <div class="card mt-3 border-0" style="background:#f0fff4;">
             <div class="card-body py-3">
                 <div class="d-flex gap-2 align-items-start">
-                    <i class="bi bi-shield-check-fill text-success mt-1"></i>
-                    <div class="small text-muted">
+                    <i class="bi bi-shield-check-fill text-success mt-1" style="flex-shrink:0;"></i>
+                    <div style="font-size:0.82rem; color:#4a5568;">
                         <strong class="text-dark">Note :</strong>
                         Les champs marqués <span class="text-danger">*</span> sont obligatoires.
                         La référence de transaction est utile pour les paiements Wave, Orange Money ou Stripe.
@@ -166,11 +171,11 @@
 
 {% block extra_js %}
 <script>
-    // Fix montant input inside input-group
-    const montantInput = document.querySelector('#id_montant');
-    if (montantInput) {
-        montantInput.style.borderRight = '0';
-        montantInput.style.borderRadius = '8px 0 0 8px';
-    }
+// Fix montant input inside input-group
+const montantInput = document.querySelector('#id_montant');
+if (montantInput) {
+    montantInput.style.borderRight = '0';
+    montantInput.style.borderRadius = '8px 0 0 8px';
+}
 </script>
 {% endblock %}

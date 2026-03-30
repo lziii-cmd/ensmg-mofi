@@ -1,0 +1,129 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}{{ titre }} — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a>
+</li>
+<li class="breadcrumb-item active">Inscrire à une certification</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        <i class="bi bi-award me-2 text-success"></i>
+        Inscrire à une certification
+    </h1>
+    <p>Choisissez une certification pour <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong></p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
+
+        <!-- Inscrit info -->
+        <div class="card mb-3" style="background:#f8fafc; border: none;">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="avatar-placeholder" style="width:50px;height:50px;font-size:1.1rem;border-radius:50%;">
+                        {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                    </div>
+                    <div>
+                        <h6 class="mb-1 fw-bold">{{ inscrit.prenom }} {{ inscrit.nom }}</h6>
+                        <div class="text-muted" style="font-size:0.82rem;">
+                            {{ inscrit.email|default:"—" }}
+                            {% if inscrit.telephone %} &mdash; {{ inscrit.telephone }}{% endif %}
+                        </div>
+                        <div class="mt-1">
+                            {% if inscrit.activite == 'etudiant' %}
+                                <span class="badge badge-etudiant rounded-pill">Étudiant</span>
+                            {% else %}
+                                <span class="badge badge-professionnel rounded-pill">Professionnel</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-award me-2 text-success"></i>
+                    Sélectionner une certification
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger" style="font-size:0.84rem;">
+                        {% for error in form.non_field_errors %}
+                        <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Certification -->
+                    <div class="mb-3">
+                        <label for="{{ form.certification.id_for_label }}" class="form-label">
+                            {{ form.certification.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.certification }}
+                        {% if form.certification.errors %}
+                        <div class="text-danger mt-1" style="font-size:0.8rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.certification.errors.0 }}
+                        </div>
+                        {% endif %}
+                        {% if not form.certification.field.queryset.exists %}
+                        <div class="form-text text-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Cet inscrit est déjà inscrit à toutes les certifications disponibles.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Statut -->
+                    <div class="mb-3">
+                        <label for="{{ form.statut.id_for_label }}" class="form-label">
+                            {{ form.statut.label }}
+                        </label>
+                        {{ form.statut }}
+                        {% if form.statut.errors %}
+                        <div class="text-danger mt-1" style="font-size:0.8rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.statut.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-4">
+                        <label for="{{ form.notes.id_for_label }}" class="form-label">
+                            {{ form.notes.label }}
+                        </label>
+                        {{ form.notes }}
+                        {% if form.notes.errors %}
+                        <div class="text-danger mt-1" style="font-size:0.8rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.notes.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i>Annuler
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-award me-1"></i>Inscrire
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

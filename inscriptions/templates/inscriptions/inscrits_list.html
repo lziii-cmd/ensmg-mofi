@@ -1,6 +1,6 @@
 {% extends 'inscriptions/base.html' %}
 
-{% block title %}Inscrits — ENSMG MOFI{% endblock %}
+{% block title %}Inscrits — ENSMG Certification{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active">Inscrits</li>
@@ -26,9 +26,9 @@
 <div class="card mb-3">
     <div class="card-body py-3">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-5">
-                <label class="form-label mb-1 small fw-500">Recherche</label>
-                <div class="input-group search-form">
+            <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Recherche</label>
+                <div class="input-group">
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search text-muted"></i>
                     </span>
@@ -36,30 +36,40 @@
                            placeholder="Nom, prénom, email, téléphone...">
                 </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label mb-1 small fw-500">Formation</label>
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Activité</label>
                 <select name="activite" class="form-select">
-                    <option value="">Toutes les formations</option>
-                    {% for act in activites %}
-                    <option value="{{ act }}" {% if activite_filter == act %}selected{% endif %}>
-                        {{ act|truncatechars:35 }}
+                    <option value="">Toutes</option>
+                    {% for val, label in activite_choices %}
+                    <option value="{{ val }}" {% if activite_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Certification</label>
+                <select name="certification" class="form-select">
+                    <option value="">Toutes les certifications</option>
+                    {% for cert in certifications_all %}
+                    <option value="{{ cert.pk }}" {% if certification_filter == cert.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ cert.nom|truncatechars:35 }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label mb-1 small fw-500">Source</label>
-                <select name="source" class="form-select">
-                    <option value="">Toutes sources</option>
-                    <option value="manuel" {% if source_filter == 'manuel' %}selected{% endif %}>Manuel</option>
-                    <option value="excel" {% if source_filter == 'excel' %}selected{% endif %}>Excel</option>
+                <label class="form-label mb-1" style="font-size:0.8rem; font-weight:500;">Statut</label>
+                <select name="statut" class="form-select">
+                    <option value="">Tous les statuts</option>
+                    {% for val, label in statut_choices %}
+                    <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2 d-flex gap-2">
-                <button type="submit" class="btn btn-primary flex-fill">
-                    <i class="bi bi-funnel me-1"></i>Filtrer
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary flex-fill" title="Filtrer">
+                    <i class="bi bi-funnel"></i>
                 </button>
-                {% if query or activite_filter or source_filter %}
+                {% if query or activite_filter or certification_filter or statut_filter %}
                 <a href="{% url 'inscrits_list' %}" class="btn btn-outline-secondary" title="Réinitialiser">
                     <i class="bi bi-x-lg"></i>
                 </a>
@@ -74,83 +84,65 @@
     <div class="card-body p-0">
         {% if inscrits %}
         <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0">
+            <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3">#</th>
-                        <th>Inscrit</th>
+                        <th class="ps-3">Inscrit</th>
                         <th>Téléphone</th>
-                        <th>Formation / Activité</th>
+                        <th>Activité</th>
+                        <th>Certifications</th>
                         <th>Date d'inscription</th>
-                        <th>Source</th>
-                        <th>Total payé</th>
-                        <th>Statut</th>
                         <th class="pe-3 text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for inscrit in inscrits %}
                     <tr>
-                        <td class="ps-3 text-muted" style="font-size:0.8rem;">{{ inscrit.pk }}</td>
-                        <td>
+                        <td class="ps-3">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.8rem;">
+                                <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.78rem;">
                                     {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
                                 </div>
                                 <div>
                                     <a href="{% url 'inscrit_detail' inscrit.pk %}"
-                                       class="fw-500 text-decoration-none text-dark" style="font-weight:500;">
+                                       class="text-decoration-none text-dark" style="font-weight:500;">
                                         {{ inscrit.prenom }} {{ inscrit.nom }}
                                     </a>
-                                    <div class="text-muted" style="font-size:0.75rem;">{{ inscrit.email }}</div>
+                                    <div class="text-muted" style="font-size:0.73rem;">{{ inscrit.email|default:"—" }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="font-size:0.85rem;">{{ inscrit.telephone|default:"—" }}</td>
+                        <td style="font-size:0.84rem;">{{ inscrit.telephone|default:"—" }}</td>
                         <td>
-                            <span class="text-truncate d-inline-block" style="max-width:160px;" title="{{ inscrit.activite }}">
-                                {{ inscrit.activite|default:"—"|truncatechars:30 }}
-                            </span>
+                            {% if inscrit.activite == 'etudiant' %}
+                                <span class="badge badge-etudiant rounded-pill">Étudiant</span>
+                            {% elif inscrit.activite == 'professionnel' %}
+                                <span class="badge badge-professionnel rounded-pill">Professionnel</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
-                        <td style="font-size:0.85rem; white-space:nowrap;">
+                        <td>
+                            {% with nb=inscrit.inscriptions.count %}
+                            {% if nb %}
+                                <span class="badge bg-primary-subtle text-primary rounded-pill">
+                                    {{ nb }} certification{{ nb|pluralize }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted" style="font-size:0.8rem;">Aucune</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td style="font-size:0.84rem; white-space:nowrap;">
                             {{ inscrit.date_inscription|date:"d/m/Y" }}
-                        </td>
-                        <td>
-                            {% if inscrit.source == 'excel' %}
-                                <span class="badge badge-source-excel rounded-pill px-2">
-                                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                                </span>
-                            {% else %}
-                                <span class="badge badge-source-manuel rounded-pill px-2">
-                                    <i class="bi bi-pencil me-1"></i>Manuel
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="fw-500" style="font-weight:500; white-space:nowrap;">
-                            {% if inscrit.total_paye %}
-                                <span class="text-success">{{ inscrit.total_paye|floatformat:0 }} FCFA</span>
-                            {% else %}
-                                <span class="text-muted">0 FCFA</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if inscrit.statut_paiement == 'payé' %}
-                                <span class="badge badge-paye rounded-pill">
-                                    <i class="bi bi-check-circle me-1"></i>Payé
-                                </span>
-                            {% else %}
-                                <span class="badge badge-non-paye rounded-pill">
-                                    <i class="bi bi-hourglass me-1"></i>En attente
-                                </span>
-                            {% endif %}
                         </td>
                         <td class="pe-3 text-end" style="white-space:nowrap;">
                             <a href="{% url 'inscrit_detail' inscrit.pk %}"
-                               class="btn btn-sm btn-outline-secondary me-1" title="Voir le détail">
+                               class="btn btn-sm btn-outline-secondary" title="Voir le détail">
                                 <i class="bi bi-eye"></i>
                             </a>
                             <a href="{% url 'inscrit_modifier' inscrit.pk %}"
-                               class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                               class="btn btn-sm btn-outline-primary" title="Modifier">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <button type="button" class="btn btn-sm btn-outline-danger"
@@ -168,14 +160,14 @@
                             <div class="modal-content">
                                 <div class="modal-header border-0 pb-0">
                                     <h6 class="modal-title text-danger">
-                                        <i class="bi bi-exclamation-triangle me-2"></i>Supprimer
+                                        <i class="bi bi-exclamation-triangle me-2"></i>Confirmer la suppression
                                     </h6>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
                                 <div class="modal-body pt-2">
                                     <p class="mb-0" style="font-size:0.875rem;">
-                                        Confirmer la suppression de <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong>
-                                        et tous ses paiements associés ?
+                                        Supprimer <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong>
+                                        et toutes ses inscriptions/paiements associés ?
                                     </p>
                                 </div>
                                 <div class="modal-footer border-0 pt-0">
@@ -197,7 +189,7 @@
         {% else %}
         <div class="empty-state">
             <i class="bi bi-people"></i>
-            {% if query or activite_filter or source_filter %}
+            {% if query or activite_filter or certification_filter or statut_filter %}
                 <p class="mb-2">Aucun inscrit ne correspond à votre recherche.</p>
                 <a href="{% url 'inscrits_list' %}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-x me-1"></i>Réinitialiser les filtres

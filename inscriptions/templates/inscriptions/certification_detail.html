@@ -1,0 +1,264 @@
+{% extends 'inscriptions/base.html' %}
+{% load dict_filters %}
+
+{% block title %}{{ certification.nom }} — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifications_list' %}" class="text-decoration-none text-muted">Certifications</a>
+</li>
+<li class="breadcrumb-item active">{{ certification.nom|truncatechars:40 }}</li>
+{% endblock %}
+
+{% block content %}
+<!-- Page header -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1>
+            <i class="bi bi-award me-2 text-primary"></i>
+            {{ certification.nom }}
+        </h1>
+        <p>
+            {% if certification.actif %}
+                <span class="badge bg-success-subtle text-success me-2">Active</span>
+            {% else %}
+                <span class="badge bg-secondary-subtle text-secondary me-2">Inactive</span>
+            {% endif %}
+            {% if certification.duree %}<span class="text-muted me-2"><i class="bi bi-clock me-1"></i>{{ certification.duree }}</span>{% endif %}
+            {% if certification.date_debut %}<span class="text-muted me-2"><i class="bi bi-calendar me-1"></i>{{ certification.date_debut|date:"d/m/Y" }}</span>{% endif %}
+            {% if certification.date_fin %}<span class="text-muted"><i class="bi bi-calendar-check me-1"></i>{{ certification.date_fin|date:"d/m/Y" }}</span>{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-shrink-0">
+        <a href="{% url 'certification_modifier' certification.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a href="{% url 'certification_supprimer' certification.pk %}" class="btn btn-outline-danger">
+            <i class="bi bi-trash me-1"></i>Supprimer
+        </a>
+    </div>
+</div>
+
+<!-- Stats cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#eef1ff; color:#4f6ef7;">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#4f6ef7;">{{ certification.nb_inscrits }}</div>
+                <div class="stat-label">Inscrits</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#dcfce7; color:#15803d;">
+                <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#15803d;">{{ certification.nb_certifies }}</div>
+                <div class="stat-label">Certifiés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#fef3c7; color:#b45309;">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#b45309; font-size:1.3rem;">{{ certification.montant_encaisse|floatformat:0 }}</div>
+                <div class="stat-label">FCFA encaissés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;">
+                <i class="bi bi-currency-exchange"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#3182ce; font-size:1.3rem;">{{ certification.cout_total|floatformat:0 }}</div>
+                <div class="stat-label">FCFA coût total</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Description -->
+{% if certification.description %}
+<div class="card mb-4">
+    <div class="card-body">
+        <p class="mb-0 text-muted" style="font-size:0.88rem; line-height:1.6;">
+            {{ certification.description }}
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Enrollments table -->
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6><i class="bi bi-list-check me-2 text-primary"></i>Inscrits à cette certification</h6>
+        <a href="{% url 'inscrits_list' %}?certification={{ certification.pk }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-person-plus me-1"></i>Inscrire un participant
+        </a>
+    </div>
+    <div class="card-body p-0">
+        {% if inscriptions %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Participant</th>
+                        <th>Activité</th>
+                        <th>Statut</th>
+                        <th>Paiement</th>
+                        <th>Reste à payer</th>
+                        <th class="pe-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ic in inscriptions %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder">
+                                    {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'inscrit_detail' ic.inscrit.pk %}"
+                                       class="fw-500 text-decoration-none text-dark"
+                                       style="font-weight:500;">
+                                        {{ ic.inscrit.prenom }} {{ ic.inscrit.nom }}
+                                    </a>
+                                    <div class="text-muted" style="font-size:0.73rem;">{{ ic.inscrit.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if ic.inscrit.activite == 'etudiant' %}
+                                <span class="badge badge-etudiant rounded-pill">Étudiant</span>
+                            {% else %}
+                                <span class="badge badge-professionnel rounded-pill">Professionnel</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- Statut + inline change form -->
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge badge-statut-{{ ic.statut }} rounded-pill"
+                                      style="font-size:0.75rem; white-space:nowrap;">
+                                    {{ ic.get_statut_display }}
+                                </span>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0 px-1"
+                                            type="button" data-bs-toggle="dropdown" title="Changer le statut">
+                                        <i class="bi bi-chevron-down" style="font-size:0.65rem;"></i>
+                                    </button>
+                                    <div class="dropdown-menu p-2" style="min-width:180px;">
+                                        <form method="post" action="{% url 'changer_statut' ic.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.path }}">
+                                            {% with form=statut_forms|dict_key:ic.pk %}
+                                            {% if form %}
+                                                {{ form.statut }}
+                                            {% endif %}
+                                            {% endwith %}
+                                            <button type="submit" class="btn btn-sm btn-primary w-100 mt-2">
+                                                Changer
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="min-width:120px;">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;">
+                                    <span class="text-muted">{{ ic.total_paye|floatformat:0 }} / {{ certification.cout_total|floatformat:0 }} FCFA</span>
+                                    <span class="fw-bold">{{ ic.pourcentage_paye }}%</span>
+                                </div>
+                                <div class="progress" style="height:6px;">
+                                    <div class="progress-bar
+                                        {% if ic.pourcentage_paye >= 100 %}bg-success
+                                        {% elif ic.pourcentage_paye >= 50 %}bg-warning
+                                        {% else %}bg-danger{% endif %}"
+                                         style="width:{{ ic.pourcentage_paye }}%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if ic.reste_a_payer > 0 %}
+                                <span class="text-danger fw-bold" style="font-size:0.83rem;">
+                                    {{ ic.reste_a_payer|floatformat:0 }} FCFA
+                                </span>
+                            {% else %}
+                                <span class="text-success" style="font-size:0.83rem;">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Soldé
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3">
+                            <div class="d-flex gap-1 flex-wrap">
+                                <a href="{% url 'inscrit_detail' ic.inscrit.pk %}"
+                                   class="btn btn-sm btn-outline-secondary" title="Voir inscrit">
+                                    <i class="bi bi-person"></i>
+                                </a>
+                                <a href="{% url 'paiement_ajouter_pour_inscription' ic.pk %}"
+                                   class="btn btn-sm btn-outline-success" title="Ajouter un paiement"
+                                   onclick="return confirm('Ajouter un paiement pour {{ ic.inscrit }} ?');">
+                                    <i class="bi bi-cash-coin"></i>
+                                </a>
+                                <a href="{% url 'inscription_supprimer' ic.pk %}"
+                                   class="btn btn-sm btn-outline-danger" title="Supprimer l'inscription">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Paiements inline -->
+                    {% if ic.paiements.all %}
+                    <tr style="background:#fafbff;">
+                        <td colspan="6" class="px-3 py-2">
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for p in ic.paiements.all %}
+                                <span class="badge bg-light text-dark border" style="font-size:0.75rem; font-weight:400;">
+                                    <i class="bi bi-check-circle text-success me-1"></i>
+                                    {{ p.montant|floatformat:0 }} FCFA —
+                                    {{ p.date_paiement|date:"d/m/Y" }} —
+                                    {{ p.get_moyen_paiement_display }}
+                                    {% if p.reference %} ({{ p.reference }}){% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <p>Aucun participant inscrit à cette certification.</p>
+            <a href="{% url 'inscrits_list' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-person-plus me-1"></i>Gérer les inscrits
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Populate statut select in dropdowns with the correct current value
+document.querySelectorAll('.dropdown-menu form select').forEach(function(sel) {
+    // The select is already pre-populated via Django form instance
+});
+</script>
+{% endblock %}
