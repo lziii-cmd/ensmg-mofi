@@ -102,6 +102,19 @@ LOGOUT_REDIRECT_URL = '/login/'
 # Security
 CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
 
+# Logging — affiche les erreurs dans les logs Render (console)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'ERROR'},
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+    },
+}
+
 # Reverse proxy (Render.com, Nginx...) — permet à build_absolute_uri de
 # générer des URLs https:// correctes depuis derrière un proxy SSL.
 USE_X_FORWARDED_HOST = True
