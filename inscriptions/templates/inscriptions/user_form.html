@@ -64,18 +64,23 @@
                     </div>
 
                     <hr>
-                    <div class="mb-3">
-                        <div class="form-check mb-2">
-                            {{ form.is_staff }}
-                            <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">
-                                {{ form.is_staff.label }}
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.role.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-shield-check me-1 text-primary"></i>{{ form.role.label }}
                             </label>
+                            {{ form.role }}
+                            <div class="form-text">
+                                Administrateur = accès total · Responsable = gestion formations · Comptable = gestion paiements
+                            </div>
                         </div>
-                        <div class="form-check">
-                            {{ form.is_superuser }}
-                            <label class="form-check-label" for="{{ form.is_superuser.id_for_label }}">
-                                {{ form.is_superuser.label }}
-                            </label>
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    {{ form.is_active.label }}
+                                </label>
+                            </div>
                         </div>
                     </div>
 

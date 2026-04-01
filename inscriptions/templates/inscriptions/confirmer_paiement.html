@@ -1,0 +1,110 @@
+{% extends "inscriptions/base.html" %}
+
+{% block title %}Confirmer le paiement — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'dashboard_financier' %}" class="text-decoration-none text-muted">Finances</a>
+</li>
+<li class="breadcrumb-item active">Confirmer paiement</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+
+        <div class="page-header">
+            <h1><i class="bi bi-check-circle me-2 text-success"></i>Confirmer le paiement</h1>
+            <p>Vérifiez les détails et confirmez ce paiement en attente.</p>
+        </div>
+
+        <!-- Paiement details -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-receipt me-2"></i>Détails du paiement</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless" style="font-size:0.9rem;">
+                    <tr>
+                        <td class="text-muted fw-medium" style="width:40%;">Apprenant</td>
+                        <td class="fw-semibold">{{ paiement.inscription.inscrit.nom_complet }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Certification</td>
+                        <td>{{ paiement.inscription.cohorte.certification.nom }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Cohorte</td>
+                        <td>{{ paiement.inscription.cohorte.nom }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Montant</td>
+                        <td class="fw-bold text-success" style="font-size:1.1rem;">{{ paiement.montant|floatformat:0 }} FCFA</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Moyen de paiement</td>
+                        <td>
+                            <span class="badge" style="background:#dbeafe;color:#1e40af;padding:0.3rem 0.7rem;border-radius:20px;">
+                                {{ paiement.get_moyen_paiement_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Date déclarée</td>
+                        <td>{{ paiement.date_paiement|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% if paiement.reference %}
+                    <tr>
+                        <td class="text-muted fw-medium">Référence</td>
+                        <td><code>{{ paiement.reference }}</code></td>
+                    </tr>
+                    {% endif %}
+                    {% if paiement.notes %}
+                    <tr>
+                        <td class="text-muted fw-medium">Notes</td>
+                        <td style="font-size:0.83rem;">{{ paiement.notes }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="text-muted fw-medium">Statut actuel</td>
+                        <td>
+                            <span class="badge" style="background:#fef9c3;color:#854d0e;padding:0.3rem 0.7rem;border-radius:20px;">
+                                <i class="bi bi-clock me-1"></i>{{ paiement.get_statut_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted fw-medium">Enregistré le</td>
+                        <td>{{ paiement.created_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Confirmation alert -->
+        <div class="alert alert-warning" style="font-size:0.88rem;">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Attention :</strong> En confirmant ce paiement, vous certifiez avoir vérifié et reçu le montant de
+            <strong>{{ paiement.montant|floatformat:0 }} FCFA</strong>.
+            Cette action est irréversible.
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-3 align-items-center">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check2-circle me-1"></i>Confirmer ce paiement
+                </button>
+            </form>
+            <a href="{% url 'inscrit_detail' paiement.inscription.inscrit.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Annuler
+            </a>
+            <a href="{% url 'recu_download' paiement.pk %}" class="btn btn-outline-primary ms-auto">
+                <i class="bi bi-download me-1"></i>Générer reçu PDF
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

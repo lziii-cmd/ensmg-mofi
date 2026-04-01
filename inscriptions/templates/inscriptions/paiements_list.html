@@ -92,9 +92,9 @@
                             </div>
                         </td>
                         <td>
-                            <a href="{% url 'certification_detail' p.inscription.certification.pk %}"
+                            <a href="{% url 'certification_detail' p.inscription.cohorte.certification.pk %}"
                                class="text-decoration-none text-muted" style="font-size:0.82rem;">
-                                {{ p.inscription.certification.nom|truncatechars:30 }}
+                                {{ p.inscription.cohorte.certification.nom|truncatechars:30 }}
                             </a>
                         </td>
                         <td class="fw-bold text-success" style="white-space:nowrap; font-size:0.9rem;">

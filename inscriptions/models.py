@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 
 class Certification(models.Model):
@@ -97,11 +98,12 @@ class Inscrit(models.Model):
     SOURCE_CHOICES = [
         ("manuel", "Manuel"),
         ("excel", "Import Excel"),
+        ("portail", "Portail en ligne"),
     ]
 
-    nom = models.CharField(max_length=100, verbose_name="Nom")
-    prenom = models.CharField(max_length=100, verbose_name="Prénom")
-    email = models.EmailField(blank=True, verbose_name="Email")
+    nom = models.CharField(max_length=100, verbose_name="Nom", db_index=True)
+    prenom = models.CharField(max_length=100, verbose_name="Prénom", db_index=True)
+    email = models.EmailField(blank=True, verbose_name="Email", db_index=True)
     telephone = models.CharField(max_length=30, blank=True, verbose_name="Téléphone")
     activite = models.CharField(
         max_length=20,
@@ -115,6 +117,9 @@ class Inscrit(models.Model):
         default="manuel",
         verbose_name="Source",
     )
+    adresse = models.CharField(max_length=255, blank=True, verbose_name="Adresse")
+    universite = models.CharField(max_length=200, blank=True, verbose_name="Université")
+    entreprise = models.CharField(max_length=200, blank=True, verbose_name="Entreprise")
     notes = models.TextField(blank=True, verbose_name="Notes")
     date_inscription = models.DateTimeField(
         auto_now_add=True, verbose_name="Date d'inscription"
@@ -159,6 +164,7 @@ class Inscription(models.Model):
         choices=STATUT_CHOICES,
         default="inscrit",
         verbose_name="Statut",
+        db_index=True,
     )
     montant_du = models.DecimalField(
         max_digits=12, decimal_places=2, default=0, verbose_name="Montant dû (FCFA)"
@@ -208,9 +214,15 @@ class Paiement(models.Model):
     MOYEN_CHOICES = [
         ("wave", "Wave"),
         ("orange_money", "Orange Money"),
+        ("carte", "Carte bancaire"),
         ("stripe", "Stripe"),
         ("especes", "Espèces"),
         ("virement", "Virement bancaire"),
+    ]
+
+    STATUT_CHOICES = [
+        ("confirme", "Confirmé"),
+        ("en_attente", "En attente"),
     ]
 
     inscription = models.ForeignKey(
@@ -230,10 +242,18 @@ class Paiement(models.Model):
         choices=MOYEN_CHOICES,
         default="especes",
         verbose_name="Moyen de paiement",
+        db_index=True,
     )
     reference = models.CharField(
         max_length=100, blank=True, verbose_name="Référence"
     )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default="confirme",
+        verbose_name="Statut",
+    )
+    recu_pdf = models.BinaryField(null=True, blank=True, verbose_name="Reçu PDF")
     notes = models.TextField(blank=True, verbose_name="Notes")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -277,3 +297,27 @@ class Attestation(models.Model):
 
     def __str__(self):
         return f"Attestation {self.numero} — {self.inscription.inscrit.nom_complet}"
+
+
+class CompteApprenant(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='compte_apprenant',
+        verbose_name="Utilisateur"
+    )
+    inscrit = models.OneToOneField(
+        Inscrit,
+        on_delete=models.CASCADE,
+        related_name='compte_apprenant',
+        verbose_name="Inscrit"
+    )
+    mdp_change = models.BooleanField(default=False, verbose_name="Mot de passe changé")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Compte Apprenant"
+        verbose_name_plural = "Comptes Apprenants"
+
+    def __str__(self):
+        return f"Compte de {self.inscrit}"

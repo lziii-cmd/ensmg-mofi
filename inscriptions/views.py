@@ -1,6 +1,8 @@
 import io
 import json
 import uuid
+import unicodedata
+import re
 from functools import wraps
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -12,7 +14,11 @@ from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.utils import timezone
 import openpyxl
 
-from .models import Certification, Cohorte, Inscrit, Inscription, Paiement, Attestation
+from .models import Certification, Cohorte, Inscrit, Inscription, Paiement, Attestation, CompteApprenant
+from .notifications import (
+    notifier_inscription, notifier_paiement,
+    notifier_paiement_confirme, notifier_attestation, notifier_changement_statut,
+)
 from .forms import (
     CertificationForm,
     CohorteForm,
@@ -628,6 +634,7 @@ def inscription_wizard(request):
             montant_du=montant_du_val,
             notes=notes,
         )
+        notifier_inscription(inscription)
         messages.success(
             request,
             f'"{inscrit}" inscrit à la cohorte "{cohorte.nom}" ({cohorte.certification.nom}).',
@@ -657,6 +664,7 @@ def changer_statut(request, pk):
         form = ChangerStatutForm(request.POST, instance=inscription)
         if form.is_valid():
             form.save()
+            notifier_changement_statut(inscription)
             messages.success(
                 request,
                 f'Statut mis à jour : {inscription.get_statut_display()}.',
@@ -693,11 +701,18 @@ def paiement_ajouter_pour_inscription(request, pk):
         if form.is_valid():
             paiement = form.save(commit=False)
             paiement.inscription = inscription
-            paiement.save()
-            messages.success(
-                request,
-                f'Paiement de {paiement.montant} FCFA enregistré.',
-            )
+            reste = inscription.reste_a_payer
+            if reste <= 0:
+                messages.warning(request, "Ce dossier est déjà intégralement réglé.")
+            elif paiement.montant > reste:
+                messages.error(
+                    request,
+                    f"Le montant saisi ({paiement.montant} FCFA) dépasse le reste à payer ({reste} FCFA). Veuillez corriger."
+                )
+            else:
+                paiement.save()
+                notifier_paiement(paiement)
+                messages.success(request, f'Paiement de {paiement.montant} FCFA enregistré.')
         else:
             messages.error(request, "Erreur dans le formulaire de paiement.")
     return redirect("inscrit_detail", pk=inscription.inscrit.pk)
@@ -756,6 +771,7 @@ def paiement_ajouter(request):
         form = PaiementForm(request.POST)
         if form.is_valid():
             paiement = form.save()
+            notifier_paiement(paiement)
             messages.success(request, f"Paiement de {paiement.montant} FCFA enregistré.")
             return redirect("inscrit_detail", pk=paiement.inscription.inscrit.pk)
     else:
@@ -982,7 +998,7 @@ def import_excel(request):
 
 @admin_required
 def users_list(request):
-    users = User.objects.order_by("username")
+    users = User.objects.prefetch_related("groups").order_by("username")
     context = {
         "users": users,
         "active_page": "utilisateurs",
@@ -995,16 +1011,13 @@ def user_ajouter(request):
     if request.method == "POST":
         form = UserForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            password = form.cleaned_data.get("password")
-            if not password:
+            if not form.cleaned_data.get("password"):
                 messages.error(request, "Un mot de passe est requis pour créer un utilisateur.")
                 return render(request, "inscriptions/user_form.html", {
                     "form": form, "titre": "Ajouter un utilisateur", "action": "Créer",
                     "active_page": "utilisateurs",
                 })
-            user.set_password(password)
-            user.save()
+            user = form.save()
             messages.success(request, f'Utilisateur "{user.username}" créé.')
             return redirect("users_list")
     else:
@@ -1075,136 +1088,223 @@ def _generer_qr_image(url):
 
 
 def _generer_attestation_pdf(inscription, verification_url=""):
-    """Génère le PDF d'attestation pour une inscription et retourne les bytes."""
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
+    """Génère le PDF d'attestation (certificat formel) et retourne les bytes."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import cm, mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
-
-    buffer = io.BytesIO()
-    W, H = A4
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=2.5 * cm,
-        rightMargin=2.5 * cm,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
-    )
-
-    navy   = colors.HexColor("#1a2340")
-    accent = colors.HexColor("#4f6ef7")
-    gold   = colors.HexColor("#d4a017")
-    grey   = colors.HexColor("#718096")
-    light  = colors.HexColor("#f0f2f8")
-
-    styles = getSampleStyleSheet()
-
-    def make_style(name, **kw):
-        return ParagraphStyle(name, parent=styles["Normal"], **kw)
-
-    s_org_title  = make_style("org",     fontSize=20, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=26, spaceAfter=4)
-    s_org_sub    = make_style("orgsub",  fontSize=10, textColor=accent, alignment=TA_CENTER, leading=14)
-    s_attest     = make_style("attest",  fontSize=30, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=36, spaceBefore=14, spaceAfter=4)
-    s_sub_attest = make_style("subat",   fontSize=13, textColor=gold,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=18, spaceAfter=10)
-    s_body_lbl   = make_style("blbl",    fontSize=10, textColor=grey,   alignment=TA_CENTER, leading=14)
-    s_body_val   = make_style("bval",    fontSize=16, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=22)
-    s_certif_nm  = make_style("certifnm",fontSize=14, textColor=accent, alignment=TA_CENTER, fontName="Helvetica-Bold", leading=20)
-    s_footer_lbl = make_style("ftlbl",   fontSize=9,  textColor=grey,   alignment=TA_CENTER, leading=12)
-    s_footer_val = make_style("ftval",   fontSize=10, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=13)
-    s_qr_lbl     = make_style("qrlbl",   fontSize=7,  textColor=grey,   alignment=TA_CENTER, leading=10)
+    from reportlab.pdfgen import canvas as rl_canvas
+    from reportlab.lib.utils import ImageReader
 
     inscrit       = inscription.inscrit
     certification = inscription.cohorte.certification
     cohorte       = inscription.cohorte
+    today         = timezone.now().date()
 
-    date_debut_str = cohorte.date_debut.strftime("%d/%m/%Y") if cohorte.date_debut else "—"
-    date_fin_str   = cohorte.date_fin.strftime("%d/%m/%Y")   if cohorte.date_fin   else "—"
-    periode        = f"{date_debut_str} – {date_fin_str}"
-    today          = timezone.now().date()
+    date_fin_str = cohorte.date_fin.strftime("%d/%m/%Y") if cohorte.date_fin else today.strftime("%d/%m/%Y")
 
-    story = []
+    buffer = io.BytesIO()
+    # Paysage A4
+    W, H = landscape(A4)  # ~841 x 595 pts
 
-    # En-tête organisation
-    story.append(Paragraph("ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE", s_org_title))
-    story.append(Paragraph("ENSMG — Dakar, Sénégal", s_org_sub))
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(HRFlowable(width="100%", thickness=3, color=accent, spaceAfter=3))
-    story.append(HRFlowable(width="100%", thickness=1, color=gold,   spaceAfter=10))
+    c = rl_canvas.Canvas(buffer, pagesize=landscape(A4))
 
-    # Titre attestation
-    story.append(Spacer(1, 0.5 * cm))
-    story.append(Paragraph("ATTESTATION", s_attest))
-    story.append(Paragraph("DE CERTIFICATION", s_sub_attest))
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(HRFlowable(width="55%", thickness=1, color=gold, spaceAfter=18, hAlign="CENTER"))
+    # ── Couleurs ──────────────────────────────────────────────────────────────
+    BLACK  = colors.HexColor("#0a0a0a")
+    NAVY   = colors.HexColor("#1a2340")
+    GOLD   = colors.HexColor("#c9a84c")
+    GOLD2  = colors.HexColor("#e8c96a")
+    WHITE  = colors.white
+    GREY   = colors.HexColor("#555555")
+    LGREY  = colors.HexColor("#888888")
 
-    # Corps
-    story.append(Paragraph("La direction de l'ENSMG certifie que :", s_body_lbl))
-    story.append(Spacer(1, 0.35 * cm))
-    story.append(Paragraph(inscrit.nom_complet.upper(), s_body_val))
-    story.append(Spacer(1, 0.1 * cm))
+    # ── Fond ivoire ───────────────────────────────────────────────────────────
+    c.setFillColor(colors.HexColor("#fdfbf5"))
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    # ── Bordure extérieure noire épaisse ──────────────────────────────────────
+    margin = 18
+    c.setStrokeColor(BLACK)
+    c.setLineWidth(6)
+    c.rect(margin, margin, W - 2*margin, H - 2*margin, fill=0, stroke=1)
+
+    # ── Bordure or fine intérieure ─────────────────────────────────────────────
+    gap = 10
+    inner = margin + gap
+    c.setStrokeColor(GOLD)
+    c.setLineWidth(1.5)
+    c.rect(inner, inner, W - 2*inner, H - 2*inner, fill=0, stroke=1)
+
+    # ── Coins décoratifs (triangles noirs) ────────────────────────────────────
+    cs = 38  # coin size
+    for (cx, cy, dx, dy) in [
+        (margin, H - margin, 1, -1),   # top-left
+        (W - margin, H - margin, -1, -1),  # top-right
+        (margin, margin, 1, 1),         # bottom-left
+        (W - margin, margin, -1, 1),    # bottom-right
+    ]:
+        c.setFillColor(BLACK)
+        p = c.beginPath()
+        p.moveTo(cx, cy)
+        p.lineTo(cx + dx * cs, cy)
+        p.lineTo(cx, cy + dy * cs)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+
+    # ── Ligne or décorative sous le header ────────────────────────────────────
+    def gold_line(y, x0=None, x1=None, w=1.5):
+        x0 = x0 or inner + 10
+        x1 = x1 or W - inner - 10
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(w)
+        c.line(x0, y, x1, y)
+
+    # ── En-tête établissement ─────────────────────────────────────────────────
+    top_y = H - inner - 18
+
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 11)
+    c.drawCentredString(W / 2, top_y, "ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE")
+
+    c.setFont("Helvetica", 8.5)
+    c.setFillColor(LGREY)
+    c.drawCentredString(W / 2, top_y - 14, "ENSMG  ·  Dakar, Sénégal")
+
+    gold_line(top_y - 22, w=2.5)
+    gold_line(top_y - 26, w=0.8)
+
+    # ── Médaillon central (cercle doré) ───────────────────────────────────────
+    med_x = W / 2
+    med_y = H / 2 + 28
+    med_r = 36
+
+    c.setFillColor(GOLD)
+    c.setStrokeColor(GOLD2)
+    c.setLineWidth(2)
+    c.circle(med_x, med_y + 68, med_r, fill=1, stroke=1)
+
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 22)
+    c.drawCentredString(med_x, med_y + 68 - 8, "★")
+
+    c.setFillColor(WHITE)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawCentredString(med_x, med_y + 68 - 20, "ENSMG")
+
+    # ── Titre principal ───────────────────────────────────────────────────────
+    title_y = top_y - 60
+
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 32)
+    c.drawCentredString(W / 2, title_y, "CERTIFICAT DE PARTICIPATION")
+
+    # Ligne décorative sous le titre
+    gold_line(title_y - 10, x0=W/2 - 130, x1=W/2 + 130, w=1)
+
+    # ── Sous-titre ────────────────────────────────────────────────────────────
+    c.setFillColor(GOLD)
+    c.setFont("Helvetica-BoldOblique", 11)
+    c.drawCentredString(W / 2, title_y - 26, "ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE")
+
+    # ── Corps du certificat ───────────────────────────────────────────────────
+    body_y = title_y - 56
+
+    c.setFillColor(GREY)
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(W / 2, body_y, "NOUS CERTIFIONS QUE :")
+
+    # Nom du bénéficiaire (grand, doré)
+    body_y -= 30
+    c.setFillColor(GOLD)
+    c.setFont("Helvetica-Bold", 28)
+    c.drawCentredString(W / 2, body_y, inscrit.nom_complet.upper())
+
+    # Soulignement doré sous le nom
+    nom_w = c.stringWidth(inscrit.nom_complet.upper(), "Helvetica-Bold", 28)
+    line_x0 = W / 2 - nom_w / 2
+    line_x1 = W / 2 + nom_w / 2
+    gold_line(body_y - 4, x0=line_x0, x1=line_x1, w=1)
+
+    # Texte intermédiaire
+    body_y -= 22
     activite_lbl = "Étudiant(e)" if inscrit.activite == "etudiant" else "Professionnel(le)"
-    story.append(Paragraph(activite_lbl, s_body_lbl))
+    c.setFillColor(GREY)
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(W / 2, body_y, activite_lbl)
 
-    story.append(Spacer(1, 0.5 * cm))
-    story.append(Paragraph("a suivi avec succès la formation :", s_body_lbl))
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(Paragraph(certification.nom, s_certif_nm))
+    body_y -= 20
+    c.setFont("Helvetica", 11)
+    c.setFillColor(NAVY)
+    c.drawCentredString(W / 2, body_y, "a suivi avec succès la formation :")
 
-    if certification.duree:
-        story.append(Spacer(1, 0.1 * cm))
-        story.append(Paragraph(f"Durée : {certification.duree}", s_body_lbl))
+    # Nom de la certification
+    body_y -= 22
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(W / 2, body_y, certification.nom)
 
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(f"Cohorte : {cohorte.nom}", s_body_lbl))
-    story.append(Paragraph(f"Période : {periode}", s_body_lbl))
+    # Cohorte / période
+    body_y -= 18
+    c.setFillColor(LGREY)
+    c.setFont("Helvetica", 9)
+    session_txt = f"Session : {cohorte.nom}"
+    if cohorte.date_debut:
+        session_txt += f"  ·  Du {cohorte.date_debut.strftime('%d/%m/%Y')} au {date_fin_str}"
+    c.drawCentredString(W / 2, body_y, session_txt)
 
-    story.append(Spacer(1, 0.8 * cm))
-    story.append(HRFlowable(width="60%", thickness=1, color=light, spaceAfter=10, hAlign="CENTER"))
+    # ── Ligne séparatrice ─────────────────────────────────────────────────────
+    gold_line(body_y - 18, w=1.5)
 
-    # Zone bas : signatures + QR code
-    col_w = (W - 5 * cm) / 3
+    # ── Zone basse : date + signature + QR ────────────────────────────────────
+    footer_y = body_y - 40
 
-    sig_left = [
-        [Paragraph(f"Délivré le : {today.strftime('%d/%m/%Y')}", s_footer_lbl)],
-        [Paragraph("", s_footer_val)],
-        [Paragraph("ENSMG — Dakar", s_footer_val)],
-        [Spacer(1, 0.3 * cm)],
-        [Paragraph("La Direction", s_footer_lbl)],
-    ]
+    # Date et lieu (gauche)
+    sig_x = inner + 50
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(sig_x, footer_y + 8, "Fait à Dakar, le")
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(sig_x, footer_y - 6, today.strftime("%d/%m/%Y"))
 
+    # Signature (centre)
+    sig_cx = W / 2
+    c.setFillColor(LGREY)
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(sig_cx, footer_y + 8, "Signature & Cachet")
+    c.setStrokeColor(LGREY)
+    c.setLineWidth(0.6)
+    c.line(sig_cx - 60, footer_y - 2, sig_cx + 60, footer_y - 2)
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(sig_cx, footer_y - 14, "Le Directeur Général")
+    c.setFont("Helvetica", 8)
+    c.setFillColor(LGREY)
+    c.drawCentredString(sig_cx, footer_y - 24, "ENSMG")
+
+    # QR code (droite)
     if verification_url:
-        qr_img = _generer_qr_image(verification_url)
-        qr_cell = [
-            [qr_img],
-            [Paragraph("Scanner pour vérifier", s_qr_lbl)],
-            [Paragraph("l'authenticité", s_qr_lbl)],
-        ]
-    else:
-        qr_cell = [[Paragraph("", s_qr_lbl)]]
+        import qrcode as _qrcode
+        _qr = _qrcode.QRCode(version=2, box_size=4, border=2,
+                              error_correction=_qrcode.constants.ERROR_CORRECT_H)
+        _qr.add_data(verification_url)
+        _qr.make(fit=True)
+        _pil = _qr.make_image(fill_color="#1a2340", back_color="white")
+        _qr_buf = io.BytesIO()
+        _pil.save(_qr_buf, format="PNG")
+        _qr_buf.seek(0)
+        qr_x = W - inner - 90
+        qr_y = footer_y - 28
+        c.drawImage(ImageReader(_qr_buf), qr_x, qr_y, width=56, height=56, preserveAspectRatio=True)
+        c.setFillColor(LGREY)
+        c.setFont("Helvetica", 6.5)
+        c.drawCentredString(qr_x + 28, qr_y - 8, "Vérifier l'authenticité")
 
-    bottom_data = [
-        [
-            Table(sig_left,  colWidths=[col_w * 2]),
-            Table(qr_cell,   colWidths=[col_w]),
-        ]
-    ]
-    bottom_table = Table(bottom_data, colWidths=[col_w * 2, col_w])
-    bottom_table.setStyle(TableStyle([
-        ("ALIGN",  (0, 0), (0, 0), "LEFT"),
-        ("ALIGN",  (1, 0), (1, 0), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    story.append(bottom_table)
+    # ── Numéro de certificat ──────────────────────────────────────────────────
+    ref = f"CERT-{inscription.pk:06d}"
+    c.setFillColor(LGREY)
+    c.setFont("Helvetica", 7)
+    c.drawCentredString(W / 2, inner + 6, f"Réf. : {ref}")
 
-    story.append(Spacer(1, 0.4 * cm))
-    story.append(HRFlowable(width="100%", thickness=1, color=accent, spaceAfter=4))
-    story.append(HRFlowable(width="100%", thickness=3, color=navy,   spaceAfter=6))
-
-    doc.build(story)
+    c.save()
     return buffer.getvalue()
 
 
@@ -1268,12 +1368,13 @@ def certifier_action(request, pk):
         verification_url = request.build_absolute_uri(f"/attestations/{numero}/verifier/")
         pdf_bytes = _generer_attestation_pdf(inscription, verification_url=verification_url)
 
-        Attestation.objects.create(
+        att = Attestation.objects.create(
             inscription=inscription,
             numero=numero,
             date_delivrance=timezone.now().date(),
             contenu_pdf=pdf_bytes,
         )
+        notifier_attestation(att)
         nb_ok += 1
 
     messages.success(request, f"{nb_ok} attestation(s) générée(s) avec succès.")
@@ -1322,3 +1423,774 @@ def attestation_verifier(request, numero):
         "numero": numero,
         "valide": valide,
     })
+
+
+# ---------------------------------------------------------------------------
+# Custom login (redirects by user type)
+# ---------------------------------------------------------------------------
+
+def custom_login(request):
+    """Login page that redirects apprenants to their space and admins to dashboard."""
+    from django.contrib.auth import authenticate, login as auth_login
+    from django.contrib.auth.views import LoginView
+
+    if request.user.is_authenticated:
+        try:
+            _ = request.user.compte_apprenant
+            return redirect('espace_apprenant')
+        except Exception:
+            pass
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        # Accepter email ou username
+        if '@' in username:
+            try:
+                username = User.objects.get(email__iexact=username).username
+            except User.DoesNotExist:
+                pass
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            if user.is_active:
+                auth_login(request, user)
+                next_url = request.POST.get('next', request.GET.get('next', ''))
+                if next_url:
+                    return redirect(next_url)
+                try:
+                    _ = user.compte_apprenant
+                    return redirect('espace_apprenant')
+                except Exception:
+                    pass
+                return redirect('dashboard')
+            else:
+                messages.error(request, "Ce compte est désactivé.")
+        else:
+            messages.error(request, "Identifiant ou mot de passe incorrect.")
+
+    return render(request, 'inscriptions/login.html', {
+        'next': request.GET.get('next', ''),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+def _slugify_name(text):
+    """
+    Convert a name (possibly compound) to a lowercase ASCII slug without separators.
+    'Mamadou Fole' -> 'mamadoufole'   'Ba' -> 'ba'
+    """
+    text = unicodedata.normalize('NFD', text)
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    text = text.lower().strip()
+    # Supprimer tout ce qui n'est pas lettre/chiffre (espaces inclus → pas de point interne)
+    text = re.sub(r'[^a-z0-9]', '', text)
+    return text
+
+
+def _creer_compte_apprenant(inscrit):
+    """Create Django User + CompteApprenant for a new portal registrant. Returns (user, compte)."""
+    base_username = f"{_slugify_name(inscrit.prenom)}.{_slugify_name(inscrit.nom)}@ensmg.sn"
+    username = base_username
+    counter = 2
+    while User.objects.filter(username=username).exists():
+        name_part = base_username.replace('@ensmg.sn', '')
+        username = f"{name_part}{counter}@ensmg.sn"
+        counter += 1
+
+    user = User.objects.create_user(
+        username=username,
+        email=username,
+        password='passer01',
+        first_name=inscrit.prenom,
+        last_name=inscrit.nom,
+    )
+    compte = CompteApprenant.objects.create(user=user, inscrit=inscrit, mdp_change=False)
+    return user, compte
+
+
+# ---------------------------------------------------------------------------
+# Portail public
+# ---------------------------------------------------------------------------
+
+def portail_accueil(request):
+    """Public landing page — redirect to dashboard if admin/staff, to espace if apprenant."""
+    if request.user.is_authenticated:
+        try:
+            _ = request.user.compte_apprenant
+            return redirect('espace_apprenant')
+        except Exception:
+            if request.user.is_staff or request.user.is_superuser:
+                return redirect('dashboard')
+    certifications = Certification.objects.filter(actif=True).order_by('nom')
+    return render(request, 'inscriptions/portail_accueil.html', {
+        'certifications': certifications,
+    })
+
+
+def portail_wizard(request):
+    """4-step session-based wizard for public registration."""
+    step = int(request.GET.get('step', request.POST.get('step', 1)))
+
+    if request.method == 'POST':
+        if step == 1:
+            from .forms import WizardStep1Form
+            form = WizardStep1Form(request.POST)
+            if form.is_valid():
+                request.session['wizard_step1'] = form.cleaned_data
+                return redirect('/portail/inscription/?step=2')
+            return render(request, 'inscriptions/portail_wizard.html', {
+                'step': 1, 'form': form,
+                'certifications': Certification.objects.filter(actif=True).order_by('nom'),
+            })
+
+        elif step == 2:
+            from .forms import WizardStep2Form
+            form = WizardStep2Form(request.POST)
+            if form.is_valid():
+                request.session['wizard_step2'] = form.cleaned_data
+                return redirect('/portail/inscription/?step=3')
+            step1 = request.session.get('wizard_step1')
+            if not step1:
+                return redirect('/portail/inscription/?step=1')
+            return render(request, 'inscriptions/portail_wizard.html', {
+                'step': 2, 'form': form,
+                'certifications': Certification.objects.filter(actif=True).order_by('nom'),
+            })
+
+        elif step == 3:
+            from .forms import WizardStep3Form
+            form = WizardStep3Form(request.POST)
+            if form.is_valid():
+                cohorte = form.cleaned_data['cohorte']
+                request.session['wizard_step3'] = {'cohorte_id': cohorte.pk}
+                return redirect('/portail/inscription/?step=4')
+            step1 = request.session.get('wizard_step1')
+            if not step1:
+                return redirect('/portail/inscription/?step=1')
+            certifications = Certification.objects.filter(actif=True).order_by('nom')
+            certif_tarifs = {
+                c.pk: {'etudiant': float(c.tarif_etudiant), 'professionnel': float(c.tarif_professionnel), 'nom': c.nom}
+                for c in certifications
+            }
+            return render(request, 'inscriptions/portail_wizard.html', {
+                'step': 3, 'form': form, 'certifications': certifications,
+                'certif_tarifs_json': json.dumps(certif_tarifs),
+            })
+
+        elif step == 4:
+            step1 = request.session.get('wizard_step1')
+            step2 = request.session.get('wizard_step2')
+            step3 = request.session.get('wizard_step3')
+            if not all([step1, step2, step3]):
+                return redirect('/portail/inscription/?step=1')
+
+            try:
+                cohorte = Cohorte.objects.select_related('certification').get(pk=step3['cohorte_id'])
+            except Cohorte.DoesNotExist:
+                messages.error(request, "Cohorte invalide.")
+                return redirect('/portail/inscription/?step=3')
+
+            email = step1['email'].lower()
+            activite = step2['activite']
+
+            if Inscrit.objects.filter(email=email).exists():
+                inscrit = Inscrit.objects.get(email=email)
+                inscrit.nom = step1['nom']
+                inscrit.prenom = step1['prenom']
+                inscrit.telephone = step1['telephone']
+                inscrit.adresse = step1.get('adresse', '')
+                inscrit.activite = activite
+                inscrit.universite = step2.get('universite', '')
+                inscrit.entreprise = step2.get('entreprise', '')
+                inscrit.save()
+            else:
+                inscrit = Inscrit.objects.create(
+                    nom=step1['nom'],
+                    prenom=step1['prenom'],
+                    email=email,
+                    telephone=step1['telephone'],
+                    adresse=step1.get('adresse', ''),
+                    activite=activite,
+                    source='portail',
+                    universite=step2.get('universite', ''),
+                    entreprise=step2.get('entreprise', ''),
+                )
+
+            cert = cohorte.certification
+            montant_du = float(
+                cert.tarif_professionnel if activite == 'professionnel' else cert.tarif_etudiant
+            )
+            inscription, created = Inscription.objects.get_or_create(
+                inscrit=inscrit, cohorte=cohorte,
+                defaults={'statut': 'inscrit', 'montant_du': montant_du},
+            )
+            if created:
+                notifier_inscription(inscription)
+
+            if not CompteApprenant.objects.filter(inscrit=inscrit).exists():
+                user, compte = _creer_compte_apprenant(inscrit)
+            else:
+                compte = inscrit.compte_apprenant
+                user = compte.user
+
+            for k in ['wizard_step1', 'wizard_step2', 'wizard_step3']:
+                request.session.pop(k, None)
+
+            request.session['pending_inscription_id'] = inscription.pk
+            request.session['new_compte_username'] = user.username
+
+            return redirect('portail_paiement', pk=inscription.pk)
+
+    # GET requests
+    certifications = Certification.objects.filter(actif=True).order_by('nom')
+    certif_tarifs = {
+        c.pk: {'etudiant': float(c.tarif_etudiant), 'professionnel': float(c.tarif_professionnel), 'nom': c.nom}
+        for c in certifications
+    }
+
+    if step == 1:
+        from .forms import WizardStep1Form
+        initial = request.session.get('wizard_step1', {})
+        form = WizardStep1Form(initial=initial)
+        return render(request, 'inscriptions/portail_wizard.html', {
+            'step': 1, 'form': form, 'certifications': certifications,
+        })
+    elif step == 2:
+        if not request.session.get('wizard_step1'):
+            return redirect('/portail/inscription/?step=1')
+        from .forms import WizardStep2Form
+        initial = request.session.get('wizard_step2', {})
+        form = WizardStep2Form(initial=initial)
+        return render(request, 'inscriptions/portail_wizard.html', {
+            'step': 2, 'form': form, 'certifications': certifications,
+        })
+    elif step == 3:
+        if not request.session.get('wizard_step2'):
+            return redirect('/portail/inscription/?step=1')
+        from .forms import WizardStep3Form
+        form = WizardStep3Form()
+        return render(request, 'inscriptions/portail_wizard.html', {
+            'step': 3, 'form': form, 'certifications': certifications,
+            'certif_tarifs_json': json.dumps(certif_tarifs),
+        })
+    elif step == 4:
+        step1 = request.session.get('wizard_step1', {})
+        step2 = request.session.get('wizard_step2', {})
+        step3_data = request.session.get('wizard_step3', {})
+        cohorte = None
+        if step3_data.get('cohorte_id'):
+            try:
+                cohorte = Cohorte.objects.select_related('certification').get(pk=step3_data['cohorte_id'])
+            except Cohorte.DoesNotExist:
+                pass
+        if not all([step1, step2, cohorte]):
+            return redirect('/portail/inscription/?step=1')
+        activite = step2.get('activite', 'etudiant')
+        tarif = float(
+            cohorte.certification.tarif_professionnel if activite == 'professionnel'
+            else cohorte.certification.tarif_etudiant
+        )
+        return render(request, 'inscriptions/portail_wizard.html', {
+            'step': 4, 'step1': step1, 'step2': step2, 'cohorte': cohorte, 'tarif': tarif,
+            'certifications': certifications,
+        })
+
+    return redirect('/portail/inscription/?step=1')
+
+
+def portail_inscrire(request, certif_pk):
+    """
+    Formulaire d'inscription en une seule page pré-lié à une certification.
+    Assigne automatiquement la première cohorte active de cette certification.
+    """
+    certification = get_object_or_404(Certification, pk=certif_pk, actif=True)
+
+    # Chercher la prochaine cohorte active
+    cohorte = Cohorte.objects.filter(
+        certification=certification, actif=True
+    ).order_by("date_debut").first()
+
+    errors = {}
+    form_data = {}
+
+    if request.method == "POST":
+        nom = request.POST.get("nom", "").strip()
+        prenom = request.POST.get("prenom", "").strip()
+        email = request.POST.get("email", "").strip().lower()
+        telephone = request.POST.get("telephone", "").strip()
+        activite = request.POST.get("activite", "etudiant")
+        adresse = request.POST.get("adresse", "").strip()
+        universite = request.POST.get("universite", "").strip()
+        entreprise = request.POST.get("entreprise", "").strip()
+
+        form_data = {
+            "nom": nom, "prenom": prenom, "email": email,
+            "telephone": telephone, "activite": activite,
+            "adresse": adresse, "universite": universite, "entreprise": entreprise,
+        }
+
+        if not nom:
+            errors["nom"] = "Le nom est requis."
+        if not prenom:
+            errors["prenom"] = "Le prénom est requis."
+        if not email:
+            errors["email"] = "L'email est requis."
+        if not cohorte:
+            errors["cohorte"] = "Aucune session disponible pour cette certification pour le moment."
+
+        if not errors:
+            # Créer ou récupérer l'inscrit
+            if Inscrit.objects.filter(email=email).exists():
+                inscrit = Inscrit.objects.get(email=email)
+                inscrit.nom = nom
+                inscrit.prenom = prenom
+                inscrit.telephone = telephone
+                inscrit.adresse = adresse
+                inscrit.activite = activite
+                inscrit.universite = universite
+                inscrit.entreprise = entreprise
+                inscrit.save()
+            else:
+                inscrit = Inscrit.objects.create(
+                    nom=nom, prenom=prenom, email=email,
+                    telephone=telephone, adresse=adresse,
+                    activite=activite, source="portail",
+                    universite=universite, entreprise=entreprise,
+                )
+
+            # Calculer le montant
+            montant_du = float(
+                certification.tarif_professionnel if activite == "professionnel"
+                else certification.tarif_etudiant
+            )
+
+            # Créer l'inscription (ou récupérer si déjà inscrit à cette cohorte)
+            inscription, created = Inscription.objects.get_or_create(
+                inscrit=inscrit, cohorte=cohorte,
+                defaults={"statut": "inscrit", "montant_du": montant_du},
+            )
+            if created:
+                notifier_inscription(inscription)
+
+            # Créer le compte apprenant si nécessaire
+            if not CompteApprenant.objects.filter(inscrit=inscrit).exists():
+                user, _ = _creer_compte_apprenant(inscrit)
+            else:
+                user = inscrit.compte_apprenant.user
+
+            # Auto-login : connecter directement l'apprenant
+            from django.contrib.auth import login as auth_login
+            user.backend = "django.contrib.auth.backends.ModelBackend"
+            auth_login(request, user)
+
+            request.session["new_compte_username"] = user.username
+            return redirect("portail_paiement", pk=inscription.pk)
+
+    return render(request, "inscriptions/portail_inscrire.html", {
+        "certification": certification,
+        "cohorte": cohorte,
+        "errors": errors,
+        "form_data": form_data,
+    })
+
+
+def portail_paiement(request, pk):
+    """Payment choice page after wizard completion."""
+    inscription = get_object_or_404(Inscription, pk=pk)
+    username = request.session.get('new_compte_username', '')
+
+    if request.method == 'POST':
+        # Skip paiement — l'apprenant paiera plus tard
+        if request.POST.get('skip_paiement'):
+            skip_redirect = request.session.pop('paiement_skip_redirect', None)
+            request.session.pop('pending_inscription_id', None)
+            if skip_redirect == 'espace_apprenant':
+                return redirect('espace_apprenant')
+            return render(request, 'inscriptions/portail_confirmation.html', {
+                'inscription': inscription,
+                'username': request.session.get('new_compte_username', ''),
+                'moyen': 'plus_tard',
+            })
+
+        moyen = request.POST.get('moyen_paiement', '')
+        reference = request.POST.get('reference_virement', '').strip()
+
+        if moyen in ['wave', 'orange_money', 'carte']:
+            ref = request.POST.get('numero_mobile', '') or f"SIM-{uuid.uuid4().hex[:8].upper()}"
+            Paiement.objects.create(
+                inscription=inscription,
+                montant=inscription.montant_du,
+                date_paiement=timezone.now().date(),
+                moyen_paiement=moyen,
+                reference=ref,
+                statut='en_attente',
+                notes="Initié depuis le portail — en attente de confirmation",
+            )
+            messages.success(request, "Votre demande de paiement a été enregistrée. En attente de confirmation.")
+        elif moyen == 'virement':
+            Paiement.objects.create(
+                inscription=inscription,
+                montant=inscription.montant_du,
+                date_paiement=timezone.now().date(),
+                moyen_paiement='virement',
+                reference=reference or f"VIR-{uuid.uuid4().hex[:8].upper()}",
+                statut='en_attente',
+                notes="Virement bancaire déclaré depuis le portail",
+            )
+            messages.success(request, "Votre virement a été déclaré. L'administration vérifiera et confirmera votre inscription.")
+
+        request.session.pop('pending_inscription_id', None)
+
+        return render(request, 'inscriptions/portail_confirmation.html', {
+            'inscription': inscription,
+            'username': username,
+            'moyen': moyen,
+        })
+
+    rib_info = {
+        'banque': "Banque de l'Habitat du Sénégal (BHS)",
+        'titulaire': 'ENSMG — École Nationale Supérieure de Management et de Gouvernance',
+        'iban': 'SN38 SN010 10100 20030050001 23',
+        'swift': 'BHSASNDA',
+        'reference': f"INS-{inscription.pk:06d}-{inscription.inscrit.nom.upper()[:6]}",
+    }
+
+    return render(request, 'inscriptions/portail_paiement.html', {
+        'inscription': inscription,
+        'rib_info': rib_info,
+        'username': username,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Espace Apprenant
+# ---------------------------------------------------------------------------
+
+def _apprenant_required(view_func):
+    """Decorator: must be logged in as apprenant (has compte_apprenant)."""
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        try:
+            _ = request.user.compte_apprenant
+        except Exception:
+            messages.error(request, "Accès réservé aux apprenants.")
+            return redirect('dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@_apprenant_required
+def espace_apprenant(request):
+    """Learner personal dashboard."""
+    compte = request.user.compte_apprenant
+    inscrit = compte.inscrit
+
+    inscriptions = (
+        inscrit.inscriptions
+        .select_related('cohorte__certification')
+        .prefetch_related('paiements', 'attestations')
+        .order_by('-date_inscription')
+    )
+
+    total_du = sum(i.montant_du for i in inscriptions)
+    total_paye = sum(i.total_paye for i in inscriptions)
+    total_restant = max(total_du - total_paye, 0)
+
+    context = {
+        'compte': compte,
+        'inscrit': inscrit,
+        'inscriptions': inscriptions,
+        'total_du': total_du,
+        'total_paye': total_paye,
+        'total_restant': total_restant,
+        'active_page': 'espace',
+    }
+    return render(request, 'inscriptions/apprenant_dashboard.html', context)
+
+
+def apprenant_changer_mdp(request):
+    """Forced password change on first login."""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    try:
+        compte = request.user.compte_apprenant
+    except Exception:
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        from .forms import ChangerMdpApprenantForm
+        form = ChangerMdpApprenantForm(request.POST)
+        if form.is_valid():
+            request.user.set_password(form.cleaned_data['nouveau_mdp'])
+            request.user.save()
+            compte.mdp_change = True
+            compte.save()
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, request.user)
+            messages.success(request, "Mot de passe changé avec succès. Bienvenue !")
+            return redirect('espace_apprenant')
+    else:
+        from .forms import ChangerMdpApprenantForm
+        form = ChangerMdpApprenantForm()
+
+    return render(request, 'inscriptions/apprenant_changer_mdp.html', {'form': form})
+
+
+@_apprenant_required
+def apprenant_profil(request):
+    """View and edit learner profile."""
+    compte = request.user.compte_apprenant
+    inscrit = compte.inscrit
+
+    if request.method == 'POST':
+        from .forms import ProfilApprenantForm
+        form = ProfilApprenantForm(request.POST, instance=inscrit)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profil mis à jour avec succès.")
+            return redirect('apprenant_profil')
+    else:
+        from .forms import ProfilApprenantForm
+        form = ProfilApprenantForm(instance=inscrit)
+
+    return render(request, 'inscriptions/apprenant_profil.html', {
+        'form': form, 'inscrit': inscrit, 'compte': compte, 'active_page': 'profil',
+    })
+
+
+@_apprenant_required
+def apprenant_payer(request, inscription_pk):
+    """Learner initiates a new payment from their space."""
+    compte = request.user.compte_apprenant
+    inscription = get_object_or_404(Inscription, pk=inscription_pk, inscrit=compte.inscrit)
+    request.session['pending_inscription_id'] = inscription.pk
+    request.session['paiement_skip_redirect'] = 'espace_apprenant'
+    request.session.pop('new_compte_username', None)
+    return redirect('portail_paiement', pk=inscription.pk)
+
+
+# ---------------------------------------------------------------------------
+# Admin: confirm pending payments
+# ---------------------------------------------------------------------------
+
+@login_required
+def admin_confirmer_paiement(request, pk):
+    """Admin confirms a pending (virement/wave/om) payment."""
+    paiement = get_object_or_404(Paiement, pk=pk)
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Accès refusé.")
+        return redirect('dashboard')
+    if request.method == 'POST':
+        paiement.statut = 'confirme'
+        paiement.save()
+        notifier_paiement_confirme(paiement)
+        messages.success(request, f"Paiement de {paiement.montant} FCFA confirmé.")
+        return redirect('inscrit_detail', pk=paiement.inscription.inscrit.pk)
+    return render(request, 'inscriptions/confirmer_paiement.html', {'paiement': paiement})
+
+
+# ---------------------------------------------------------------------------
+# Reçu de paiement PDF
+# ---------------------------------------------------------------------------
+
+def _generer_recu_pdf(paiement, request=None):
+    """Generate a payment receipt PDF and return bytes."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+        topMargin=2 * cm, bottomMargin=2 * cm,
+    )
+
+    navy   = colors.HexColor("#1a2340")
+    accent = colors.HexColor("#4f6ef7")
+    gold   = colors.HexColor("#d4a017")
+    grey   = colors.HexColor("#718096")
+    green  = colors.HexColor("#38a169")
+
+    styles = getSampleStyleSheet()
+
+    def ms(name, **kw):
+        return ParagraphStyle(name, parent=styles["Normal"], **kw)
+
+    s_title  = ms("t",  fontSize=22, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=28, spaceAfter=4)
+    s_sub    = ms("s",  fontSize=10, textColor=accent, alignment=TA_CENTER, leading=14)
+    s_label  = ms("l",  fontSize=9,  textColor=grey,   leading=13)
+    s_value  = ms("v",  fontSize=11, textColor=navy,   fontName="Helvetica-Bold", leading=16)
+    s_big    = ms("b",  fontSize=18, textColor=green,  fontName="Helvetica-Bold", alignment=TA_CENTER, leading=24)
+    s_footer = ms("f",  fontSize=8,  textColor=grey,   alignment=TA_CENTER, leading=11)
+
+    inscrit = paiement.inscription.inscrit
+    certification = paiement.inscription.cohorte.certification
+    moyen_map = dict(Paiement.MOYEN_CHOICES)
+    moyen_label = moyen_map.get(paiement.moyen_paiement, paiement.moyen_paiement)
+
+    story = []
+    story.append(Paragraph("ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE", s_title))
+    story.append(Paragraph("ENSMG — Dakar, Sénégal", s_sub))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(HRFlowable(width="100%", thickness=3, color=accent, spaceAfter=3))
+    story.append(HRFlowable(width="100%", thickness=1, color=gold,   spaceAfter=10))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("REÇU DE PAIEMENT", ms("rp", fontSize=26, textColor=navy, alignment=TA_CENTER, fontName="Helvetica-Bold", leading=32, spaceAfter=6)))
+    story.append(Paragraph(f"N° {paiement.reference or paiement.pk}", ms("ref", fontSize=11, textColor=grey, alignment=TA_CENTER, leading=14)))
+    story.append(Spacer(1, 0.5 * cm))
+
+    data = [
+        [Paragraph("Bénéficiaire", s_label), Paragraph(f"{inscrit.prenom} {inscrit.nom}", s_value)],
+        [Paragraph("Certification", s_label), Paragraph(certification.nom, s_value)],
+        [Paragraph("Cohorte",       s_label), Paragraph(paiement.inscription.cohorte.nom, s_value)],
+        [Paragraph("Date",          s_label), Paragraph(paiement.date_paiement.strftime("%d/%m/%Y"), s_value)],
+        [Paragraph("Moyen",         s_label), Paragraph(moyen_label, s_value)],
+    ]
+    if paiement.reference:
+        data.append([Paragraph("Référence", s_label), Paragraph(paiement.reference, s_value)])
+
+    t = Table(data, colWidths=[5 * cm, 12 * cm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f0f2f8")),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9ff")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("PADDING", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 0.6 * cm))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e2e8f0"), spaceAfter=10))
+    story.append(Paragraph(f"{int(paiement.montant):,} FCFA".replace(",", " "), s_big))
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(HRFlowable(width="100%", thickness=1, color=accent, spaceAfter=4))
+    story.append(HRFlowable(width="100%", thickness=3, color=navy,   spaceAfter=6))
+    story.append(Paragraph("Ce document atteste du paiement effectué auprès de l'ENSMG.", s_footer))
+    story.append(Paragraph("ENSMG — Dakar, Sénégal — www.ensmg.sn", s_footer))
+
+    doc.build(story)
+    return buffer.getvalue()
+
+
+@login_required
+def recu_download(request, pk):
+    """Download or generate payment receipt PDF."""
+    paiement = get_object_or_404(Paiement, pk=pk)
+    # Check permission: admin/staff OR the apprenant themselves
+    is_owner = False
+    try:
+        compte = request.user.compte_apprenant
+        if paiement.inscription.inscrit == compte.inscrit:
+            is_owner = True
+    except Exception:
+        pass
+
+    if not is_owner and not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Accès refusé.")
+        return redirect('dashboard')
+
+    if not paiement.recu_pdf:
+        pdf_bytes = _generer_recu_pdf(paiement, request)
+        paiement.recu_pdf = pdf_bytes
+        paiement.save(update_fields=['recu_pdf'])
+
+    nom = paiement.inscription.inscrit.nom_complet.replace(" ", "_")
+    response = HttpResponse(bytes(paiement.recu_pdf), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="recu_{nom}_{paiement.pk}.pdf"'
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Dashboard financier avancé
+# ---------------------------------------------------------------------------
+
+@login_required
+def dashboard_financier(request):
+    """Advanced financial dashboard with charts data."""
+    from django.db.models.functions import TruncMonth
+    from datetime import date, timedelta
+
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect('dashboard')
+
+    today = timezone.now().date()
+    twelve_months_ago = today - timedelta(days=365)
+
+    monthly_data = (
+        Paiement.objects.filter(statut='confirme', date_paiement__gte=twelve_months_ago)
+        .annotate(mois=TruncMonth('date_paiement'))
+        .values('mois')
+        .annotate(total=Sum('montant'))
+        .order_by('mois')
+    )
+
+    months_labels = []
+    months_values = []
+    for entry in monthly_data:
+        mois = entry['mois']
+        months_labels.append(mois.strftime('%b %Y'))
+        months_values.append(float(entry['total']))
+
+    total_encaisse = Paiement.objects.filter(statut='confirme').aggregate(t=Sum('montant'))['t'] or 0
+    total_en_attente = Paiement.objects.filter(statut='en_attente').aggregate(t=Sum('montant'))['t'] or 0
+    total_inscrits = Inscription.objects.count()
+    total_certifies = Inscription.objects.filter(statut='certifie').count()
+    taux_certif = int((total_certifies / total_inscrits * 100)) if total_inscrits else 0
+
+    moyen_data = (
+        Paiement.objects.filter(statut='confirme')
+        .values('moyen_paiement')
+        .annotate(total=Sum('montant'), count=Count('id'))
+        .order_by('-total')
+    )
+    moyen_labels = []
+    moyen_values = []
+    moyen_map = dict(Paiement.MOYEN_CHOICES)
+    for m in moyen_data:
+        moyen_labels.append(moyen_map.get(m['moyen_paiement'], m['moyen_paiement']))
+        moyen_values.append(float(m['total']))
+
+    stats_certifs = []
+    for cert in Certification.objects.order_by('nom'):
+        nb_i = Inscription.objects.filter(cohorte__certification=cert).count()
+        nb_c = Inscription.objects.filter(cohorte__certification=cert, statut='certifie').count()
+        enc = Paiement.objects.filter(
+            inscription__cohorte__certification=cert, statut='confirme'
+        ).aggregate(t=Sum('montant'))['t'] or 0
+        taux = int(nb_c / nb_i * 100) if nb_i else 0
+        stats_certifs.append({
+            'cert': cert, 'nb_inscrits': nb_i, 'nb_certifies': nb_c,
+            'encaisse': enc, 'taux': taux,
+        })
+
+    paiements_en_attente = (
+        Paiement.objects.filter(statut='en_attente')
+        .select_related('inscription__inscrit', 'inscription__cohorte__certification')
+        .order_by('-created_at')[:20]
+    )
+
+    context = {
+        'total_encaisse': total_encaisse,
+        'total_en_attente': total_en_attente,
+        'total_inscrits': total_inscrits,
+        'total_certifies': total_certifies,
+        'taux_certif': taux_certif,
+        'months_labels_json': json.dumps(months_labels),
+        'months_values_json': json.dumps(months_values),
+        'moyen_labels_json': json.dumps(moyen_labels),
+        'moyen_values_json': json.dumps(moyen_values),
+        'stats_certifs': stats_certifs,
+        'paiements_en_attente': paiements_en_attente,
+        'active_page': 'dashboard_financier',
+    }
+    return render(request, 'inscriptions/dashboard_financier.html', context)

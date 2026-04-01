@@ -1,6 +1,7 @@
 from django import forms
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from .models import Certification, Cohorte, Inscrit, Inscription, Paiement
+
 
 
 class CertificationForm(forms.ModelForm):
@@ -277,38 +278,189 @@ class ImportExcelForm(forms.Form):
 
 
 class UserForm(forms.ModelForm):
+    ROLE_CHOICES = [
+        ("Administrateur", "Administrateur"),
+        ("Responsable", "Responsable"),
+        ("Comptable", "Comptable"),
+        ("Utilisateur", "Utilisateur"),
+    ]
     password = forms.CharField(
         label="Mot de passe",
         widget=forms.PasswordInput(attrs={"class": "form-control"}),
         required=False,
         help_text="Laisser vide pour ne pas changer le mot de passe.",
     )
+    role = forms.ChoiceField(
+        label="Rôle",
+        choices=ROLE_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        required=False,
+        initial="Utilisateur",
+    )
 
     class Meta:
         model = User
-        fields = ["username", "first_name", "last_name", "email", "is_staff", "is_superuser"]
+        fields = ["username", "first_name", "last_name", "email", "is_active"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "is_staff": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "is_superuser": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "username": "Nom d'utilisateur",
             "first_name": "Prénom",
             "last_name": "Nom",
             "email": "Email",
-            "is_staff": "Accès admin (chargé de certifications)",
-            "is_superuser": "Super administrateur",
+            "is_active": "Compte actif",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            # Pré-sélectionner le rôle actuel
+            if self.instance.is_superuser:
+                self.fields["role"].initial = "Administrateur"
+            elif self.instance.groups.filter(name="Responsable").exists():
+                self.fields["role"].initial = "Responsable"
+            elif self.instance.groups.filter(name="Comptable").exists():
+                self.fields["role"].initial = "Comptable"
+            else:
+                self.fields["role"].initial = "Utilisateur"
 
     def save(self, commit=True):
         user = super().save(commit=False)
         password = self.cleaned_data.get("password")
         if password:
             user.set_password(password)
+        role = self.cleaned_data.get("role", "Utilisateur")
+        user.is_superuser = (role == "Administrateur")
+        user.is_staff = (role in ("Administrateur", "Responsable", "Comptable"))
         if commit:
             user.save()
+            user.groups.clear()
+            if role in ("Responsable", "Comptable"):
+                group, _ = Group.objects.get_or_create(name=role)
+                user.groups.add(group)
         return user
+
+
+# ---------------------------------------------------------------------------
+# Portail / Wizard forms
+# ---------------------------------------------------------------------------
+
+class WizardStep1Form(forms.Form):
+    """Étape 1 : informations personnelles"""
+    nom = forms.CharField(
+        label="Nom",
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom de famille"}),
+    )
+    prenom = forms.CharField(
+        label="Prénom",
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Prénom"}),
+    )
+    email = forms.EmailField(
+        label="Email personnel",
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "votre@email.com"}),
+    )
+    telephone = forms.CharField(
+        label="Téléphone",
+        max_length=30,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "+221 77 000 00 00"}),
+    )
+    adresse = forms.CharField(
+        label="Adresse",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Votre adresse"}),
+    )
+
+
+class WizardStep2Form(forms.Form):
+    """Étape 2 : profil"""
+    ACTIVITE_CHOICES = [
+        ("etudiant", "Étudiant(e)"),
+        ("professionnel", "Professionnel(le)"),
+    ]
+    activite = forms.ChoiceField(
+        label="Profil",
+        choices=ACTIVITE_CHOICES,
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+    )
+    universite = forms.CharField(
+        label="Université / École",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom de votre université"}),
+    )
+    entreprise = forms.CharField(
+        label="Entreprise",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom de votre entreprise"}),
+    )
+
+
+class WizardStep3Form(forms.Form):
+    """Étape 3 : choix certification + cohorte"""
+    certif_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
+    cohorte = forms.ModelChoiceField(
+        queryset=Cohorte.objects.filter(actif=True).select_related("certification").order_by(
+            "certification__nom", "nom"
+        ),
+        label="Cohorte",
+        empty_label="— Sélectionner une cohorte —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["cohorte"].label_from_instance = (
+            lambda obj: f"{obj.certification.nom} — {obj.nom}"
+        )
+
+
+class ChangerMdpApprenantForm(forms.Form):
+    """Formulaire de changement de mot de passe (première connexion)"""
+    nouveau_mdp = forms.CharField(
+        label="Nouveau mot de passe",
+        min_length=6,
+        widget=forms.PasswordInput(
+            attrs={"class": "form-control", "placeholder": "Minimum 6 caractères"}
+        ),
+    )
+    confirmation_mdp = forms.CharField(
+        label="Confirmer le mot de passe",
+        widget=forms.PasswordInput(
+            attrs={"class": "form-control", "placeholder": "Répétez le mot de passe"}
+        ),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        mdp1 = cleaned.get("nouveau_mdp")
+        mdp2 = cleaned.get("confirmation_mdp")
+        if mdp1 and mdp2 and mdp1 != mdp2:
+            raise forms.ValidationError("Les mots de passe ne correspondent pas.")
+        return cleaned
+
+
+class ProfilApprenantForm(forms.ModelForm):
+    """Modification du profil apprenant"""
+
+    class Meta:
+        model = Inscrit
+        fields = ["nom", "prenom", "email", "telephone", "adresse", "universite", "entreprise", "activite"]
+        widgets = {
+            "nom": forms.TextInput(attrs={"class": "form-control"}),
+            "prenom": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "telephone": forms.TextInput(attrs={"class": "form-control"}),
+            "adresse": forms.TextInput(attrs={"class": "form-control"}),
+            "universite": forms.TextInput(attrs={"class": "form-control"}),
+            "entreprise": forms.TextInput(attrs={"class": "form-control"}),
+            "activite": forms.Select(attrs={"class": "form-select"}),
+        }

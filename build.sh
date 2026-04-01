@@ -13,7 +13,7 @@ try:
     print('Schema OK — aucune réinitialisation nécessaire.')
 except Exception:
     print('Schema obsolète détecté — réinitialisation...')
-    for t in ['inscriptions_attestation','inscriptions_paiement','inscriptions_inscription','inscriptions_inscrit','inscriptions_cohorte','inscriptions_certification']:
+    for t in ['inscriptions_compteapprenant','inscriptions_attestation','inscriptions_paiement','inscriptions_inscription','inscriptions_inscrit','inscriptions_cohorte','inscriptions_certification']:
         c.execute(f'DROP TABLE IF EXISTS {t} CASCADE')
         print(f'  Table {t} supprimée.')
     try:
@@ -26,9 +26,17 @@ except Exception:
 python manage.py migrate
 python manage.py shell -c "
 from django.contrib.auth.models import User
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@ensmg.sn', 'paser01')
-    print('Superuser admin créé.')
+# Migrate old admin account if exists
+if User.objects.filter(username='admin').exists():
+    u = User.objects.get(username='admin')
+    u.username = 'admin@ensmg.com'
+    u.email = 'admin@ensmg.sn'
+    u.set_password('passer01')
+    u.save()
+    print('Ancien compte admin migré vers admin@ensmg.com')
+elif not User.objects.filter(username='admin@ensmg.com').exists():
+    User.objects.create_superuser('admin@ensmg.com', 'admin@ensmg.sn', 'passer01')
+    print('Superuser admin@ensmg.com créé.')
 else:
-    print('Superuser admin existe déjà.')
+    print('Superuser admin@ensmg.com existe déjà.')
 "

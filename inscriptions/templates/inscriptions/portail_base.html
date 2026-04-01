@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ENSMG — Portail des Certifications{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --navy: #1a2340;
+            --accent: #4f6ef7;
+            --accent-hover: #3d5ae3;
+            --accent-light: #eef1ff;
+            --gold: #d4a017;
+            --body-bg: #f0f2f8;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--body-bg);
+            color: #2d3748;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Navbar ── */
+        .portail-navbar {
+            background: var(--navy);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        }
+
+        .portail-navbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+        }
+
+        .portail-navbar .brand-icon {
+            width: 40px; height: 40px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; color: #fff;
+            box-shadow: 0 3px 10px rgba(79,110,247,0.4);
+        }
+
+        .portail-navbar .brand-text {
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.05rem;
+            line-height: 1.2;
+        }
+
+        .portail-navbar .brand-sub {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .portail-navbar .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .portail-navbar .nav-actions a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.4rem 0.9rem;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+
+        .portail-navbar .nav-actions a:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .portail-navbar .nav-actions .btn-nav-cta {
+            background: var(--accent);
+            color: #fff !important;
+            border: none;
+        }
+
+        .portail-navbar .nav-actions .btn-nav-cta:hover {
+            background: var(--accent-hover);
+        }
+
+        /* ── Main ── */
+        .portail-main {
+            flex: 1;
+        }
+
+        /* ── Footer ── */
+        .portail-footer {
+            background: var(--navy);
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            padding: 1.25rem;
+            font-size: 0.78rem;
+            margin-top: auto;
+        }
+
+        .portail-footer a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+        }
+
+        /* ── Cards ── */
+        .portail-card {
+            background: #fff;
+            border: 1px solid #e8edf5;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        /* ── Alerts ── */
+        .alert {
+            border-radius: 10px;
+            font-size: 0.86rem;
+            border: none;
+        }
+
+        /* ── Buttons ── */
+        .btn { border-radius: 8px; font-weight: 500; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .btn-outline-primary { color: var(--accent); border-color: var(--accent); }
+        .btn-outline-primary:hover { background: var(--accent); border-color: var(--accent); }
+
+        /* ── Form controls ── */
+        .form-control, .form-select {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.85rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.12);
+        }
+
+        .form-label {
+            font-weight: 500;
+            font-size: 0.86rem;
+            color: #4a5568;
+            margin-bottom: 0.35rem;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="portail-navbar">
+    <a href="{% url 'portail_accueil' %}" class="brand">
+        <div class="brand-icon">
+            <i class="bi bi-award-fill"></i>
+        </div>
+        <div>
+            <div class="brand-text">ENSMG</div>
+            <div class="brand-sub">Portail Certifications</div>
+        </div>
+    </a>
+    <div class="nav-actions">
+        <a href="{% url 'portail_accueil' %}"><i class="bi bi-house me-1"></i>Accueil</a>
+        <a href="{% url 'portail_wizard' %}" class="btn-nav-cta"><i class="bi bi-pencil-square me-1"></i>S'inscrire</a>
+        {% if user.is_authenticated %}
+            {% if user.is_staff or user.is_superuser %}
+                <a href="{% url 'dashboard' %}"><i class="bi bi-speedometer2 me-1"></i>Admin</a>
+            {% else %}
+                <a href="{% url 'espace_apprenant' %}"><i class="bi bi-person-circle me-1"></i>Mon espace</a>
+            {% endif %}
+            <a href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-1"></i>Déconnexion</a>
+        {% else %}
+            <a href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right me-1"></i>Connexion</a>
+        {% endif %}
+    </div>
+</nav>
+
+<!-- Messages -->
+{% if messages %}
+<div class="container-fluid px-4 pt-3">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+        {% if message.tags == 'error' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {% elif message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+        {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+        {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Main Content -->
+<main class="portail-main">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Footer -->
+<footer class="portail-footer">
+    &copy; 2025 ENSMG — École Nationale Supérieure de Management et de Gouvernance &mdash; Dakar, Sénégal
+    &nbsp;|&nbsp;
+    <a href="{% url 'portail_accueil' %}">Portail</a>
+    &nbsp;|&nbsp;
+    <a href="{% url 'login' %}">Connexion</a>
+</footer>
+
+<!-- Bootstrap 5 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.alert.alert-success, .alert.alert-info').forEach(function (el) {
+        setTimeout(function () { bootstrap.Alert.getOrCreateInstance(el).close(); }, 5000);
+    });
+});
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

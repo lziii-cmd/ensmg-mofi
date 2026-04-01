@@ -1,0 +1,409 @@
+{% extends "inscriptions/base.html" %}
+
+{% block title %}Dashboard Financier — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Dashboard Financier</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fin-stat-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 14px;
+        padding: 1.3rem 1.5rem;
+        transition: box-shadow 0.2s;
+    }
+
+    .fin-stat-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+
+    .fin-stat-icon {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+
+    .fin-stat-value {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #1a2340;
+        line-height: 1;
+    }
+
+    .fin-stat-label {
+        font-size: 0.73rem;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.2rem;
+    }
+
+    .chart-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 14px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+
+    .chart-card .card-header {
+        background: #fff;
+        border-bottom: 1px solid #e8edf5;
+        border-radius: 14px 14px 0 0 !important;
+        padding: 1rem 1.25rem;
+    }
+
+    .chart-card .card-header h6 {
+        font-weight: 600;
+        color: #1a2340;
+        margin: 0;
+    }
+
+    .taux-bar {
+        height: 6px;
+        border-radius: 20px;
+        background: #e8edf5;
+        overflow: hidden;
+    }
+
+    .taux-bar-inner {
+        height: 100%;
+        border-radius: 20px;
+        background: linear-gradient(90deg, #4f6ef7, #38a169);
+        transition: width 0.8s ease;
+    }
+
+    .badge-attente {
+        background: #fef9c3;
+        color: #854d0e;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .pending-row td { font-size: 0.84rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1><i class="bi bi-bar-chart-line me-2 text-primary"></i>Dashboard Financier</h1>
+    <p>Vue d'ensemble des revenus, paiements et certifications.</p>
+</div>
+
+<!-- Stats cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="fin-stat-card">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fin-stat-icon" style="background:#dcfce7;color:#15803d;">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <span style="font-size:0.7rem;font-weight:600;color:#15803d;background:#dcfce7;padding:0.15rem 0.5rem;border-radius:20px;">Confirmé</span>
+            </div>
+            <div class="fin-stat-value">{{ total_encaisse|floatformat:0 }}</div>
+            <div class="fin-stat-label">FCFA encaissés</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="fin-stat-card">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fin-stat-icon" style="background:#fef9c3;color:#854d0e;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <span style="font-size:0.7rem;font-weight:600;color:#854d0e;background:#fef9c3;padding:0.15rem 0.5rem;border-radius:20px;">En attente</span>
+            </div>
+            <div class="fin-stat-value">{{ total_en_attente|floatformat:0 }}</div>
+            <div class="fin-stat-label">FCFA en attente</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="fin-stat-card">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fin-stat-icon" style="background:#eef1ff;color:#4f6ef7;">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+            <div class="fin-stat-value">{{ total_inscrits }}</div>
+            <div class="fin-stat-label">Inscriptions totales</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="fin-stat-card">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fin-stat-icon" style="background:#dcfce7;color:#15803d;">
+                    <i class="bi bi-patch-check-fill"></i>
+                </div>
+                <span style="font-size:0.7rem;font-weight:600;color:#15803d;background:#dcfce7;padding:0.15rem 0.5rem;border-radius:20px;">{{ taux_certif }}%</span>
+            </div>
+            <div class="fin-stat-value">{{ total_certifies }}</div>
+            <div class="fin-stat-label">Certifiés</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts row -->
+<div class="row g-4 mb-4">
+    <!-- Monthly revenue bar chart -->
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6><i class="bi bi-bar-chart me-2 text-primary"></i>Revenus mensuels (12 derniers mois)</h6>
+            </div>
+            <div class="card-body" style="padding:1.25rem;">
+                {% if months_labels_json != "[]" %}
+                <canvas id="chartMonthly" height="100"></canvas>
+                {% else %}
+                <div class="text-center text-muted py-4" style="font-size:0.88rem;">
+                    <i class="bi bi-bar-chart" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>
+                    Aucune donnée de paiement confirmé sur les 12 derniers mois.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment methods donut -->
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <div class="card-header">
+                <h6><i class="bi bi-pie-chart me-2 text-primary"></i>Moyens de paiement</h6>
+            </div>
+            <div class="card-body" style="padding:1.25rem;">
+                {% if moyen_labels_json != "[]" %}
+                <canvas id="chartMoyens" height="220"></canvas>
+                {% else %}
+                <div class="text-center text-muted py-4" style="font-size:0.88rem;">
+                    <i class="bi bi-pie-chart" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>
+                    Aucune donnée.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Per-certification stats table -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="chart-card">
+            <div class="card-header">
+                <h6><i class="bi bi-award me-2 text-primary"></i>Statistiques par certification</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if stats_certifs %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Certification</th>
+                                <th class="text-center">Inscrits</th>
+                                <th class="text-center">Certifiés</th>
+                                <th class="text-end">Encaissé (FCFA)</th>
+                                <th style="width:180px;">Taux de certification</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in stats_certifs %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'certification_detail' s.cert.pk %}" class="text-decoration-none fw-semibold" style="color:#1a2340;">
+                                        {{ s.cert.nom }}
+                                    </a>
+                                </td>
+                                <td class="text-center">{{ s.nb_inscrits }}</td>
+                                <td class="text-center">
+                                    <span style="color:#15803d;font-weight:600;">{{ s.nb_certifies }}</span>
+                                </td>
+                                <td class="text-end fw-semibold">{{ s.encaisse|floatformat:0 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="taux-bar" style="flex:1;">
+                                            <div class="taux-bar-inner" style="width:{{ s.taux }}%;"></div>
+                                        </div>
+                                        <span style="font-size:0.75rem;font-weight:600;color:#4a5568;min-width:32px;">{{ s.taux }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4" style="font-size:0.88rem;">Aucune certification.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending payments -->
+{% if paiements_en_attente %}
+<div class="row">
+    <div class="col-12">
+        <div class="chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6><i class="bi bi-clock-history me-2 text-warning"></i>Paiements en attente de confirmation</h6>
+                <span class="badge" style="background:#fef9c3;color:#854d0e;padding:0.3rem 0.7rem;border-radius:20px;font-size:0.75rem;">
+                    {{ paiements_en_attente|length }} en attente
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Apprenant</th>
+                                <th>Certification</th>
+                                <th>Moyen</th>
+                                <th class="text-end">Montant</th>
+                                <th>Date</th>
+                                <th>Référence</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in paiements_en_attente %}
+                            <tr class="pending-row">
+                                <td>
+                                    <a href="{% url 'inscrit_detail' p.inscription.inscrit.pk %}" class="text-decoration-none fw-semibold" style="color:#1a2340;">
+                                        {{ p.inscription.inscrit.nom_complet }}
+                                    </a>
+                                </td>
+                                <td>{{ p.inscription.cohorte.certification.nom|truncatechars:30 }}</td>
+                                <td>
+                                    <span class="badge badge-attente">{{ p.get_moyen_paiement_display }}</span>
+                                </td>
+                                <td class="text-end fw-semibold">{{ p.montant|floatformat:0 }}</td>
+                                <td>{{ p.date_paiement|date:"d/m/Y" }}</td>
+                                <td>
+                                    {% if p.reference %}
+                                    <code style="font-size:0.75rem;">{{ p.reference|truncatechars:20 }}</code>
+                                    {% else %}
+                                    <span class="text-muted" style="font-size:0.78rem;">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'admin_confirmer_paiement' p.pk %}" class="btn btn-sm btn-success">
+                                        <i class="bi bi-check2 me-1"></i>Confirmer
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-success" style="font-size:0.86rem;">
+    <i class="bi bi-check-circle-fill me-2"></i>
+    Aucun paiement en attente de confirmation.
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size = 12;
+
+const accentColor = '#4f6ef7';
+const navyColor = '#1a2340';
+
+{% if months_labels_json != "[]" %}
+// Monthly revenue bar chart
+const monthlyCtx = document.getElementById('chartMonthly');
+if (monthlyCtx) {
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ months_labels_json|safe }},
+            datasets: [{
+                label: 'Revenus (FCFA)',
+                data: {{ months_values_json|safe }},
+                backgroundColor: 'rgba(79,110,247,0.75)',
+                borderColor: accentColor,
+                borderWidth: 0,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ' ' + ctx.parsed.y.toLocaleString('fr-FR') + ' FCFA';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f2f8' },
+                    ticks: {
+                        callback: function(v) {
+                            if (v >= 1000000) return (v/1000000).toFixed(1) + 'M';
+                            if (v >= 1000) return (v/1000).toFixed(0) + 'k';
+                            return v;
+                        }
+                    }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+{% endif %}
+
+{% if moyen_labels_json != "[]" %}
+// Payment methods donut chart
+const moyensCtx = document.getElementById('chartMoyens');
+if (moyensCtx) {
+    const colors = ['#4f6ef7','#38a169','#e85c0e','#d4a017','#6d28d9','#0369a1'];
+    new Chart(moyensCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ moyen_labels_json|safe }},
+            datasets: [{
+                data: {{ moyen_values_json|safe }},
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: '#fff',
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 14, boxWidth: 12, font: { size: 11 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ' ' + ctx.parsed.toLocaleString('fr-FR') + ' FCFA';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

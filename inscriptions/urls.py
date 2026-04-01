@@ -2,8 +2,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Dashboard
-    path("", views.dashboard, name="dashboard"),
+    # Page d'accueil — portail public (redirige les admins vers le dashboard)
+    path("", views.portail_accueil, name="portail_accueil_home"),
+    # Dashboard (accès direct pour les admins)
+    path("dashboard/", views.dashboard, name="dashboard"),
 
     # Session filters
     path("filtrer/", views.set_filter, name="set_filter"),
@@ -45,6 +47,8 @@ urlpatterns = [
     path("paiements/ajouter/", views.paiement_ajouter, name="paiement_ajouter"),
     path("paiements/<int:pk>/modifier/", views.paiement_modifier, name="paiement_modifier"),
     path("paiements/<int:pk>/supprimer/", views.paiement_supprimer, name="paiement_supprimer"),
+    path("paiements/<int:pk>/confirmer/", views.admin_confirmer_paiement, name="admin_confirmer_paiement"),
+    path("paiements/<int:pk>/recu/", views.recu_download, name="recu_download"),
 
     # Utilisateurs (admin only)
     path("utilisateurs/", views.users_list, name="users_list"),
@@ -59,4 +63,19 @@ urlpatterns = [
     path("attestations/<int:pk>/telecharger/", views.attestation_download, name="attestation_download"),
     path("attestations/<int:pk>/voir/", views.attestation_view, name="attestation_view"),
     path("attestations/<str:numero>/verifier/", views.attestation_verifier, name="attestation_verifier"),
+
+    # Portail public
+    path("portail/", views.portail_accueil, name="portail_accueil"),
+    path("portail/inscrire/<int:certif_pk>/", views.portail_inscrire, name="portail_inscrire"),
+    path("portail/inscription/", views.portail_wizard, name="portail_wizard"),
+    path("portail/paiement/<int:pk>/", views.portail_paiement, name="portail_paiement"),
+
+    # Espace apprenant
+    path("apprenant/", views.espace_apprenant, name="espace_apprenant"),
+    path("apprenant/profil/", views.apprenant_profil, name="apprenant_profil"),
+    path("apprenant/changer-mdp/", views.apprenant_changer_mdp, name="apprenant_changer_mdp"),
+    path("apprenant/payer/<int:inscription_pk>/", views.apprenant_payer, name="apprenant_payer"),
+
+    # Dashboard financier
+    path("finances/", views.dashboard_financier, name="dashboard_financier"),
 ]

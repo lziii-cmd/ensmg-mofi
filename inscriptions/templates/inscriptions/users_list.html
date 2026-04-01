@@ -49,9 +49,19 @@
                         <td class="text-muted">{{ u.email|default:"—" }}</td>
                         <td>
                             {% if u.is_superuser %}
-                                <span class="badge bg-danger-subtle text-danger rounded-pill">Super admin</span>
+                                <span class="badge bg-danger-subtle text-danger rounded-pill">Administrateur</span>
+                            {% elif u.groups.all|length > 0 %}
+                                {% for g in u.groups.all %}
+                                    {% if g.name == "Responsable" %}
+                                        <span class="badge bg-primary-subtle text-primary rounded-pill">Responsable</span>
+                                    {% elif g.name == "Comptable" %}
+                                        <span class="badge bg-info-subtle text-info rounded-pill">Comptable</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ g.name }}</span>
+                                    {% endif %}
+                                {% endfor %}
                             {% elif u.is_staff %}
-                                <span class="badge bg-warning-subtle text-warning rounded-pill">Admin</span>
+                                <span class="badge bg-warning-subtle text-warning rounded-pill">Staff</span>
                             {% else %}
                                 <span class="badge bg-secondary-subtle text-secondary rounded-pill">Utilisateur</span>
                             {% endif %}

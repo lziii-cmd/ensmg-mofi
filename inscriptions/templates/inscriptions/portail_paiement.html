@@ -1,0 +1,394 @@
+{% extends "inscriptions/portail_base.html" %}
+
+{% block title %}Paiement — ENSMG{% endblock %}
+
+{% block extra_css %}
+<style>
+    .paiement-container {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 0 1rem;
+    }
+
+    .paiement-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        overflow: hidden;
+    }
+
+    .paiement-header {
+        background: linear-gradient(135deg, #1a2340, #243056);
+        color: #fff;
+        padding: 1.75rem 2rem;
+    }
+
+    .paiement-header h2 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .paiement-header .inscription-info {
+        font-size: 0.88rem;
+        color: rgba(255,255,255,0.7);
+        margin-top: 0.5rem;
+    }
+
+    .montant-due {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-top: 1rem;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 180px;
+    }
+
+    .montant-due .label { font-size: 0.7rem; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; }
+    .montant-due .amount { font-size: 1.75rem; font-weight: 800; color: #a5b4fc; line-height: 1.1; }
+    .montant-due .currency { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+
+    .paiement-body {
+        padding: 2rem;
+    }
+
+    .payment-tabs .nav-tabs {
+        border-bottom: 2px solid #e8edf5;
+        gap: 0.25rem;
+    }
+
+    .payment-tabs .nav-link {
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        padding: 0.65rem 1.1rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #718096;
+        transition: all 0.15s;
+        margin-bottom: -2px;
+    }
+
+    .payment-tabs .nav-link:hover {
+        color: #4a5568;
+        background: #f8f9ff;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .payment-tabs .nav-link.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        background: transparent;
+        font-weight: 600;
+    }
+
+    .payment-tab-icon {
+        font-size: 1rem;
+        margin-right: 0.35rem;
+    }
+
+    .mobile-pay-form {
+        margin-top: 1.5rem;
+    }
+
+    .mobile-pay-form .phone-input-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .payment-logo {
+        width: 48px; height: 48px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+
+    .payment-logo.wave { background: #dbeafe; color: #1e40af; }
+    .payment-logo.orange { background: #ffedd5; color: #c2410c; }
+    .payment-logo.carte { background: #f0fdf4; color: #15803d; }
+
+    .sim-notice {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.82rem;
+        color: #92400e;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .rib-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.25rem 0;
+    }
+
+    .rib-table td {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.87rem;
+        border-bottom: 1px solid #f0f2f8;
+    }
+
+    .rib-table td:first-child {
+        color: #718096;
+        width: 40%;
+        font-weight: 500;
+    }
+
+    .rib-table td:last-child {
+        color: #1a2340;
+        font-weight: 600;
+    }
+
+    .rib-code {
+        font-family: 'Courier New', monospace;
+        background: #f0f2f8;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .btn-pay {
+        width: 100%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 0.85rem;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        margin-top: 1rem;
+    }
+
+    .btn-pay:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+
+    .btn-pay:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="paiement-container">
+
+    <div class="paiement-card">
+        <!-- Header -->
+        <div class="paiement-header">
+            <h2><i class="bi bi-credit-card-2-front me-2"></i>Choisir votre mode de paiement</h2>
+            <div class="inscription-info">
+                <i class="bi bi-person me-1"></i>{{ inscription.inscrit.nom_complet }}
+                &nbsp;&mdash;&nbsp;
+                <i class="bi bi-award me-1"></i>{{ inscription.cohorte }}
+            </div>
+            <div class="montant-due">
+                <span class="label">Montant à régler</span>
+                <span class="amount">{{ inscription.montant_du|floatformat:0 }}</span>
+                <span class="currency">FCFA</span>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="paiement-body">
+
+            <div class="payment-tabs">
+                <ul class="nav nav-tabs mb-3" id="payTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-wave">
+                            <i class="bi bi-phone payment-tab-icon"></i>Wave
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-om">
+                            <i class="bi bi-phone-vibrate payment-tab-icon"></i>Orange Money
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-carte">
+                            <i class="bi bi-credit-card payment-tab-icon"></i>Carte
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-virement">
+                            <i class="bi bi-bank payment-tab-icon"></i>Virement
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+
+                    <!-- Wave -->
+                    <div class="tab-pane fade show active" id="tab-wave">
+                        <div class="sim-notice">
+                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:1px;"></i>
+                            <div>Paiement simulé. Votre inscription sera enregistrée et confirmée par l'administration après vérification.</div>
+                        </div>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="moyen_paiement" value="wave">
+                            <div class="mobile-pay-form">
+                                <div class="phone-input-group">
+                                    <div class="payment-logo wave"><i class="bi bi-phone"></i></div>
+                                    <div style="flex:1;">
+                                        <label class="form-label">Numéro Wave</label>
+                                        <input type="tel" name="numero_mobile" class="form-control"
+                                               placeholder="+221 77 000 00 00" pattern="[0-9+\s]{8,20}">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-pay">
+                                <i class="bi bi-send me-1"></i>Confirmer le paiement Wave
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Orange Money -->
+                    <div class="tab-pane fade" id="tab-om">
+                        <div class="sim-notice">
+                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:1px;"></i>
+                            <div>Paiement simulé. L'administration confirmera votre inscription après vérification.</div>
+                        </div>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="moyen_paiement" value="orange_money">
+                            <div class="mobile-pay-form">
+                                <div class="phone-input-group">
+                                    <div class="payment-logo orange"><i class="bi bi-phone-vibrate"></i></div>
+                                    <div style="flex:1;">
+                                        <label class="form-label">Numéro Orange Money</label>
+                                        <input type="tel" name="numero_mobile" class="form-control"
+                                               placeholder="+221 77 000 00 00" pattern="[0-9+\s]{8,20}">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-pay" style="background:#e85c0e;">
+                                <i class="bi bi-send me-1"></i>Confirmer le paiement Orange Money
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Carte -->
+                    <div class="tab-pane fade" id="tab-carte">
+                        <div class="sim-notice" style="background:#f0fdf4;border-color:#86efac;color:#15803d;">
+                            <i class="bi bi-credit-card-fill" style="flex-shrink:0;margin-top:1px;"></i>
+                            <div>Le paiement par carte est traité via <strong>CinetPay</strong>. Votre inscription sera confirmée automatiquement.</div>
+                        </div>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="moyen_paiement" value="carte">
+                            <div class="mobile-pay-form">
+                                <div class="phone-input-group">
+                                    <div class="payment-logo carte"><i class="bi bi-credit-card"></i></div>
+                                    <div>
+                                        <div style="font-weight:600;color:#1a2340;">Paiement sécurisé</div>
+                                        <div style="font-size:0.8rem;color:#718096;">Visa, Mastercard acceptés</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-pay" style="background:#15803d;">
+                                <i class="bi bi-lock me-1"></i>Payer par carte bancaire
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Virement -->
+                    <div class="tab-pane fade" id="tab-virement">
+                        <div style="margin-bottom:1rem;">
+                            <p class="text-muted" style="font-size:0.88rem;">
+                                Effectuez un virement bancaire aux coordonnées ci-dessous, puis renseignez la référence de votre virement.
+                            </p>
+                        </div>
+
+                        <table class="rib-table">
+                            <tr>
+                                <td>Banque</td>
+                                <td>{{ rib_info.banque }}</td>
+                            </tr>
+                            <tr>
+                                <td>Titulaire</td>
+                                <td>{{ rib_info.titulaire }}</td>
+                            </tr>
+                            <tr>
+                                <td>IBAN</td>
+                                <td><span class="rib-code">{{ rib_info.iban }}</span></td>
+                            </tr>
+                            <tr>
+                                <td>Code SWIFT/BIC</td>
+                                <td><span class="rib-code">{{ rib_info.swift }}</span></td>
+                            </tr>
+                            <tr>
+                                <td>Référence à indiquer</td>
+                                <td><span class="rib-code" style="background:#dbeafe;color:#1e40af;">{{ rib_info.reference }}</span></td>
+                            </tr>
+                        </table>
+
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="moyen_paiement" value="virement">
+                            <div class="mb-3">
+                                <label class="form-label">Référence de votre virement</label>
+                                <input type="text" name="reference_virement" class="form-control"
+                                       placeholder="Numéro de transaction ou référence bancaire">
+                                <small class="text-muted">Laissez vide si vous n'avez pas encore la référence.</small>
+                            </div>
+                            <button type="submit" class="btn-pay" style="background:#166534;">
+                                <i class="bi bi-check2-circle me-1"></i>Déclarer mon virement
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+            <hr class="my-3">
+
+            <!-- Skip paiement -->
+            <form method="post" class="mb-2">
+                {% csrf_token %}
+                <input type="hidden" name="skip_paiement" value="1">
+                <button type="submit" style="
+                    width: 100%;
+                    background: transparent;
+                    border: 2px dashed #cbd5e0;
+                    border-radius: 10px;
+                    padding: 0.75rem 1rem;
+                    color: #718096;
+                    font-size: 0.88rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='#a5b4fc';this.style.color='#4f6ef7';"
+                   onmouseout="this.style.borderColor='#cbd5e0';this.style.color='#718096';">
+                    <i class="bi bi-clock-history" style="font-size:1rem;"></i>
+                    <span>Payer plus tard — accéder à mon espace maintenant</span>
+                    <i class="bi bi-arrow-right" style="margin-left:auto;"></i>
+                </button>
+            </form>
+
+            <div class="text-center text-muted" style="font-size:0.8rem;">
+                <i class="bi bi-shield-check me-1"></i>
+                Vos données sont sécurisées — ENSMG, Dakar, Sénégal
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

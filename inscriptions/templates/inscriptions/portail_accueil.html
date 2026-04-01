@@ -1,0 +1,464 @@
+{% extends "inscriptions/portail_base.html" %}
+
+{% block title %}ENSMG — Portail des Certifications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #1a2340 0%, #243056 50%, #1a2340 100%);
+        color: #fff;
+        padding: 5rem 1.5rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle at 60% 40%, rgba(79,110,247,0.15) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
+    .hero-badge {
+        display: inline-block;
+        background: rgba(79,110,247,0.2);
+        color: #a5b4fc;
+        border: 1px solid rgba(79,110,247,0.3);
+        border-radius: 20px;
+        padding: 0.3rem 1rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 1.25rem;
+    }
+
+    .hero-title {
+        font-size: clamp(1.75rem, 4vw, 3rem);
+        font-weight: 800;
+        line-height: 1.15;
+        margin-bottom: 1rem;
+        letter-spacing: -0.5px;
+    }
+
+    .hero-title .highlight {
+        color: #a5b4fc;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
+        color: rgba(255,255,255,0.7);
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        line-height: 1.6;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .hero-actions .btn-hero-primary {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 0.85rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .hero-actions .btn-hero-primary:hover {
+        background: var(--accent-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(79,110,247,0.4);
+        color: #fff;
+    }
+
+    .hero-actions .btn-hero-secondary {
+        background: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.85);
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 0.85rem 2rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .hero-actions .btn-hero-secondary:hover {
+        background: rgba(255,255,255,0.18);
+        color: #fff;
+    }
+
+    .hero-stats {
+        display: flex;
+        justify-content: center;
+        gap: 3rem;
+        margin-top: 3rem;
+        flex-wrap: wrap;
+    }
+
+    .hero-stat {
+        text-align: center;
+    }
+
+    .hero-stat .value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #a5b4fc;
+        line-height: 1;
+    }
+
+    .hero-stat .label {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-top: 0.25rem;
+    }
+
+    /* Certifications section */
+    .certif-section {
+        padding: 4rem 1.5rem;
+    }
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+
+    .section-header .section-tag {
+        display: inline-block;
+        background: var(--accent-light);
+        color: var(--accent);
+        border-radius: 20px;
+        padding: 0.25rem 0.85rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.75rem;
+    }
+
+    .section-header h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 0.5rem;
+    }
+
+    .section-header p {
+        color: #718096;
+        font-size: 0.95rem;
+    }
+
+    .cert-public-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 16px;
+        padding: 1.75rem;
+        height: 100%;
+        transition: box-shadow 0.2s, transform 0.2s;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cert-public-card:hover {
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+    }
+
+    .cert-icon-wrap {
+        width: 52px; height: 52px;
+        background: var(--accent-light);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem;
+        color: var(--accent);
+        margin-bottom: 1rem;
+    }
+
+    .cert-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+    }
+
+    .cert-description {
+        font-size: 0.85rem;
+        color: #718096;
+        flex: 1;
+        margin-bottom: 1.25rem;
+        line-height: 1.5;
+    }
+
+    .cert-duree {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #f0f2f8;
+        color: #4a5568;
+        border-radius: 6px;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+
+    .cert-tarifs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .cert-tarif-item {
+        background: #f8f9ff;
+        border: 1px solid #e8edf5;
+        border-radius: 8px;
+        padding: 0.6rem 0.75rem;
+        text-align: center;
+    }
+
+    .cert-tarif-item .tarif-label {
+        font-size: 0.7rem;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        display: block;
+        margin-bottom: 0.2rem;
+    }
+
+    .cert-tarif-item .tarif-value {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--navy);
+    }
+
+    .cert-tarif-item .tarif-value span {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: #718096;
+    }
+
+    .btn-inscrir {
+        width: 100%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 0.7rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .btn-inscrir:hover {
+        background: var(--accent-hover);
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    /* How it works */
+    .how-section {
+        background: var(--navy);
+        color: #fff;
+        padding: 4rem 1.5rem;
+    }
+
+    .step-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+
+    .step-num {
+        width: 48px; height: 48px;
+        background: rgba(79,110,247,0.2);
+        border: 2px solid rgba(79,110,247,0.4);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #a5b4fc;
+        margin: 0 auto 1rem;
+    }
+
+    .step-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .step-desc {
+        font-size: 0.83rem;
+        color: rgba(255,255,255,0.6);
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="hero-section">
+    <div class="hero-badge"><i class="bi bi-award-fill me-1"></i>Certifications Professionnelles</div>
+    <h1 class="hero-title">
+        Bienvenue sur le Portail des<br>
+        <span class="highlight">Certifications ENSMG</span>
+    </h1>
+    <p class="hero-subtitle">
+        Développez vos compétences et obtenez une certification reconnue.
+        Inscrivez-vous en ligne en quelques minutes.
+    </p>
+    <div class="hero-actions">
+        <a href="{% url 'portail_wizard' %}" class="btn-hero-primary">
+            <i class="bi bi-pencil-square"></i>
+            S'inscrire maintenant
+        </a>
+        <a href="#certifications" class="btn-hero-secondary">
+            <i class="bi bi-grid-3x3-gap"></i>
+            Voir les certifications
+        </a>
+    </div>
+    {% if certifications %}
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <div class="value">{{ certifications|length }}</div>
+            <div class="label">Certifications</div>
+        </div>
+        <div class="hero-stat">
+            <div class="value">100%</div>
+            <div class="label">En ligne</div>
+        </div>
+        <div class="hero-stat">
+            <div class="value">ENSMG</div>
+            <div class="label">Reconnu</div>
+        </div>
+    </div>
+    {% endif %}
+</section>
+
+<!-- Certifications -->
+<section class="certif-section" id="certifications">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-tag"><i class="bi bi-award me-1"></i>Nos formations</div>
+            <h2>Certifications disponibles</h2>
+            <p>Choisissez la certification adaptée à votre profil et démarrez votre parcours.</p>
+        </div>
+
+        {% if certifications %}
+        <div class="row g-4">
+            {% for cert in certifications %}
+            <div class="col-md-6 col-lg-4">
+                <div class="cert-public-card">
+                    <div class="cert-icon-wrap">
+                        <i class="bi bi-award-fill"></i>
+                    </div>
+                    <div class="cert-name">{{ cert.nom }}</div>
+                    {% if cert.description %}
+                    <div class="cert-description">{{ cert.description|truncatewords:25 }}</div>
+                    {% else %}
+                    <div class="cert-description">Formation certifiante dispensée par l'ENSMG.</div>
+                    {% endif %}
+                    {% if cert.duree %}
+                    <div class="cert-duree">
+                        <i class="bi bi-clock"></i> {{ cert.duree }}
+                    </div>
+                    {% endif %}
+                    <div class="cert-tarifs">
+                        <div class="cert-tarif-item">
+                            <span class="tarif-label"><i class="bi bi-mortarboard me-1"></i>Étudiant</span>
+                            <div class="tarif-value">{{ cert.tarif_etudiant|floatformat:0 }} <span>FCFA</span></div>
+                        </div>
+                        <div class="cert-tarif-item">
+                            <span class="tarif-label"><i class="bi bi-briefcase me-1"></i>Professionnel</span>
+                            <div class="tarif-value">{{ cert.tarif_professionnel|floatformat:0 }} <span>FCFA</span></div>
+                        </div>
+                    </div>
+                    <a href="{% url 'portail_inscrire' cert.pk %}" class="btn-inscrir">
+                        <i class="bi bi-arrow-right-circle me-1"></i>S'inscrire à cette certification
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-calendar-x" style="font-size:3rem;color:#cbd5e0;"></i>
+            <p class="mt-3 text-muted">Aucune certification disponible pour le moment. Revenez bientôt !</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section">
+    <div class="container">
+        <div class="section-header mb-4">
+            <div class="section-tag" style="background:rgba(79,110,247,0.2);color:#a5b4fc;">Comment ça marche</div>
+            <h2 class="text-white">Inscription en 4 étapes simples</h2>
+            <p style="color:rgba(255,255,255,0.6);">Complétez votre inscription en ligne rapidement et facilement.</p>
+        </div>
+        <div class="row g-3 justify-content-center">
+            <div class="col-6 col-md-3">
+                <div class="step-card">
+                    <div class="step-num">1</div>
+                    <div class="step-title">Informations personnelles</div>
+                    <div class="step-desc">Renseignez vos coordonnées et données de contact.</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="step-card">
+                    <div class="step-num">2</div>
+                    <div class="step-title">Votre profil</div>
+                    <div class="step-desc">Indiquez si vous êtes étudiant ou professionnel.</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="step-card">
+                    <div class="step-num">3</div>
+                    <div class="step-title">Choisir une cohorte</div>
+                    <div class="step-desc">Sélectionnez la certification et la session souhaitées.</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="step-card">
+                    <div class="step-num">4</div>
+                    <div class="step-title">Paiement</div>
+                    <div class="step-desc">Réglez vos frais via Wave, Orange Money ou virement.</div>
+                </div>
+            </div>
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'portail_wizard' %}" class="btn btn-primary btn-lg px-5">
+                <i class="bi bi-pencil-square me-2"></i>Commencer l'inscription
+            </a>
+            <div class="mt-3" style="color:rgba(255,255,255,0.5);font-size:0.85rem;">
+                Déjà inscrit ?
+                <a href="{% url 'login' %}" style="color:#a5b4fc;">Connectez-vous ici</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -513,15 +513,45 @@
             Enregistrer paiement
         </a>
 
+        <div class="nav-section-title">Analytique</div>
+
+        <a href="{% url 'dashboard_financier' %}"
+           class="nav-link {% if active_page == 'dashboard_financier' %}active{% endif %}">
+            <i class="bi bi-bar-chart-line nav-icon"></i>
+            Dashboard Financier
+        </a>
+
         <div class="nav-section-title">Système</div>
+
+        <a href="{% url 'portail_accueil' %}" class="nav-link" target="_blank">
+            <i class="bi bi-globe nav-icon"></i>
+            Portail Public
+        </a>
 
         <a href="/admin/" class="nav-link" target="_blank">
             <i class="bi bi-gear nav-icon"></i>
             Administration
         </a>
+
+        {% if request.user.is_authenticated %}
+        <a href="{% url 'users_list' %}"
+           class="nav-link {% if active_page == 'utilisateurs' %}active{% endif %}">
+            <i class="bi bi-person-gear nav-icon"></i>
+            Utilisateurs
+        </a>
+        {% endif %}
     </div>
 
     <div class="sidebar-footer">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:#fff;flex-shrink:0;">
+                {{ request.user.username|first|upper }}
+            </div>
+            <div style="overflow:hidden;">
+                <div style="font-size:0.73rem;color:#c5cfe8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ request.user.username }}</div>
+                <a href="{% url 'logout' %}" style="font-size:0.65rem;color:var(--text-muted-sidebar);">Se déconnecter</a>
+            </div>
+        </div>
         <i class="bi bi-circle-fill me-1" style="color:#4ade80; font-size:0.5rem;"></i>
         ENSMG Certification &mdash; v2.0
     </div>
@@ -552,6 +582,50 @@
             <a href="{% url 'paiement_ajouter' %}" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-plus-circle me-1"></i>Paiement
             </a>
+
+            <!-- User dropdown -->
+            <div class="dropdown ms-1">
+                <button class="btn btn-sm btn-light d-flex align-items-center gap-2 border"
+                        style="border-color:#e2e8f0 !important; border-radius:20px; padding:0.3rem 0.7rem 0.3rem 0.4rem;"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div style="width:26px;height:26px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:#fff;flex-shrink:0;">
+                        {{ request.user.first_name|first|upper|default:request.user.username|first|upper }}
+                    </div>
+                    <span style="font-size:0.82rem;font-weight:600;color:#1a2340;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
+                    </span>
+                    <i class="bi bi-chevron-down" style="font-size:0.65rem;color:#718096;"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:200px;border:1px solid #e8edf5;border-radius:12px;padding:0.4rem;">
+                    <li>
+                        <div class="px-3 py-2 border-bottom mb-1" style="border-color:#f0f2f8 !important;">
+                            <div style="font-size:0.82rem;font-weight:600;color:#1a2340;">
+                                {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
+                            </div>
+                            <div style="font-size:0.72rem;color:#a0aec0;">{{ request.user.email }}</div>
+                        </div>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" style="font-size:0.84rem;border-radius:8px;"
+                           href="{% url 'user_modifier' request.user.pk %}">
+                            <i class="bi bi-person-circle text-primary"></i> Mon profil
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" style="font-size:0.84rem;border-radius:8px;"
+                           href="/admin/">
+                            <i class="bi bi-gear text-secondary"></i> Administration
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider" style="margin:0.3rem 0.5rem;"></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2 text-danger" style="font-size:0.84rem;border-radius:8px;"
+                           href="{% url 'logout' %}">
+                            <i class="bi bi-box-arrow-right"></i> Se déconnecter
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 

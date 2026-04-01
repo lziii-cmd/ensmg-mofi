@@ -1,0 +1,390 @@
+{% extends "inscriptions/apprenant_base.html" %}
+
+{% block title %}Mon tableau de bord — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Tableau de bord</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .welcome-banner {
+        background: linear-gradient(135deg, #1a2340 0%, #2e3d6b 100%);
+        border-radius: 16px;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .welcome-banner .welcome-text h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0 0 0.25rem;
+    }
+
+    .welcome-banner .welcome-text p {
+        color: rgba(255,255,255,0.65);
+        font-size: 0.87rem;
+        margin: 0;
+    }
+
+    .welcome-banner .welcome-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .inscription-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        transition: box-shadow 0.2s;
+    }
+
+    .inscription-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+    }
+
+    .inscription-card .cert-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1a2340;
+    }
+
+    .inscription-card .cohorte-name {
+        font-size: 0.82rem;
+        color: #718096;
+        margin-top: 0.15rem;
+    }
+
+    .progress-wrap {
+        margin: 0.75rem 0;
+    }
+
+    .progress-wrap .progress-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #718096;
+        margin-bottom: 0.3rem;
+    }
+
+    .progress {
+        height: 7px;
+        border-radius: 20px;
+        background: #e8edf5;
+    }
+
+    .progress-bar {
+        border-radius: 20px;
+    }
+
+    .stat-mini-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+
+    .stat-mini {
+        font-size: 0.78rem;
+        color: #718096;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .stat-mini strong { color: #1a2340; }
+
+    .badge-statut {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .paiement-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.65rem 0;
+        border-bottom: 1px solid #f0f2f8;
+        font-size: 0.83rem;
+    }
+
+    .paiement-item:last-child { border-bottom: none; }
+
+    .paiement-item .paiement-info { color: #4a5568; }
+    .paiement-item .paiement-amount {
+        font-weight: 700;
+        color: #1a2340;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Welcome banner -->
+<div class="welcome-banner">
+    <div class="welcome-text">
+        <h2>Bonjour, {{ inscrit.prenom }} !</h2>
+        <p>Bienvenue dans votre espace apprenant ENSMG. Suivez votre progression.</p>
+    </div>
+    <div class="welcome-actions">
+        <a href="{% url 'apprenant_profil' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.2);">
+            <i class="bi bi-person-gear me-1"></i>Mon profil
+        </a>
+    </div>
+</div>
+
+<!-- Stats cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <div style="width:36px;height:36px;background:#eef1ff;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#4f6ef7;font-size:1rem;">
+                    <i class="bi bi-award"></i>
+                </div>
+            </div>
+            <div style="font-size:1.6rem;font-weight:700;color:#1a2340;line-height:1;">{{ inscriptions|length }}</div>
+            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">Inscriptions</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <div style="width:36px;height:36px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#15803d;font-size:1rem;">
+                    <i class="bi bi-patch-check-fill"></i>
+                </div>
+            </div>
+            <div style="font-size:1.6rem;font-weight:700;color:#1a2340;line-height:1;">
+                {% with nb=0 %}
+                {% for i in inscriptions %}{% if i.statut == 'certifie' %}{% with nb=nb|add:1 %}{% endwith %}{% endif %}{% endfor %}
+                {{ inscriptions|length }}
+                {% endwith %}
+                —
+            </div>
+            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">Certifiés</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <div style="width:36px;height:36px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#15803d;font-size:1rem;">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
+            <div style="font-size:1.3rem;font-weight:700;color:#1a2340;line-height:1;">{{ total_paye|floatformat:0 }}</div>
+            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">FCFA payés</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <div style="width:36px;height:36px;background:#fef9c3;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#854d0e;font-size:1rem;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+            </div>
+            <div style="font-size:1.3rem;font-weight:700;color:#1a2340;line-height:1;">{{ total_restant|floatformat:0 }}</div>
+            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">FCFA restants</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Inscriptions -->
+    <div class="col-lg-8">
+        <div class="card" id="inscriptions">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-journal-text me-2 text-primary"></i>Mes inscriptions</h6>
+                <a href="{% url 'portail_accueil' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus me-1"></i>Nouvelle certification
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if inscriptions %}
+                {% for inscription in inscriptions %}
+                <div class="inscription-card" style="border-radius:0;border-left:none;border-right:none;border-top:none;{% if forloop.last %}border-bottom:none;{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="cert-name">{{ inscription.cohorte.certification.nom }}</div>
+                            <div class="cohorte-name"><i class="bi bi-people me-1"></i>{{ inscription.cohorte.nom }}</div>
+                        </div>
+                        <span class="badge badge-statut badge-statut-{{ inscription.statut }}">
+                            {{ inscription.get_statut_display }}
+                        </span>
+                    </div>
+
+                    {% if inscription.montant_du > 0 %}
+                    <div class="progress-wrap">
+                        <div class="progress-info">
+                            <span>{{ inscription.total_paye|floatformat:0 }} / {{ inscription.montant_du|floatformat:0 }} FCFA</span>
+                            <span>{{ inscription.pourcentage_paye }}%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width:{{ inscription.pourcentage_paye }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                        {% if inscription.reste_a_payer > 0 %}
+                        <a href="{% url 'apprenant_payer' inscription.pk %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-credit-card me-1"></i>Payer ({{ inscription.reste_a_payer|floatformat:0 }} FCFA)
+                        </a>
+                        {% endif %}
+                        {% for att in inscription.attestations.all %}
+                        <a href="{% url 'attestation_download' att.pk %}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-download me-1"></i>Attestation
+                        </a>
+                        {% endfor %}
+                        {% for p in inscription.paiements.all %}
+                        <a href="{% url 'recu_download' p.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-receipt me-1"></i>Reçu
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-journal-x" style="font-size:2.5rem;opacity:0.4;display:block;margin-bottom:0.75rem;"></i>
+                    <p style="font-size:0.9rem;">Aucune inscription pour le moment.</p>
+                    <a href="{% url 'portail_accueil' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus me-1"></i>Voir les certifications disponibles
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar info -->
+    <div class="col-lg-4">
+
+        <!-- Profile card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-primary"></i>Mon profil</h6>
+            </div>
+            <div class="card-body" style="font-size:0.85rem;">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <div style="width:48px;height:48px;border-radius:50%;background:#eef1ff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;color:#4f6ef7;">
+                        {{ inscrit.prenom|first|upper }}{{ inscrit.nom|first|upper }}
+                    </div>
+                    <div>
+                        <div style="font-weight:700;color:#1a2340;">{{ inscrit.nom_complet }}</div>
+                        <div style="font-size:0.75rem;color:#718096;">{{ inscrit.get_activite_display }}</div>
+                    </div>
+                </div>
+                {% if inscrit.email %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-envelope text-muted"></i>
+                    <span class="text-muted" style="font-size:0.8rem;">{{ inscrit.email }}</span>
+                </div>
+                {% endif %}
+                {% if inscrit.telephone %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-telephone text-muted"></i>
+                    <span class="text-muted" style="font-size:0.8rem;">{{ inscrit.telephone }}</span>
+                </div>
+                {% endif %}
+                {% if inscrit.universite %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-building text-muted"></i>
+                    <span class="text-muted" style="font-size:0.8rem;">{{ inscrit.universite }}</span>
+                </div>
+                {% endif %}
+                {% if inscrit.entreprise %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-briefcase text-muted"></i>
+                    <span class="text-muted" style="font-size:0.8rem;">{{ inscrit.entreprise }}</span>
+                </div>
+                {% endif %}
+                <div class="mt-3">
+                    <a href="{% url 'apprenant_profil' %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-pencil me-1"></i>Modifier mon profil
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent payments -->
+        <div class="card mb-3" id="paiements">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-cash me-2 text-success"></i>Paiements récents</h6>
+            </div>
+            <div class="card-body py-0 px-3">
+                {% for inscription in inscriptions %}
+                {% for paiement in inscription.paiements.all %}
+                <div class="paiement-item">
+                    <div class="paiement-info">
+                        <div>{{ inscription.cohorte.certification.nom|truncatechars:30 }}</div>
+                        <div style="font-size:0.73rem;color:#a0aec0;">
+                            {{ paiement.date_paiement|date:"d M Y" }}
+                            &mdash;
+                            <span class="badge badge-paiement-{{ paiement.statut }}" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:10px;">
+                                {{ paiement.get_statut_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="paiement-amount">{{ paiement.montant|floatformat:0 }} F</div>
+                </div>
+                {% empty %}
+                {% endfor %}
+                {% empty %}
+                <div class="text-center text-muted py-3" style="font-size:0.82rem;">
+                    <i class="bi bi-cash-stack" style="font-size:1.5rem;opacity:0.3;display:block;"></i>
+                    Aucun paiement
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Attestations -->
+        <div class="card" id="attestations">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-patch-check me-2 text-primary"></i>Mes attestations</h6>
+            </div>
+            <div class="card-body py-0 px-3">
+                {% for inscription in inscriptions %}
+                {% for att in inscription.attestations.all %}
+                <div class="paiement-item">
+                    <div class="paiement-info">
+                        <div style="font-weight:600;color:#1a2340;">{{ inscription.cohorte.certification.nom|truncatechars:28 }}</div>
+                        <div style="font-size:0.73rem;color:#a0aec0;">
+                            <i class="bi bi-hash"></i>{{ att.numero }}
+                            &mdash; {{ att.date_delivrance|date:"d M Y" }}
+                        </div>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <a href="{% url 'attestation_view' att.pk %}" class="btn btn-sm btn-outline-primary" title="Voir" target="_blank">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'attestation_download' att.pk %}" class="btn btn-sm btn-outline-success" title="Télécharger">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                {% endfor %}
+                {% empty %}
+                <div class="text-center text-muted py-3" style="font-size:0.82rem;">
+                    <i class="bi bi-patch-check" style="font-size:1.5rem;opacity:0.3;display:block;"></i>
+                    Aucune attestation pour le moment
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

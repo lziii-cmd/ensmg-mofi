@@ -1,0 +1,103 @@
+{% extends "inscriptions/apprenant_base.html" %}
+
+{% block title %}Mon profil — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Mon profil</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <div style="width:64px;height:64px;border-radius:50%;background:#eef1ff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.4rem;color:#4f6ef7;">
+                {{ inscrit.prenom|first|upper }}{{ inscrit.nom|first|upper }}
+            </div>
+            <div>
+                <h1 style="font-size:1.3rem;font-weight:700;color:#1a2340;margin:0;">{{ inscrit.nom_complet }}</h1>
+                <p style="color:#718096;font-size:0.85rem;margin:0;">
+                    {{ inscrit.get_activite_display }}
+                    {% if inscrit.source == 'portail' %}
+                    &mdash; <span style="color:#4f6ef7;">Inscrit(e) via le portail</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Modifier mon profil</h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.prenom.id_for_label }}">{{ form.prenom.label }}</label>
+                            {{ form.prenom }}
+                            {% if form.prenom.errors %}<div class="text-danger" style="font-size:0.78rem;margin-top:0.25rem;">{{ form.prenom.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.nom.id_for_label }}">{{ form.nom.label }}</label>
+                            {{ form.nom }}
+                            {% if form.nom.errors %}<div class="text-danger" style="font-size:0.78rem;margin-top:0.25rem;">{{ form.nom.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="text-danger" style="font-size:0.78rem;margin-top:0.25rem;">{{ form.email.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.telephone.id_for_label }}">{{ form.telephone.label }}</label>
+                            {{ form.telephone }}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.activite.id_for_label }}">{{ form.activite.label }}</label>
+                            {{ form.activite }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.adresse.id_for_label }}">{{ form.adresse.label }}</label>
+                            {{ form.adresse }}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.universite.id_for_label }}">{{ form.universite.label }}</label>
+                            {{ form.universite }}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.entreprise.id_for_label }}">{{ form.entreprise.label }}</label>
+                            {{ form.entreprise }}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2 me-1"></i>Enregistrer les modifications
+                        </button>
+                        <a href="{% url 'espace_apprenant' %}" class="btn btn-outline-secondary">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change password link -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-2"><i class="bi bi-key me-2 text-warning"></i>Sécurité du compte</h6>
+                <p class="text-muted" style="font-size:0.85rem;margin-bottom:0.75rem;">
+                    Identifiant de connexion : <strong>{{ request.user.username }}</strong>
+                </p>
+                <a href="{% url 'apprenant_changer_mdp' %}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-shield-lock me-1"></i>Changer mon mot de passe
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

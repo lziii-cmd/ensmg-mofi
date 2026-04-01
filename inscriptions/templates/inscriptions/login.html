@@ -67,13 +67,13 @@
         {% csrf_token %}
         <div class="mb-3">
             <label for="{{ form.username.id_for_label }}" class="form-label fw-500" style="font-size:0.86rem;">
-                Nom d'utilisateur
+                Email ou nom d'utilisateur
             </label>
             <div class="input-group">
                 <span class="input-group-text bg-white"><i class="bi bi-person text-muted"></i></span>
                 <input type="text" name="username" id="{{ form.username.id_for_label }}"
                        class="form-control border-start-0"
-                       placeholder="Nom d'utilisateur" autofocus required>
+                       placeholder="adresse@email.com" autofocus required>
             </div>
         </div>
         <div class="mb-4">

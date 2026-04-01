@@ -1,0 +1,399 @@
+{% extends "inscriptions/portail_base.html" %}
+
+{% block title %}S'inscrire — {{ certification.nom }} — ENSMG{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container {
+        max-width: 680px;
+        margin: 3rem auto;
+        padding: 0 1rem;
+    }
+
+    .wizard-progress { margin-bottom: 2rem; }
+
+    .wizard-steps {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 1.5rem;
+    }
+
+    .wizard-step-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        position: relative;
+    }
+
+    .wizard-step-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background: #e2e8f0;
+        z-index: 0;
+    }
+
+    .wizard-step-item.done:not(:last-child)::after { background: var(--accent); }
+
+    .step-circle {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+        z-index: 1;
+        position: relative;
+        background: #e2e8f0;
+        color: #718096;
+        transition: all 0.2s;
+    }
+
+    .wizard-step-item.done .step-circle {
+        background: var(--accent);
+        color: #fff;
+    }
+
+    .wizard-step-item.active .step-circle {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(79,110,247,0.2);
+    }
+
+    .step-label {
+        font-size: 0.72rem;
+        color: #718096;
+        margin-top: 0.4rem;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .wizard-step-item.active .step-label,
+    .wizard-step-item.done .step-label { color: var(--accent); }
+
+    .wizard-card {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    .wizard-card-header { margin-bottom: 1.75rem; }
+
+    .wizard-card-header h2 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1a2340;
+        margin-bottom: 0.25rem;
+    }
+
+    .wizard-card-header p {
+        color: #718096;
+        font-size: 0.85rem;
+        margin: 0;
+    }
+
+    .form-group-row { margin-bottom: 1.1rem; }
+
+    .profile-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .profile-option { position: relative; }
+
+    .profile-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+    }
+
+    .profile-option label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1.25rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+        background: #fff;
+        text-align: center;
+    }
+
+    .profile-option label i { font-size: 1.75rem; color: #718096; }
+    .profile-option label span { font-size: 0.9rem; font-weight: 600; color: #4a5568; }
+    .profile-option label small { font-size: 0.75rem; color: #a0aec0; }
+
+    .profile-option input[type="radio"]:checked + label {
+        border-color: var(--accent);
+        background: var(--accent-light);
+    }
+
+    .profile-option input[type="radio"]:checked + label i,
+    .profile-option input[type="radio"]:checked + label span { color: var(--accent); }
+
+    .certif-recap {
+        background: linear-gradient(135deg, #1a2340, #243056);
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        color: #fff;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .certif-recap-icon {
+        width: 44px; height: 44px;
+        background: rgba(79,110,247,0.25);
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        color: #a5b4fc;
+        flex-shrink: 0;
+    }
+
+    .certif-recap-name { font-weight: 700; font-size: 1rem; }
+    .certif-recap-meta { font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 0.2rem; }
+
+    .btn-wizard-next {
+        width: 100%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 0.8rem;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .btn-wizard-next:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.25rem 0 0;
+        color: #e53e3e;
+        font-size: 0.8rem;
+    }
+
+    .field-error .form-control { border-color: #e53e3e; }
+
+    .no-cohorte-alert {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #7a5c00;
+        font-size: 0.9rem;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: #718096;
+        text-decoration: none;
+        font-size: 0.85rem;
+        margin-bottom: 1.5rem;
+        transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+
+    <a href="{% url 'portail_accueil' %}" class="back-link">
+        <i class="bi bi-arrow-left"></i> Retour aux certifications
+    </a>
+
+    <!-- Progress steps -->
+    <div class="wizard-progress">
+        <div class="wizard-steps">
+            <div class="wizard-step-item active">
+                <div class="step-circle">1</div>
+                <div class="step-label">Identité</div>
+            </div>
+            <div class="wizard-step-item">
+                <div class="step-circle">2</div>
+                <div class="step-label">Profil</div>
+            </div>
+            <div class="wizard-step-item">
+                <div class="step-circle">3</div>
+                <div class="step-label">Paiement</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wizard-card">
+
+        <!-- Résumé certification -->
+        <div class="certif-recap">
+            <div class="certif-recap-icon"><i class="bi bi-award-fill"></i></div>
+            <div>
+                <div class="certif-recap-name">{{ certification.nom }}</div>
+                <div class="certif-recap-meta">
+                    {% if cohorte %}
+                        Session : {{ cohorte.nom }}
+                        {% if cohorte.date_debut %} · Début {{ cohorte.date_debut|date:"d/m/Y" }}{% endif %}
+                    {% else %}
+                        Aucune session disponible
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if not cohorte %}
+        <div class="no-cohorte-alert">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:1.4rem;color:#f6ad55;flex-shrink:0;"></i>
+            <div>
+                <strong>Aucune session disponible actuellement.</strong><br>
+                <span style="font-size:0.83rem;">Revenez bientôt ou contactez-nous pour être informé de l'ouverture des inscriptions.</span>
+            </div>
+        </div>
+
+        {% else %}
+
+        <div class="wizard-card-header">
+            <h2><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations</h2>
+            <p>Renseignez vos coordonnées et votre profil pour finaliser votre inscription.</p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Identité -->
+            <div class="row g-3">
+                <div class="col-sm-6 form-group-row {% if errors.nom %}field-error{% endif %}">
+                    <label class="form-label">Nom *</label>
+                    <input type="text" name="nom" class="form-control"
+                           value="{{ form_data.nom|default:'' }}" placeholder="Nom de famille" required>
+                    {% if errors.nom %}<ul class="errorlist"><li>{{ errors.nom }}</li></ul>{% endif %}
+                </div>
+                <div class="col-sm-6 form-group-row {% if errors.prenom %}field-error{% endif %}">
+                    <label class="form-label">Prénom *</label>
+                    <input type="text" name="prenom" class="form-control"
+                           value="{{ form_data.prenom|default:'' }}" placeholder="Prénom" required>
+                    {% if errors.prenom %}<ul class="errorlist"><li>{{ errors.prenom }}</li></ul>{% endif %}
+                </div>
+                <div class="col-12 form-group-row {% if errors.email %}field-error{% endif %}">
+                    <label class="form-label">Email *</label>
+                    <input type="email" name="email" class="form-control"
+                           value="{{ form_data.email|default:'' }}" placeholder="votre@email.com" required>
+                    {% if errors.email %}<ul class="errorlist"><li>{{ errors.email }}</li></ul>{% endif %}
+                    <small class="text-muted">Votre identifiant de connexion sera lié à cet email.</small>
+                </div>
+                <div class="col-sm-6 form-group-row">
+                    <label class="form-label">Téléphone</label>
+                    <input type="tel" name="telephone" class="form-control"
+                           value="{{ form_data.telephone|default:'' }}" placeholder="+221 77 000 00 00">
+                </div>
+                <div class="col-sm-6 form-group-row">
+                    <label class="form-label">Adresse</label>
+                    <input type="text" name="adresse" class="form-control"
+                           value="{{ form_data.adresse|default:'' }}" placeholder="Votre adresse (facultatif)">
+                </div>
+            </div>
+
+            <hr class="my-3">
+
+            <!-- Profil -->
+            <div class="form-group-row">
+                <label class="form-label d-block mb-2">Vous êtes *</label>
+                <div class="profile-options">
+                    <div class="profile-option">
+                        <input type="radio" id="profil_etudiant" name="activite" value="etudiant"
+                               {% if form_data.activite != 'professionnel' %}checked{% endif %}>
+                        <label for="profil_etudiant">
+                            <i class="bi bi-mortarboard-fill"></i>
+                            <span>Étudiant(e)</span>
+                            <small>{{ certification.tarif_etudiant|floatformat:0 }} FCFA</small>
+                        </label>
+                    </div>
+                    <div class="profile-option">
+                        <input type="radio" id="profil_pro" name="activite" value="professionnel"
+                               {% if form_data.activite == 'professionnel' %}checked{% endif %}>
+                        <label for="profil_pro">
+                            <i class="bi bi-briefcase-fill"></i>
+                            <span>Professionnel(le)</span>
+                            <small>{{ certification.tarif_professionnel|floatformat:0 }} FCFA</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bloc_universite" class="form-group-row">
+                <label class="form-label">Université / École</label>
+                <input type="text" name="universite" class="form-control"
+                       value="{{ form_data.universite|default:'' }}" placeholder="Nom de votre établissement">
+            </div>
+
+            <div id="bloc_entreprise" class="form-group-row" style="display:none;">
+                <label class="form-label">Entreprise</label>
+                <input type="text" name="entreprise" class="form-control"
+                       value="{{ form_data.entreprise|default:'' }}" placeholder="Nom de votre entreprise">
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn-wizard-next">
+                    Confirmer mon inscription <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+
+            <p class="text-center mt-3 mb-0" style="font-size:0.78rem;color:#a0aec0;">
+                Un compte apprenant vous sera créé automatiquement et vous serez connecté directement.
+            </p>
+
+            <hr class="my-3">
+
+            <div class="text-center" style="font-size:0.85rem;color:#718096;">
+                Vous avez déjà un compte ?
+                <a href="{% url 'login' %}?next={{ request.get_full_path }}" style="color:var(--accent);font-weight:600;text-decoration:none;">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Se connecter
+                </a>
+            </div>
+        </form>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const etu = document.getElementById('profil_etudiant');
+    const pro = document.getElementById('profil_pro');
+    const blocU = document.getElementById('bloc_universite');
+    const blocE = document.getElementById('bloc_entreprise');
+
+    function toggle() {
+        blocU.style.display = pro.checked ? 'none' : 'block';
+        blocE.style.display = pro.checked ? 'block' : 'none';
+    }
+
+    if (etu) etu.addEventListener('change', toggle);
+    if (pro) pro.addEventListener('change', toggle);
+    toggle();
+})();
+</script>
+{% endblock %}

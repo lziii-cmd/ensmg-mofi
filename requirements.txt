@@ -7,3 +7,6 @@ psycopg2-binary>=2.9
 reportlab>=4.0
 qrcode[pil]>=7.4
 pillow>=10.0
+djangorestframework>=3.15
+djangorestframework-simplejwt>=5.3
+drf-spectacular>=0.27
