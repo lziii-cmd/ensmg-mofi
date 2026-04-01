@@ -845,7 +845,7 @@ def import_excel(request):
         form = ImportExcelForm(request.POST, request.FILES)
         if form.is_valid():
             fichier = request.FILES["fichier"]
-            cohorte = form.cleaned_data["cohorte"]
+            cohorte = form.cleaned_data.get("cohorte")  # None si pas sélectionné
 
             try:
                 wb = openpyxl.load_workbook(fichier, read_only=True, data_only=True)
@@ -854,11 +854,10 @@ def import_excel(request):
 
                 if not rows:
                     messages.error(request, "Le fichier est vide.")
-                    return render(
-                        request,
-                        "inscriptions/import_excel.html",
-                        {"form": form, "active_page": "inscrits"},
-                    )
+                    return render(request, "inscriptions/import_excel.html", {
+                        "form": form, "active_page": "inscrits",
+                        "certifications": Certification.objects.filter(actif=True).order_by("nom"),
+                    })
 
                 headers = rows[0]
                 col_map = _map_columns(headers)
@@ -871,11 +870,10 @@ def import_excel(request):
                         f'Colonnes obligatoires manquantes : {", ".join(missing)}. '
                         f'Colonnes trouvées : {", ".join(str(h) for h in headers if h)}',
                     )
-                    return render(
-                        request,
-                        "inscriptions/import_excel.html",
-                        {"form": form, "active_page": "inscrits"},
-                    )
+                    return render(request, "inscriptions/import_excel.html", {
+                        "form": form, "active_page": "inscrits",
+                        "certifications": Certification.objects.filter(actif=True).order_by("nom"),
+                    })
 
                 created = 0
                 updated = 0
@@ -931,21 +929,20 @@ def import_excel(request):
                         else:
                             updated += 1
 
-                        # Compute montant_du from tarif
-                        cert = cohorte.certification
-                        if activite_val == "professionnel":
-                            montant_du = float(cert.tarif_professionnel)
-                        else:
-                            montant_du = float(cert.tarif_etudiant)
-
-                        # Enroll in selected cohorte
-                        _, ic_created = Inscription.objects.get_or_create(
-                            inscrit=inscrit,
-                            cohorte=cohorte,
-                            defaults={"statut": "inscrit", "montant_du": montant_du},
-                        )
-                        if ic_created:
-                            enrolled += 1
+                        # Inscription à la cohorte uniquement si sélectionnée
+                        if cohorte:
+                            cert = cohorte.certification
+                            montant_du = float(
+                                cert.tarif_professionnel if activite_val == "professionnel"
+                                else cert.tarif_etudiant
+                            )
+                            _, ic_created = Inscription.objects.get_or_create(
+                                inscrit=inscrit,
+                                cohorte=cohorte,
+                                defaults={"statut": "inscrit", "montant_du": montant_du},
+                            )
+                            if ic_created:
+                                enrolled += 1
 
                     except Exception as exc:
                         errors.append(f"Ligne {row_idx}: erreur — {exc}")
@@ -953,11 +950,12 @@ def import_excel(request):
                 wb.close()
 
                 if created or updated:
-                    messages.success(
-                        request,
-                        f"Import terminé : {created} inscrit(s) créé(s), {updated} mis à jour, "
-                        f"{enrolled} nouvelle(s) inscription(s) à « {cohorte} ».",
-                    )
+                    msg = f"Import terminé : {created} inscrit(s) créé(s), {updated} mis à jour"
+                    if cohorte:
+                        msg += f", {enrolled} nouvelle(s) inscription(s) à « {cohorte} »."
+                    else:
+                        msg += "."
+                    messages.success(request, msg)
                 for err in errors[:10]:
                     messages.warning(request, err)
                 if len(errors) > 10:
@@ -973,6 +971,7 @@ def import_excel(request):
     context = {
         "form": form,
         "active_page": "inscrits",
+        "certifications": Certification.objects.filter(actif=True).order_by("nom"),
     }
     return render(request, "inscriptions/import_excel.html", context)
 

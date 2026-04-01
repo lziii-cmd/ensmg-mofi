@@ -266,6 +266,7 @@ class ImportExcelForm(forms.Form):
         help_text="Les inscrits importés seront inscrits à cette cohorte.",
         widget=forms.Select(attrs={"class": "form-select"}),
         empty_label="— Sélectionner une cohorte —",
+        required=False,
     )
 
     def __init__(self, *args, **kwargs):

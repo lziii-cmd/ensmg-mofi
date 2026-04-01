@@ -55,22 +55,46 @@
                         <i class="bi bi-info-circle me-1"></i>{{ form.fichier.help_text }}
                     </div>
 
-                    <!-- Certification selection -->
-                    <div class="mb-4">
-                        <label for="{{ form.certification.id_for_label }}" class="form-label">
-                            {{ form.certification.label }} <span class="text-danger">*</span>
+                    <!-- Checkbox : associer à une cohorte -->
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="withCohorte">
+                        <label class="form-check-label fw-500" for="withCohorte">
+                            Associer à une certification / cohorte
                         </label>
-                        {{ form.certification }}
-                        {% if form.certification.help_text %}
-                        <div class="form-text">
-                            <i class="bi bi-award me-1"></i>{{ form.certification.help_text }}
+                        <div class="form-text">Si non coché, les inscrits sont importés sans inscription à une formation.</div>
+                    </div>
+
+                    <!-- Section certification + cohorte (masquée par défaut) -->
+                    <div id="cohorteSection" style="display:none;">
+                        <div class="p-3 rounded-3 mb-3" style="background:#f0f4ff; border:1px solid #d0d9f5;">
+
+                            <!-- Certification -->
+                            <div class="mb-3">
+                                <label class="form-label" for="certifSelect">
+                                    Certification <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select" id="certifSelect">
+                                    <option value="">— Sélectionner une certification —</option>
+                                    {% for cert in certifications %}
+                                    <option value="{{ cert.pk }}">{{ cert.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Cohorte (masquée jusqu'à ce qu'une certif soit choisie) -->
+                            <div id="cohorteDiv" style="display:none;">
+                                <label for="{{ form.cohorte.id_for_label }}" class="form-label">
+                                    Cohorte <span class="text-danger">*</span>
+                                </label>
+                                {{ form.cohorte }}
+                                {% if form.cohorte.errors %}
+                                <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                    <i class="bi bi-exclamation-circle me-1"></i>{{ form.cohorte.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+
                         </div>
-                        {% endif %}
-                        {% if form.certification.errors %}
-                        <div class="text-danger mt-1" style="font-size:0.8rem;">
-                            <i class="bi bi-exclamation-circle me-1"></i>{{ form.certification.errors.0 }}
-                        </div>
-                        {% endif %}
                     </div>
 
                     <div class="d-flex gap-2">
@@ -206,12 +230,12 @@
 
 {% block extra_js %}
 <script>
+// ── Drag & drop fichier ──
 const fileInput = document.querySelector('input[type="file"]');
 const uploadZone = document.getElementById('uploadZone');
 const fileNameDiv = document.getElementById('fileName');
 
 if (fileInput) {
-    // Hide native input visually but keep it clickable via the zone
     fileInput.style.opacity = '0';
     fileInput.style.position = 'absolute';
     fileInput.style.width = '100%';
@@ -245,13 +269,56 @@ if (fileInput) {
         uploadZone.style.background = '#f0fff4';
         uploadZone.style.borderColor = '#38a169';
         if (e.dataTransfer.files[0]) {
-            try {
-                fileInput.files = e.dataTransfer.files;
-            } catch (err) {}
+            try { fileInput.files = e.dataTransfer.files; } catch (err) {}
             fileNameDiv.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Fichier sélectionné : ' + e.dataTransfer.files[0].name;
             fileNameDiv.style.display = 'block';
         }
     });
 }
+
+// ── Checkbox : afficher/masquer section certification/cohorte ──
+const withCohorte  = document.getElementById('withCohorte');
+const cohorteSection = document.getElementById('cohorteSection');
+const certifSelect = document.getElementById('certifSelect');
+const cohorteSelect = document.getElementById('id_cohorte');
+const cohorteDiv   = document.getElementById('cohorteDiv');
+
+withCohorte.addEventListener('change', function () {
+    cohorteSection.style.display = this.checked ? 'block' : 'none';
+    if (!this.checked) {
+        certifSelect.value = '';
+        cohorteSelect.innerHTML = '<option value="">— Sélectionner une cohorte —</option>';
+        cohorteDiv.style.display = 'none';
+    }
+});
+
+// ── Chargement dynamique des cohortes via AJAX ──
+certifSelect.addEventListener('change', function () {
+    const certifId = this.value;
+    cohorteSelect.innerHTML = '<option value="">Chargement...</option>';
+    cohorteDiv.style.display = 'none';
+
+    if (!certifId) {
+        cohorteSelect.innerHTML = '<option value="">— Sélectionner une cohorte —</option>';
+        return;
+    }
+
+    fetch(`/api/cohortes/?certif_id=${certifId}`)
+        .then(r => r.json())
+        .then(data => {
+            cohorteSelect.innerHTML = '<option value="">— Sélectionner une cohorte —</option>';
+            data.cohortes.forEach(function (c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nom;
+                cohorteSelect.appendChild(opt);
+            });
+            cohorteDiv.style.display = 'block';
+        })
+        .catch(function () {
+            cohorteSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            cohorteDiv.style.display = 'block';
+        });
+});
 </script>
 {% endblock %}
