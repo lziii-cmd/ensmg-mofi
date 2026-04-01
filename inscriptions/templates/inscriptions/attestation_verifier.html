@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification d'attestation — ENSMG</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f2f8; min-height: 100vh; display: flex; align-items: center; }
+        .verify-card { max-width: 560px; width: 100%; margin: auto; }
+        .brand-bar { background: #1a2340; color: #fff; border-radius: 12px 12px 0 0; padding: 1.5rem; text-align: center; }
+        .brand-bar .icon { font-size: 2.5rem; color: #4f6ef7; }
+        .result-valid   { border-top: 4px solid #27ae60; }
+        .result-invalid { border-top: 4px solid #e74c3c; }
+        dl dt { font-size: 0.82rem; color: #718096; font-weight: 400; }
+        dl dd { font-size: 0.94rem; font-weight: 600; color: #2d3748; }
+    </style>
+</head>
+<body>
+<div class="container py-5">
+    <div class="verify-card">
+        <!-- En-tête -->
+        <div class="brand-bar">
+            <div class="icon mb-2"><i class="bi bi-award-fill"></i></div>
+            <h5 class="mb-0 fw-bold">ENSMG Certification</h5>
+            <div style="font-size:0.78rem;opacity:0.7;">École Nationale Supérieure de Management et de Gouvernance</div>
+        </div>
+
+        {% if valide %}
+        <!-- ✅ Attestation valide -->
+        <div class="card border-0 shadow-sm result-valid">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <div style="width:72px;height:72px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                        <i class="bi bi-patch-check-fill" style="font-size:2rem;color:#27ae60;"></i>
+                    </div>
+                    <h5 class="fw-bold text-success mb-1">Attestation authentique</h5>
+                    <p class="text-muted" style="font-size:0.85rem;">
+                        Ce document a été émis par l'ENSMG et est valide.
+                    </p>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background:#f8fff9;border:1px solid #c3e6cb;">
+                    <dl class="row mb-0">
+                        <dt class="col-5">Numéro</dt>
+                        <dd class="col-7 font-monospace" style="font-size:0.82rem;">{{ attestation.numero }}</dd>
+
+                        <dt class="col-5">Bénéficiaire</dt>
+                        <dd class="col-7">{{ attestation.inscription.inscrit.nom_complet }}</dd>
+
+                        <dt class="col-5">Certification</dt>
+                        <dd class="col-7">{{ attestation.inscription.cohorte.certification.nom }}</dd>
+
+                        <dt class="col-5">Cohorte</dt>
+                        <dd class="col-7">{{ attestation.inscription.cohorte.nom }}</dd>
+
+                        <dt class="col-5">Délivré le</dt>
+                        <dd class="col-7">{{ attestation.date_delivrance|date:"d/m/Y" }}</dd>
+                    </dl>
+                </div>
+
+                <p class="text-muted text-center mb-0" style="font-size:0.78rem;">
+                    <i class="bi bi-shield-check me-1"></i>
+                    Vérifié le {% now "d/m/Y à H:i" %} &mdash; ENSMG, Dakar
+                </p>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- ❌ Attestation introuvable -->
+        <div class="card border-0 shadow-sm result-invalid">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <div style="width:72px;height:72px;border-radius:50%;background:#fde8e8;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                        <i class="bi bi-x-circle-fill" style="font-size:2rem;color:#e74c3c;"></i>
+                    </div>
+                    <h5 class="fw-bold text-danger mb-1">Attestation non reconnue</h5>
+                    <p class="text-muted" style="font-size:0.85rem;">
+                        Le numéro <strong class="font-monospace">{{ numero }}</strong> ne correspond à aucune attestation délivrée par l'ENSMG.
+                    </p>
+                </div>
+                <div class="alert alert-warning" style="font-size:0.83rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Ce document pourrait être falsifié. Veuillez contacter l'ENSMG pour toute vérification complémentaire.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-3" style="font-size:0.75rem;color:#a0aec0;">
+            &copy; {% now "Y" %} ENSMG — Plateforme de vérification des attestations
+        </div>
+    </div>
+</div>
+</body>
+</html>

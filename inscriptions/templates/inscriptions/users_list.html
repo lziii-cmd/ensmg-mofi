@@ -1,0 +1,102 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Utilisateurs — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Utilisateurs</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-people me-2 text-primary"></i>Utilisateurs</h1>
+        <p>Gestion des comptes utilisateurs de l'application</p>
+    </div>
+    <a href="{% url 'user_ajouter' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i>Nouvel utilisateur
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if users %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Utilisateur</th>
+                        <th>Email</th>
+                        <th>Rôle</th>
+                        <th>Statut</th>
+                        <th>Dernière connexion</th>
+                        <th class="pe-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder">
+                                    {{ u.username.0|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-500" style="font-weight:500;">{{ u.username }}</div>
+                                    <div class="text-muted" style="font-size:0.73rem;">{{ u.get_full_name }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-muted">{{ u.email|default:"—" }}</td>
+                        <td>
+                            {% if u.is_superuser %}
+                                <span class="badge bg-danger-subtle text-danger rounded-pill">Super admin</span>
+                            {% elif u.is_staff %}
+                                <span class="badge bg-warning-subtle text-warning rounded-pill">Admin</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill">Utilisateur</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge bg-success-subtle text-success rounded-pill">Actif</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="font-size:0.83rem;">
+                            {% if u.last_login %}{{ u.last_login|date:"d/m/Y H:i" }}{% else %}Jamais{% endif %}
+                        </td>
+                        <td class="pe-3">
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'user_modifier' u.pk %}" class="btn btn-sm btn-outline-primary" title="Modifier">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if u != request.user %}
+                                <form method="post" action="{% url 'user_toggle' u.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                            title="{% if u.is_active %}Désactiver{% else %}Activer{% endif %}"
+                                            onclick="return confirm('{% if u.is_active %}Désactiver{% else %}Activer{% endif %} l\'utilisateur {{ u.username }} ?');">
+                                        <i class="bi {% if u.is_active %}bi-person-dash{% else %}bi-person-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <p>Aucun utilisateur trouvé.</p>
+            <a href="{% url 'user_ajouter' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-person-plus me-1"></i>Créer un utilisateur
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

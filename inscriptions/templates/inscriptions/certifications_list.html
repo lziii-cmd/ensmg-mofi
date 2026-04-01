@@ -82,26 +82,22 @@
                 {% endif %}
                 <div class="col-6">
                     <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
-                        <i class="bi bi-cash-coin text-success"></i>
-                        {{ cert.cout_total|floatformat:0 }} FCFA
+                        <i class="bi bi-mortarboard text-primary"></i>
+                        {{ cert.tarif_etudiant|floatformat:0 }} FCFA
                     </div>
                 </div>
-                {% if cert.date_debut %}
                 <div class="col-6">
                     <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
-                        <i class="bi bi-calendar-event text-info"></i>
-                        {{ cert.date_debut|date:"d/m/Y" }}
+                        <i class="bi bi-briefcase text-purple" style="color:#7e22ce;"></i>
+                        {{ cert.tarif_professionnel|floatformat:0 }} FCFA
                     </div>
                 </div>
-                {% endif %}
-                {% if cert.date_fin %}
                 <div class="col-6">
                     <div class="d-flex align-items-center gap-1 text-muted" style="font-size:0.78rem;">
-                        <i class="bi bi-calendar-check text-warning"></i>
-                        {{ cert.date_fin|date:"d/m/Y" }}
+                        <i class="bi bi-collection text-info"></i>
+                        {{ cert.nb_cohortes }} cohorte{{ cert.nb_cohortes|pluralize }}
                     </div>
                 </div>
-                {% endif %}
             </div>
 
             <!-- Stats -->

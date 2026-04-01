@@ -1,79 +1,176 @@
+import io
+import json
+import uuid
+from functools import wraps
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
+from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.utils import timezone
 import openpyxl
 
-from .models import Certification, Inscrit, InscriptionCertification, Paiement
+from .models import Certification, Cohorte, Inscrit, Inscription, Paiement, Attestation
 from .forms import (
     CertificationForm,
+    CohorteForm,
     InscritForm,
-    InscriptionCertificationForm,
+    InscriptionForm,
     ChangerStatutForm,
     PaiementForm,
     PaiementInscriptionForm,
     ImportExcelForm,
+    UserForm,
 )
+
+
+# ---------------------------------------------------------------------------
+# Decorators
+# ---------------------------------------------------------------------------
+
+def admin_required(view_func):
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, "Accès réservé aux administrateurs.")
+            return redirect("dashboard")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Filter views
+# ---------------------------------------------------------------------------
+
+@login_required
+def set_filter(request):
+    if request.method == "POST":
+        certif_ids = [int(x) for x in request.POST.getlist("certif_ids") if x.isdigit()]
+        cohorte_ids = [int(x) for x in request.POST.getlist("cohorte_ids") if x.isdigit()]
+        request.session["filter_certif_ids"] = certif_ids
+        request.session["filter_cohorte_ids"] = cohorte_ids
+    next_url = request.POST.get("next", request.GET.get("next", "/"))
+    return redirect(next_url)
+
+
+@login_required
+def clear_filter(request):
+    request.session.pop("filter_certif_ids", None)
+    request.session.pop("filter_cohorte_ids", None)
+    next_url = request.GET.get("next", "/")
+    return redirect(next_url)
+
+
+# ---------------------------------------------------------------------------
+# AJAX API
+# ---------------------------------------------------------------------------
+
+@login_required
+def api_cohortes(request):
+    certif_ids = request.GET.getlist("certif_id")
+    cohortes = []
+    if certif_ids:
+        qs = Cohorte.objects.filter(
+            certification_id__in=certif_ids
+        ).select_related("certification").order_by("nom")
+        cohortes = [
+            {"id": c.pk, "nom": c.nom, "certification": c.certification.nom}
+            for c in qs
+        ]
+    return JsonResponse({"cohortes": cohortes})
+
+
+@login_required
+def api_search_inscrits(request):
+    q = request.GET.get("q", "").strip()
+    results = []
+    if q:
+        inscrits = Inscrit.objects.filter(
+            Q(nom__icontains=q) | Q(prenom__icontains=q) | Q(email__icontains=q)
+        ).order_by("nom", "prenom")[:20]
+        results = [
+            {"id": i.pk, "text": f"{i.prenom} {i.nom} ({i.email or i.telephone or 'no contact'})"}
+            for i in inscrits
+        ]
+    return JsonResponse({"results": results})
 
 
 # ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 
+@login_required
 def dashboard(request):
-    nb_certifications = Certification.objects.count()
-    nb_inscrits = Inscrit.objects.count()
-    total_encaisse = Paiement.objects.aggregate(total=Sum("montant"))["total"] or 0
+    filter_certif_ids = request.session.get("filter_certif_ids", [])
+    filter_cohorte_ids = request.session.get("filter_cohorte_ids", [])
 
-    nb_certifies = InscriptionCertification.objects.filter(statut="certifie").count()
+    inscriptions_qs = Inscription.objects.all()
+    paiements_qs = Paiement.objects.all()
+
+    if filter_cohorte_ids:
+        inscriptions_qs = inscriptions_qs.filter(cohorte_id__in=filter_cohorte_ids)
+        paiements_qs = paiements_qs.filter(inscription__cohorte_id__in=filter_cohorte_ids)
+    elif filter_certif_ids:
+        inscriptions_qs = inscriptions_qs.filter(cohorte__certification_id__in=filter_certif_ids)
+        paiements_qs = paiements_qs.filter(inscription__cohorte__certification_id__in=filter_certif_ids)
+
+    nb_inscrits = inscriptions_qs.values("inscrit").distinct().count()
+    nb_certifies = inscriptions_qs.filter(statut="certifie").count()
+    total_encaisse = paiements_qs.aggregate(total=Sum("montant"))["total"] or 0
+    total_inscriptions = inscriptions_qs.count()
     taux_certification = 0
-    total_inscriptions = InscriptionCertification.objects.count()
     if total_inscriptions > 0:
         taux_certification = int((nb_certifies / total_inscriptions) * 100)
 
-    # Stats per status
-    stats_statut = (
-        InscriptionCertification.objects
-        .values("statut")
-        .annotate(count=Count("id"))
-        .order_by("statut")
-    )
-    stats_statut_dict = {s["statut"]: s["count"] for s in stats_statut}
-
     # Stats per certification
     certifications = Certification.objects.prefetch_related(
-        "inscriptions__paiements"
+        "cohortes__inscriptions__paiements"
     ).order_by("-created_at")
+
+    if filter_certif_ids:
+        certifications = certifications.filter(pk__in=filter_certif_ids)
 
     stats_certifications = []
     for cert in certifications:
+        cert_inscriptions = Inscription.objects.filter(cohorte__certification=cert)
+        if filter_cohorte_ids:
+            cert_inscriptions = cert_inscriptions.filter(cohorte_id__in=filter_cohorte_ids)
+        nb_cert_inscrits = cert_inscriptions.count()
+        nb_cert_certifies = cert_inscriptions.filter(statut="certifie").count()
+        taux = 0
+        if nb_cert_inscrits > 0:
+            taux = int((nb_cert_certifies / nb_cert_inscrits) * 100)
+        montant = Paiement.objects.filter(inscription__in=cert_inscriptions).aggregate(
+            total=Sum("montant")
+        )["total"] or 0
         stats_certifications.append({
             "certification": cert,
-            "nb_inscrits": cert.nb_inscrits,
-            "nb_en_formation": cert.nb_en_formation,
-            "nb_certifies": cert.nb_certifies,
-            "montant_encaisse": cert.montant_encaisse,
+            "nb_inscrits": nb_cert_inscrits,
+            "nb_certifies": nb_cert_certifies,
+            "nb_cohortes": cert.cohortes.count(),
+            "taux": taux,
+            "montant_encaisse": montant,
         })
 
     # Recent payments
     paiements_recents = (
-        Paiement.objects
-        .select_related("inscription__inscrit", "inscription__certification")
+        paiements_qs
+        .select_related("inscription__inscrit", "inscription__cohorte__certification")
         .order_by("-date_paiement", "-created_at")[:8]
     )
 
-    # Recent inscrits
-    inscrits_recents = Inscrit.objects.order_by("-date_inscription")[:5]
-
     context = {
-        "nb_certifications": nb_certifications,
         "nb_inscrits": nb_inscrits,
+        "nb_certifies": nb_certifies,
         "total_encaisse": total_encaisse,
         "taux_certification": taux_certification,
-        "stats_statut_dict": stats_statut_dict,
         "stats_certifications": stats_certifications,
         "paiements_recents": paiements_recents,
-        "inscrits_recents": inscrits_recents,
+        "filter_certif_ids": filter_certif_ids,
+        "filter_cohorte_ids": filter_cohorte_ids,
         "active_page": "dashboard",
     }
     return render(request, "inscriptions/dashboard.html", context)
@@ -83,9 +180,12 @@ def dashboard(request):
 # Certifications
 # ---------------------------------------------------------------------------
 
+@login_required
 def certifications_list(request):
     query = request.GET.get("q", "")
-    certifications = Certification.objects.prefetch_related("inscriptions__paiements")
+    certifications = Certification.objects.prefetch_related(
+        "cohortes__inscriptions__paiements"
+    )
 
     if query:
         certifications = certifications.filter(
@@ -103,27 +203,24 @@ def certifications_list(request):
     return render(request, "inscriptions/certifications_list.html", context)
 
 
+@login_required
 def certification_detail(request, pk):
     certification = get_object_or_404(Certification, pk=pk)
-    inscriptions = (
-        certification.inscriptions
-        .select_related("inscrit")
-        .prefetch_related("paiements")
-        .order_by("-date_inscription")
+    cohortes = (
+        certification.cohortes
+        .prefetch_related("inscriptions__paiements", "inscriptions__inscrit")
+        .order_by("nom")
     )
-
-    # Build changer statut forms per inscription
-    statut_forms = {ic.pk: ChangerStatutForm(instance=ic) for ic in inscriptions}
 
     context = {
         "certification": certification,
-        "inscriptions": inscriptions,
-        "statut_forms": statut_forms,
+        "cohortes": cohortes,
         "active_page": "certifications",
     }
     return render(request, "inscriptions/certification_detail.html", context)
 
 
+@login_required
 def certification_ajouter(request):
     if request.method == "POST":
         form = CertificationForm(request.POST)
@@ -143,6 +240,7 @@ def certification_ajouter(request):
     return render(request, "inscriptions/certification_form.html", context)
 
 
+@login_required
 def certification_modifier(request, pk):
     certification = get_object_or_404(Certification, pk=pk)
     if request.method == "POST":
@@ -164,6 +262,7 @@ def certification_modifier(request, pk):
     return render(request, "inscriptions/certification_form.html", context)
 
 
+@login_required
 def certification_supprimer(request, pk):
     certification = get_object_or_404(Certification, pk=pk)
     if request.method == "POST":
@@ -180,9 +279,98 @@ def certification_supprimer(request, pk):
 
 
 # ---------------------------------------------------------------------------
+# Cohortes
+# ---------------------------------------------------------------------------
+
+@login_required
+def cohorte_ajouter(request, certif_pk):
+    certification = get_object_or_404(Certification, pk=certif_pk)
+    if request.method == "POST":
+        form = CohorteForm(request.POST)
+        if form.is_valid():
+            cohorte = form.save(commit=False)
+            cohorte.certification = certification
+            cohorte.save()
+            messages.success(request, f'Cohorte "{cohorte.nom}" créée avec succès.')
+            return redirect("cohorte_detail", pk=cohorte.pk)
+    else:
+        form = CohorteForm()
+
+    context = {
+        "form": form,
+        "certification": certification,
+        "titre": f"Ajouter une cohorte — {certification.nom}",
+        "action": "Créer",
+        "active_page": "certifications",
+    }
+    return render(request, "inscriptions/cohorte_form.html", context)
+
+
+@login_required
+def cohorte_modifier(request, pk):
+    cohorte = get_object_or_404(Cohorte, pk=pk)
+    if request.method == "POST":
+        form = CohorteForm(request.POST, instance=cohorte)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Cohorte "{cohorte.nom}" modifiée.')
+            return redirect("cohorte_detail", pk=cohorte.pk)
+    else:
+        form = CohorteForm(instance=cohorte)
+
+    context = {
+        "form": form,
+        "cohorte": cohorte,
+        "certification": cohorte.certification,
+        "titre": f"Modifier : {cohorte.nom}",
+        "action": "Enregistrer",
+        "active_page": "certifications",
+    }
+    return render(request, "inscriptions/cohorte_form.html", context)
+
+
+@login_required
+def cohorte_supprimer(request, pk):
+    cohorte = get_object_or_404(Cohorte, pk=pk)
+    certif_pk = cohorte.certification.pk
+    if request.method == "POST":
+        nom = cohorte.nom
+        cohorte.delete()
+        messages.success(request, f'Cohorte "{nom}" supprimée.')
+        return redirect("certification_detail", pk=certif_pk)
+
+    context = {
+        "cohorte": cohorte,
+        "active_page": "certifications",
+    }
+    return render(request, "inscriptions/cohorte_confirm_delete.html", context)
+
+
+@login_required
+def cohorte_detail(request, pk):
+    cohorte = get_object_or_404(Cohorte, pk=pk)
+    inscriptions = (
+        cohorte.inscriptions
+        .select_related("inscrit")
+        .prefetch_related("paiements")
+        .order_by("-date_inscription")
+    )
+    statut_forms = {insc.pk: ChangerStatutForm(instance=insc) for insc in inscriptions}
+
+    context = {
+        "cohorte": cohorte,
+        "inscriptions": inscriptions,
+        "statut_forms": statut_forms,
+        "active_page": "certifications",
+    }
+    return render(request, "inscriptions/cohorte_detail.html", context)
+
+
+# ---------------------------------------------------------------------------
 # Inscrits
 # ---------------------------------------------------------------------------
 
+@login_required
 def inscrits_list(request):
     query = request.GET.get("q", "")
     activite_filter = request.GET.get("activite", "")
@@ -190,7 +378,7 @@ def inscrits_list(request):
     statut_filter = request.GET.get("statut", "")
 
     inscrits = Inscrit.objects.prefetch_related(
-        "inscriptions__certification", "inscriptions__paiements"
+        "inscriptions__cohorte__certification", "inscriptions__paiements"
     ).order_by("-date_inscription")
 
     if query:
@@ -206,12 +394,24 @@ def inscrits_list(request):
 
     if certification_filter:
         inscrits = inscrits.filter(
-            inscriptions__certification__pk=certification_filter
+            inscriptions__cohorte__certification__pk=certification_filter
         ).distinct()
 
     if statut_filter:
         inscrits = inscrits.filter(
             inscriptions__statut=statut_filter
+        ).distinct()
+
+    # Apply session filters
+    filter_certif_ids = request.session.get("filter_certif_ids", [])
+    filter_cohorte_ids = request.session.get("filter_cohorte_ids", [])
+    if filter_cohorte_ids:
+        inscrits = inscrits.filter(
+            inscriptions__cohorte_id__in=filter_cohorte_ids
+        ).distinct()
+    elif filter_certif_ids:
+        inscrits = inscrits.filter(
+            inscriptions__cohorte__certification_id__in=filter_certif_ids
         ).distinct()
 
     certifications_all = Certification.objects.order_by("nom")
@@ -223,7 +423,7 @@ def inscrits_list(request):
         "certification_filter": certification_filter,
         "statut_filter": statut_filter,
         "certifications_all": certifications_all,
-        "statut_choices": InscriptionCertification.STATUT_CHOICES,
+        "statut_choices": Inscription.STATUT_CHOICES,
         "activite_choices": Inscrit.ACTIVITE_CHOICES,
         "active_page": "inscrits",
         "nb_inscrits": Inscrit.objects.count(),
@@ -231,26 +431,30 @@ def inscrits_list(request):
     return render(request, "inscriptions/inscrits_list.html", context)
 
 
+@login_required
 def inscrit_detail(request, pk):
     inscrit = get_object_or_404(Inscrit, pk=pk)
     inscriptions = (
         inscrit.inscriptions
-        .select_related("certification")
+        .select_related("cohorte__certification")
         .prefetch_related("paiements")
         .order_by("-date_inscription")
     )
 
-    statut_forms = {ic.pk: ChangerStatutForm(instance=ic) for ic in inscriptions}
+    statut_forms = {insc.pk: ChangerStatutForm(instance=insc) for insc in inscriptions}
+    paiement_forms = {insc.pk: PaiementInscriptionForm(initial={"date_paiement": timezone.now().date()}) for insc in inscriptions}
 
     context = {
         "inscrit": inscrit,
         "inscriptions": inscriptions,
         "statut_forms": statut_forms,
+        "paiement_forms": paiement_forms,
         "active_page": "inscrits",
     }
     return render(request, "inscriptions/inscrit_detail.html", context)
 
 
+@login_required
 def inscrit_ajouter(request):
     if request.method == "POST":
         form = InscritForm(request.POST)
@@ -272,6 +476,7 @@ def inscrit_ajouter(request):
     return render(request, "inscriptions/inscrit_form.html", context)
 
 
+@login_required
 def inscrit_modifier(request, pk):
     inscrit = get_object_or_404(Inscrit, pk=pk)
     if request.method == "POST":
@@ -293,6 +498,7 @@ def inscrit_modifier(request, pk):
     return render(request, "inscriptions/inscrit_form.html", context)
 
 
+@login_required
 def inscrit_supprimer(request, pk):
     inscrit = get_object_or_404(Inscrit, pk=pk)
     if request.method == "POST":
@@ -308,39 +514,143 @@ def inscrit_supprimer(request, pk):
     return render(request, "inscriptions/inscrit_confirm_delete.html", context)
 
 
-def inscrire_a_certification(request, pk):
-    """Enroll an inscrit in a certification."""
-    inscrit = get_object_or_404(Inscrit, pk=pk)
+# ---------------------------------------------------------------------------
+# Inscription Wizard
+# ---------------------------------------------------------------------------
+
+@login_required
+def inscription_wizard(request):
+    """
+    3-step wizard:
+    Step 1: certification → cohorte (AJAX)
+    Step 2: find or create inscrit
+    Step 3: confirmation with auto-calculated tarif
+    """
+    certifications = Certification.objects.filter(actif=True).order_by("nom")
+
+    # Build certif_tarifs JSON for JS
+    certif_tarifs = {}
+    for c in certifications:
+        certif_tarifs[c.pk] = {
+            "etudiant": float(c.tarif_etudiant),
+            "professionnel": float(c.tarif_professionnel),
+            "nom": c.nom,
+        }
 
     if request.method == "POST":
-        form = InscriptionCertificationForm(request.POST, inscrit=inscrit)
-        if form.is_valid():
-            inscription = form.save(commit=False)
-            inscription.inscrit = inscrit
-            inscription.save()
-            messages.success(
-                request,
-                f'"{inscrit}" inscrit à la certification "{inscription.certification.nom}".',
-            )
+        cohorte_id = request.POST.get("cohorte_id")
+        inscrit_id = request.POST.get("inscrit_id")
+        statut = request.POST.get("statut", "inscrit")
+        notes = request.POST.get("notes", "")
+        montant_du = request.POST.get("montant_du", "0")
+
+        # Validate cohorte
+        cohorte = None
+        if cohorte_id:
+            try:
+                cohorte = Cohorte.objects.select_related("certification").get(pk=cohorte_id)
+            except Cohorte.DoesNotExist:
+                messages.error(request, "Cohorte invalide.")
+                return render(request, "inscriptions/inscription_wizard.html", {
+                    "certifications": certifications,
+                    "certif_tarifs_json": json.dumps(certif_tarifs),
+                    "statut_choices": Inscription.STATUT_CHOICES,
+                    "active_page": "inscrits",
+                })
+
+        if not cohorte:
+            messages.error(request, "Veuillez sélectionner une cohorte.")
+            return render(request, "inscriptions/inscription_wizard.html", {
+                "certifications": certifications,
+                "certif_tarifs_json": json.dumps(certif_tarifs),
+                "statut_choices": Inscription.STATUT_CHOICES,
+                "active_page": "inscrits",
+            })
+
+        # Get or create inscrit
+        inscrit = None
+        if inscrit_id:
+            try:
+                inscrit = Inscrit.objects.get(pk=inscrit_id)
+            except Inscrit.DoesNotExist:
+                messages.error(request, "Participant introuvable.")
+
+        if not inscrit:
+            # Create new inscrit
+            nom = request.POST.get("nom", "").strip()
+            prenom = request.POST.get("prenom", "").strip()
+            email = request.POST.get("email", "").strip().lower()
+            telephone = request.POST.get("telephone", "").strip()
+            activite = request.POST.get("activite", "etudiant")
+
+            if not nom or not prenom:
+                messages.error(request, "Nom et prénom requis pour créer un participant.")
+                return render(request, "inscriptions/inscription_wizard.html", {
+                    "certifications": certifications,
+                    "certif_tarifs_json": json.dumps(certif_tarifs),
+                    "statut_choices": Inscription.STATUT_CHOICES,
+                    "active_page": "inscrits",
+                })
+
+            if email:
+                inscrit, _ = Inscrit.objects.update_or_create(
+                    email=email,
+                    defaults={"nom": nom, "prenom": prenom, "telephone": telephone, "activite": activite, "source": "manuel"},
+                )
+            else:
+                inscrit = Inscrit.objects.create(
+                    nom=nom, prenom=prenom, email=email,
+                    telephone=telephone, activite=activite, source="manuel",
+                )
+
+        # Check not already enrolled
+        if Inscription.objects.filter(inscrit=inscrit, cohorte=cohorte).exists():
+            messages.warning(request, f'"{inscrit}" est déjà inscrit à la cohorte "{cohorte.nom}".')
             return redirect("inscrit_detail", pk=inscrit.pk)
-    else:
-        form = InscriptionCertificationForm(inscrit=inscrit)
+
+        # Compute montant_du if not provided
+        try:
+            montant_du_val = float(montant_du) if montant_du else 0
+        except (ValueError, TypeError):
+            montant_du_val = 0
+
+        if montant_du_val == 0:
+            cert = cohorte.certification
+            if inscrit.activite == "professionnel":
+                montant_du_val = float(cert.tarif_professionnel)
+            else:
+                montant_du_val = float(cert.tarif_etudiant)
+
+        inscription = Inscription.objects.create(
+            inscrit=inscrit,
+            cohorte=cohorte,
+            statut=statut,
+            montant_du=montant_du_val,
+            notes=notes,
+        )
+        messages.success(
+            request,
+            f'"{inscrit}" inscrit à la cohorte "{cohorte.nom}" ({cohorte.certification.nom}).',
+        )
+        return redirect("inscrit_detail", pk=inscrit.pk)
 
     context = {
-        "form": form,
-        "inscrit": inscrit,
-        "titre": f"Inscrire {inscrit} à une certification",
+        "certifications": certifications,
+        "certif_tarifs_json": json.dumps(certif_tarifs),
+        "statut_choices": Inscription.STATUT_CHOICES,
+        "activite_choices": Inscrit.ACTIVITE_CHOICES,
         "active_page": "inscrits",
     }
-    return render(request, "inscriptions/inscription_form.html", context)
+    return render(request, "inscriptions/inscription_wizard.html", context)
 
 
 # ---------------------------------------------------------------------------
-# InscriptionCertification actions
+# Inscription actions
 # ---------------------------------------------------------------------------
 
+@login_required
 def changer_statut(request, pk):
-    inscription = get_object_or_404(InscriptionCertification, pk=pk)
+    inscription = get_object_or_404(Inscription, pk=pk)
     next_url = request.POST.get("next") or request.GET.get("next", "")
 
     if request.method == "POST":
@@ -356,14 +666,15 @@ def changer_statut(request, pk):
     return redirect("inscrit_detail", pk=inscription.inscrit.pk)
 
 
+@login_required
 def inscription_supprimer(request, pk):
-    inscription = get_object_or_404(InscriptionCertification, pk=pk)
+    inscription = get_object_or_404(Inscription, pk=pk)
     inscrit_pk = inscription.inscrit.pk
 
     if request.method == "POST":
-        cert_nom = inscription.certification.nom
+        cohorte_nom = inscription.cohorte.nom
         inscription.delete()
-        messages.success(request, f'Inscription à "{cert_nom}" supprimée.')
+        messages.success(request, f'Inscription à la cohorte "{cohorte_nom}" supprimée.')
         return redirect("inscrit_detail", pk=inscrit_pk)
 
     context = {
@@ -373,9 +684,9 @@ def inscription_supprimer(request, pk):
     return render(request, "inscriptions/inscription_confirm_delete.html", context)
 
 
+@login_required
 def paiement_ajouter_pour_inscription(request, pk):
-    """Add a payment linked to a specific InscriptionCertification."""
-    inscription = get_object_or_404(InscriptionCertification, pk=pk)
+    inscription = get_object_or_404(Inscription, pk=pk)
 
     if request.method == "POST":
         form = PaiementInscriptionForm(request.POST)
@@ -390,6 +701,112 @@ def paiement_ajouter_pour_inscription(request, pk):
         else:
             messages.error(request, "Erreur dans le formulaire de paiement.")
     return redirect("inscrit_detail", pk=inscription.inscrit.pk)
+
+
+# ---------------------------------------------------------------------------
+# Paiements
+# ---------------------------------------------------------------------------
+
+@login_required
+def paiements_list(request):
+    query = request.GET.get("q", "")
+    moyen_filter = request.GET.get("moyen", "")
+
+    paiements = Paiement.objects.select_related(
+        "inscription__inscrit", "inscription__cohorte__certification"
+    ).order_by("-date_paiement", "-created_at")
+
+    if query:
+        paiements = paiements.filter(
+            Q(inscription__inscrit__nom__icontains=query)
+            | Q(inscription__inscrit__prenom__icontains=query)
+            | Q(inscription__inscrit__email__icontains=query)
+            | Q(inscription__cohorte__certification__nom__icontains=query)
+            | Q(inscription__cohorte__nom__icontains=query)
+            | Q(reference__icontains=query)
+        )
+
+    if moyen_filter:
+        paiements = paiements.filter(moyen_paiement=moyen_filter)
+
+    # Apply session filters
+    filter_certif_ids = request.session.get("filter_certif_ids", [])
+    filter_cohorte_ids = request.session.get("filter_cohorte_ids", [])
+    if filter_cohorte_ids:
+        paiements = paiements.filter(inscription__cohorte_id__in=filter_cohorte_ids)
+    elif filter_certif_ids:
+        paiements = paiements.filter(inscription__cohorte__certification_id__in=filter_certif_ids)
+
+    total_filtre = paiements.aggregate(total=Sum("montant"))["total"] or 0
+
+    context = {
+        "paiements": paiements,
+        "query": query,
+        "moyen_filter": moyen_filter,
+        "moyen_choices": Paiement.MOYEN_CHOICES,
+        "total_filtre": total_filtre,
+        "active_page": "paiements",
+    }
+    return render(request, "inscriptions/paiements_list.html", context)
+
+
+@login_required
+def paiement_ajouter(request):
+    if request.method == "POST":
+        form = PaiementForm(request.POST)
+        if form.is_valid():
+            paiement = form.save()
+            messages.success(request, f"Paiement de {paiement.montant} FCFA enregistré.")
+            return redirect("inscrit_detail", pk=paiement.inscription.inscrit.pk)
+    else:
+        form = PaiementForm(initial={"date_paiement": timezone.now().date()})
+
+    context = {
+        "form": form,
+        "titre": "Ajouter un paiement",
+        "action": "Enregistrer",
+        "active_page": "paiements",
+    }
+    return render(request, "inscriptions/paiement_form.html", context)
+
+
+@login_required
+def paiement_modifier(request, pk):
+    paiement = get_object_or_404(Paiement, pk=pk)
+    if request.method == "POST":
+        form = PaiementForm(request.POST, instance=paiement)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Paiement modifié avec succès.")
+            return redirect("inscrit_detail", pk=paiement.inscription.inscrit.pk)
+    else:
+        form = PaiementForm(instance=paiement)
+
+    context = {
+        "form": form,
+        "paiement": paiement,
+        "titre": "Modifier le paiement",
+        "action": "Enregistrer",
+        "active_page": "paiements",
+    }
+    return render(request, "inscriptions/paiement_form.html", context)
+
+
+@login_required
+def paiement_supprimer(request, pk):
+    paiement = get_object_or_404(Paiement, pk=pk)
+    inscrit_pk = paiement.inscription.inscrit.pk
+    if request.method == "POST":
+        montant = paiement.montant
+        paiement.delete()
+        messages.success(request, f"Paiement de {montant} FCFA supprimé.")
+        return redirect("inscrit_detail", pk=inscrit_pk)
+
+    context = {
+        "paiement": paiement,
+        "active_page": "paiements",
+    }
+    return render(request, "inscriptions/paiement_confirm_delete.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -422,12 +839,13 @@ def _map_columns(headers):
     return mapping
 
 
+@login_required
 def import_excel(request):
     if request.method == "POST":
         form = ImportExcelForm(request.POST, request.FILES)
         if form.is_valid():
             fichier = request.FILES["fichier"]
-            certification = form.cleaned_data["certification"]
+            cohorte = form.cleaned_data["cohorte"]
 
             try:
                 wb = openpyxl.load_workbook(fichier, read_only=True, data_only=True)
@@ -470,9 +888,7 @@ def import_excel(request):
                         prenom = str(row[col_map["prenom"]] or "").strip()
 
                         if not nom or not prenom:
-                            errors.append(
-                                f"Ligne {row_idx}: nom ou prénom manquant."
-                            )
+                            errors.append(f"Ligne {row_idx}: nom ou prénom manquant.")
                             continue
 
                         email = ""
@@ -515,11 +931,18 @@ def import_excel(request):
                         else:
                             updated += 1
 
-                        # Enroll in selected certification
-                        _, ic_created = InscriptionCertification.objects.get_or_create(
+                        # Compute montant_du from tarif
+                        cert = cohorte.certification
+                        if activite_val == "professionnel":
+                            montant_du = float(cert.tarif_professionnel)
+                        else:
+                            montant_du = float(cert.tarif_etudiant)
+
+                        # Enroll in selected cohorte
+                        _, ic_created = Inscription.objects.get_or_create(
                             inscrit=inscrit,
-                            certification=certification,
-                            defaults={"statut": "inscrit"},
+                            cohorte=cohorte,
+                            defaults={"statut": "inscrit", "montant_du": montant_du},
                         )
                         if ic_created:
                             enrolled += 1
@@ -533,14 +956,12 @@ def import_excel(request):
                     messages.success(
                         request,
                         f"Import terminé : {created} inscrit(s) créé(s), {updated} mis à jour, "
-                        f"{enrolled} nouvelle(s) inscription(s) à « {certification.nom} ».",
+                        f"{enrolled} nouvelle(s) inscription(s) à « {cohorte} ».",
                     )
                 for err in errors[:10]:
                     messages.warning(request, err)
                 if len(errors) > 10:
-                    messages.warning(
-                        request, f"... et {len(errors) - 10} autres erreurs."
-                    )
+                    messages.warning(request, f"... et {len(errors) - 10} autres erreurs.")
 
                 return redirect("inscrits_list")
 
@@ -557,97 +978,348 @@ def import_excel(request):
 
 
 # ---------------------------------------------------------------------------
-# Paiements
+# Users (admin only)
 # ---------------------------------------------------------------------------
 
-def paiements_list(request):
-    query = request.GET.get("q", "")
-    moyen_filter = request.GET.get("moyen", "")
-
-    paiements = Paiement.objects.select_related(
-        "inscription__inscrit", "inscription__certification"
-    ).order_by("-date_paiement", "-created_at")
-
-    if query:
-        paiements = paiements.filter(
-            Q(inscription__inscrit__nom__icontains=query)
-            | Q(inscription__inscrit__prenom__icontains=query)
-            | Q(inscription__inscrit__email__icontains=query)
-            | Q(inscription__certification__nom__icontains=query)
-            | Q(reference__icontains=query)
-        )
-
-    if moyen_filter:
-        paiements = paiements.filter(moyen_paiement=moyen_filter)
-
-    total_filtre = paiements.aggregate(total=Sum("montant"))["total"] or 0
-
+@admin_required
+def users_list(request):
+    users = User.objects.order_by("username")
     context = {
-        "paiements": paiements,
-        "query": query,
-        "moyen_filter": moyen_filter,
-        "moyen_choices": Paiement.MOYEN_CHOICES,
-        "total_filtre": total_filtre,
-        "active_page": "paiements",
+        "users": users,
+        "active_page": "utilisateurs",
     }
-    return render(request, "inscriptions/paiements_list.html", context)
+    return render(request, "inscriptions/users_list.html", context)
 
 
-def paiement_ajouter(request):
+@admin_required
+def user_ajouter(request):
     if request.method == "POST":
-        form = PaiementForm(request.POST)
+        form = UserForm(request.POST)
         if form.is_valid():
-            paiement = form.save()
-            messages.success(request, f"Paiement de {paiement.montant} FCFA enregistré.")
-            return redirect(
-                "inscrit_detail", pk=paiement.inscription.inscrit.pk
-            )
+            user = form.save(commit=False)
+            password = form.cleaned_data.get("password")
+            if not password:
+                messages.error(request, "Un mot de passe est requis pour créer un utilisateur.")
+                return render(request, "inscriptions/user_form.html", {
+                    "form": form, "titre": "Ajouter un utilisateur", "action": "Créer",
+                    "active_page": "utilisateurs",
+                })
+            user.set_password(password)
+            user.save()
+            messages.success(request, f'Utilisateur "{user.username}" créé.')
+            return redirect("users_list")
     else:
-        form = PaiementForm(initial={"date_paiement": timezone.now().date()})
+        form = UserForm()
 
     context = {
         "form": form,
-        "titre": "Ajouter un paiement",
-        "action": "Enregistrer",
-        "active_page": "paiements",
+        "titre": "Ajouter un utilisateur",
+        "action": "Créer",
+        "active_page": "utilisateurs",
     }
-    return render(request, "inscriptions/paiement_form.html", context)
+    return render(request, "inscriptions/user_form.html", context)
 
 
-def paiement_modifier(request, pk):
-    paiement = get_object_or_404(Paiement, pk=pk)
+@admin_required
+def user_modifier(request, pk):
+    user = get_object_or_404(User, pk=pk)
     if request.method == "POST":
-        form = PaiementForm(request.POST, instance=paiement)
+        form = UserForm(request.POST, instance=user)
         if form.is_valid():
             form.save()
-            messages.success(request, "Paiement modifié avec succès.")
-            return redirect(
-                "inscrit_detail", pk=paiement.inscription.inscrit.pk
-            )
+            messages.success(request, f'Utilisateur "{user.username}" modifié.')
+            return redirect("users_list")
     else:
-        form = PaiementForm(instance=paiement)
+        form = UserForm(instance=user)
 
     context = {
         "form": form,
-        "paiement": paiement,
-        "titre": "Modifier le paiement",
+        "edit_user": user,
+        "titre": f"Modifier : {user.username}",
         "action": "Enregistrer",
-        "active_page": "paiements",
+        "active_page": "utilisateurs",
     }
-    return render(request, "inscriptions/paiement_form.html", context)
+    return render(request, "inscriptions/user_form.html", context)
 
 
-def paiement_supprimer(request, pk):
-    paiement = get_object_or_404(Paiement, pk=pk)
-    inscrit_pk = paiement.inscription.inscrit.pk
-    if request.method == "POST":
-        montant = paiement.montant
-        paiement.delete()
-        messages.success(request, f"Paiement de {montant} FCFA supprimé.")
-        return redirect("inscrit_detail", pk=inscrit_pk)
+@admin_required
+def user_toggle(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user == request.user:
+        messages.error(request, "Vous ne pouvez pas désactiver votre propre compte.")
+    else:
+        user.is_active = not user.is_active
+        user.save()
+        status = "activé" if user.is_active else "désactivé"
+        messages.success(request, f'Utilisateur "{user.username}" {status}.')
+    return redirect("users_list")
 
-    context = {
-        "paiement": paiement,
-        "active_page": "paiements",
-    }
-    return render(request, "inscriptions/paiement_confirm_delete.html", context)
+
+# ---------------------------------------------------------------------------
+# Certifier — génération d'attestations PDF
+# ---------------------------------------------------------------------------
+
+def _generer_qr_image(url):
+    """Génère un QR code en mémoire et renvoie un objet reportlab Image."""
+    import qrcode
+    from reportlab.platypus import Image as RLImage
+
+    qr = qrcode.QRCode(version=2, box_size=4, border=2,
+                       error_correction=qrcode.constants.ERROR_CORRECT_H)
+    qr.add_data(url)
+    qr.make(fit=True)
+    pil_img = qr.make_image(fill_color="#1a2340", back_color="white")
+    buf = io.BytesIO()
+    pil_img.save(buf, format="PNG")
+    buf.seek(0)
+    return RLImage(buf, width=2.8 * 28.35, height=2.8 * 28.35)   # ~2.8 cm
+
+
+def _generer_attestation_pdf(inscription, verification_url=""):
+    """Génère le PDF d'attestation pour une inscription et retourne les bytes."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    buffer = io.BytesIO()
+    W, H = A4
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=2.5 * cm,
+        rightMargin=2.5 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+    )
+
+    navy   = colors.HexColor("#1a2340")
+    accent = colors.HexColor("#4f6ef7")
+    gold   = colors.HexColor("#d4a017")
+    grey   = colors.HexColor("#718096")
+    light  = colors.HexColor("#f0f2f8")
+
+    styles = getSampleStyleSheet()
+
+    def make_style(name, **kw):
+        return ParagraphStyle(name, parent=styles["Normal"], **kw)
+
+    s_org_title  = make_style("org",     fontSize=20, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=26, spaceAfter=4)
+    s_org_sub    = make_style("orgsub",  fontSize=10, textColor=accent, alignment=TA_CENTER, leading=14)
+    s_attest     = make_style("attest",  fontSize=30, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=36, spaceBefore=14, spaceAfter=4)
+    s_sub_attest = make_style("subat",   fontSize=13, textColor=gold,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=18, spaceAfter=10)
+    s_body_lbl   = make_style("blbl",    fontSize=10, textColor=grey,   alignment=TA_CENTER, leading=14)
+    s_body_val   = make_style("bval",    fontSize=16, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=22)
+    s_certif_nm  = make_style("certifnm",fontSize=14, textColor=accent, alignment=TA_CENTER, fontName="Helvetica-Bold", leading=20)
+    s_footer_lbl = make_style("ftlbl",   fontSize=9,  textColor=grey,   alignment=TA_CENTER, leading=12)
+    s_footer_val = make_style("ftval",   fontSize=10, textColor=navy,   alignment=TA_CENTER, fontName="Helvetica-Bold", leading=13)
+    s_qr_lbl     = make_style("qrlbl",   fontSize=7,  textColor=grey,   alignment=TA_CENTER, leading=10)
+
+    inscrit       = inscription.inscrit
+    certification = inscription.cohorte.certification
+    cohorte       = inscription.cohorte
+
+    date_debut_str = cohorte.date_debut.strftime("%d/%m/%Y") if cohorte.date_debut else "—"
+    date_fin_str   = cohorte.date_fin.strftime("%d/%m/%Y")   if cohorte.date_fin   else "—"
+    periode        = f"{date_debut_str} – {date_fin_str}"
+    today          = timezone.now().date()
+
+    story = []
+
+    # En-tête organisation
+    story.append(Paragraph("ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE", s_org_title))
+    story.append(Paragraph("ENSMG — Dakar, Sénégal", s_org_sub))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(HRFlowable(width="100%", thickness=3, color=accent, spaceAfter=3))
+    story.append(HRFlowable(width="100%", thickness=1, color=gold,   spaceAfter=10))
+
+    # Titre attestation
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph("ATTESTATION", s_attest))
+    story.append(Paragraph("DE CERTIFICATION", s_sub_attest))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(HRFlowable(width="55%", thickness=1, color=gold, spaceAfter=18, hAlign="CENTER"))
+
+    # Corps
+    story.append(Paragraph("La direction de l'ENSMG certifie que :", s_body_lbl))
+    story.append(Spacer(1, 0.35 * cm))
+    story.append(Paragraph(inscrit.nom_complet.upper(), s_body_val))
+    story.append(Spacer(1, 0.1 * cm))
+    activite_lbl = "Étudiant(e)" if inscrit.activite == "etudiant" else "Professionnel(le)"
+    story.append(Paragraph(activite_lbl, s_body_lbl))
+
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph("a suivi avec succès la formation :", s_body_lbl))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph(certification.nom, s_certif_nm))
+
+    if certification.duree:
+        story.append(Spacer(1, 0.1 * cm))
+        story.append(Paragraph(f"Durée : {certification.duree}", s_body_lbl))
+
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(f"Cohorte : {cohorte.nom}", s_body_lbl))
+    story.append(Paragraph(f"Période : {periode}", s_body_lbl))
+
+    story.append(Spacer(1, 0.8 * cm))
+    story.append(HRFlowable(width="60%", thickness=1, color=light, spaceAfter=10, hAlign="CENTER"))
+
+    # Zone bas : signatures + QR code
+    col_w = (W - 5 * cm) / 3
+
+    sig_left = [
+        [Paragraph(f"Délivré le : {today.strftime('%d/%m/%Y')}", s_footer_lbl)],
+        [Paragraph("", s_footer_val)],
+        [Paragraph("ENSMG — Dakar", s_footer_val)],
+        [Spacer(1, 0.3 * cm)],
+        [Paragraph("La Direction", s_footer_lbl)],
+    ]
+
+    if verification_url:
+        qr_img = _generer_qr_image(verification_url)
+        qr_cell = [
+            [qr_img],
+            [Paragraph("Scanner pour vérifier", s_qr_lbl)],
+            [Paragraph("l'authenticité", s_qr_lbl)],
+        ]
+    else:
+        qr_cell = [[Paragraph("", s_qr_lbl)]]
+
+    bottom_data = [
+        [
+            Table(sig_left,  colWidths=[col_w * 2]),
+            Table(qr_cell,   colWidths=[col_w]),
+        ]
+    ]
+    bottom_table = Table(bottom_data, colWidths=[col_w * 2, col_w])
+    bottom_table.setStyle(TableStyle([
+        ("ALIGN",  (0, 0), (0, 0), "LEFT"),
+        ("ALIGN",  (1, 0), (1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(bottom_table)
+
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(HRFlowable(width="100%", thickness=1, color=accent, spaceAfter=4))
+    story.append(HRFlowable(width="100%", thickness=3, color=navy,   spaceAfter=6))
+
+    doc.build(story)
+    return buffer.getvalue()
+
+
+@login_required
+def certifier_home(request):
+    certifications = Certification.objects.filter(actif=True).order_by("nom")
+    return render(request, "inscriptions/certifier_home.html", {
+        "certifications": certifications,
+        "active_page": "certifier",
+    })
+
+
+@login_required
+def certifier_inscrits(request, pk):
+    certification = get_object_or_404(Certification, pk=pk)
+    inscriptions = (
+        Inscription.objects
+        .filter(cohorte__certification=certification)
+        .exclude(statut="certifie")
+        .select_related("inscrit", "cohorte")
+        .order_by("inscrit__nom", "inscrit__prenom")
+    )
+    certifies = (
+        Inscription.objects
+        .filter(cohorte__certification=certification, statut="certifie")
+        .select_related("inscrit", "cohorte")
+        .prefetch_related("attestations")
+        .order_by("inscrit__nom", "inscrit__prenom")
+    )
+    return render(request, "inscriptions/certifier_inscrits.html", {
+        "certification": certification,
+        "inscriptions": inscriptions,
+        "certifies": certifies,
+        "active_page": "certifier",
+    })
+
+
+@login_required
+def certifier_action(request, pk):
+    if request.method != "POST":
+        return redirect("certifier_inscrits", pk=pk)
+
+    certification = get_object_or_404(Certification, pk=pk)
+    inscription_ids = request.POST.getlist("inscription_ids")
+
+    if not inscription_ids:
+        messages.warning(request, "Aucun inscrit sélectionné.")
+        return redirect("certifier_inscrits", pk=pk)
+
+    inscriptions_qs = Inscription.objects.filter(
+        pk__in=inscription_ids,
+        cohorte__certification=certification,
+    ).select_related("inscrit", "cohorte", "cohorte__certification")
+
+    nb_ok = 0
+    for inscription in inscriptions_qs:
+        inscription.statut = "certifie"
+        inscription.save()
+
+        numero = f"ATT-{certification.pk:04d}-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
+        verification_url = request.build_absolute_uri(f"/attestations/{numero}/verifier/")
+        pdf_bytes = _generer_attestation_pdf(inscription, verification_url=verification_url)
+
+        Attestation.objects.create(
+            inscription=inscription,
+            numero=numero,
+            date_delivrance=timezone.now().date(),
+            contenu_pdf=pdf_bytes,
+        )
+        nb_ok += 1
+
+    messages.success(request, f"{nb_ok} attestation(s) générée(s) avec succès.")
+    return redirect("certifier_inscrits", pk=pk)
+
+
+@login_required
+def attestation_download(request, pk):
+    """Téléchargement du PDF (force download) — servi depuis la base de données."""
+    attestation = get_object_or_404(Attestation, pk=pk)
+    if not attestation.contenu_pdf:
+        messages.error(request, "PDF non disponible. Veuillez re-certifier cet inscrit pour régénérer l'attestation.")
+        return redirect(request.META.get("HTTP_REFERER", "certifier_home"))
+    nom = attestation.inscription.inscrit.nom_complet.replace(" ", "_")
+    response = HttpResponse(bytes(attestation.contenu_pdf), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="attestation_{nom}_{attestation.numero}.pdf"'
+    return response
+
+
+@login_required
+def attestation_view(request, pk):
+    """Visualisation inline du PDF dans le navigateur — servi depuis la base de données."""
+    attestation = get_object_or_404(Attestation, pk=pk)
+    if not attestation.contenu_pdf:
+        messages.error(request, "PDF non disponible. Veuillez re-certifier cet inscrit pour régénérer l'attestation.")
+        return redirect(request.META.get("HTTP_REFERER", "certifier_home"))
+    response = HttpResponse(bytes(attestation.contenu_pdf), content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{attestation.numero}.pdf"'
+    return response
+
+
+def attestation_verifier(request, numero):
+    """Page publique de vérification d'authenticité (accessible sans connexion)."""
+    try:
+        attestation = (
+            Attestation.objects
+            .select_related("inscription__inscrit", "inscription__cohorte__certification")
+            .get(numero=numero)
+        )
+        valide = True
+    except Attestation.DoesNotExist:
+        attestation = None
+        valide = False
+    return render(request, "inscriptions/attestation_verifier.html", {
+        "attestation": attestation,
+        "numero": numero,
+        "valide": valide,
+    })

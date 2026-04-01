@@ -1,0 +1,110 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Certifier — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Certifier</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-patch-check-fill me-2 text-primary"></i>Certifier des inscrits</h1>
+        <p class="text-muted">Sélectionnez une certification pour gérer les attestations.</p>
+    </div>
+</div>
+
+{% if certifications %}
+<div class="row g-3">
+    {% for cert in certifications %}
+    {% with nb_a_certifier=cert.nb_inscrits|add:"-"|add:cert.nb_certifies %}
+    <div class="col-md-6 col-xl-4">
+        <a href="{% url 'certifier_inscrits' cert.pk %}" class="text-decoration-none">
+            <div class="card card-lift h-100" style="border-left: 4px solid var(--accent);">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between mb-3">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center"
+                             style="width:48px;height:48px;background:var(--accent-light);flex-shrink:0;">
+                            <i class="bi bi-award-fill" style="font-size:1.4rem;color:var(--accent);"></i>
+                        </div>
+                        {% if cert.nb_certifies > 0 %}
+                        <span class="badge rounded-pill" style="background:#d4edda;color:#155724;font-size:0.75rem;">
+                            <i class="bi bi-patch-check me-1"></i>{{ cert.nb_certifies }} certifié{{ cert.nb_certifies|pluralize }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <h6 class="fw-bold mb-1" style="color:#2d3748;line-height:1.35;">{{ cert.nom }}</h6>
+
+                    {% if cert.duree %}
+                    <p class="text-muted mb-3" style="font-size:0.8rem;">
+                        <i class="bi bi-clock me-1"></i>{{ cert.duree }}
+                    </p>
+                    {% else %}
+                    <p class="mb-3"></p>
+                    {% endif %}
+
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="p-2 rounded-2" style="background:#f8f9fe;">
+                                <div class="fw-bold" style="font-size:1.15rem;color:var(--accent);">{{ cert.nb_inscrits }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">Inscrits</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded-2" style="background:#f8f9fe;">
+                                <div class="fw-bold" style="font-size:1.15rem;color:#e67e22;">{{ cert.nb_en_formation }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">En cours</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded-2" style="background:#f8f9fe;">
+                                <div class="fw-bold" style="font-size:1.15rem;color:#27ae60;">{{ cert.nb_certifies }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">Certifiés</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if cert.nb_inscrits > 0 %}
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;">
+                            <span class="text-muted">Taux de certification</span>
+                            <span class="fw-bold">
+                                {% if cert.nb_inscrits > 0 %}
+                                    {% widthratio cert.nb_certifies cert.nb_inscrits 100 %}%
+                                {% else %}0%{% endif %}
+                            </span>
+                        </div>
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar bg-success"
+                                 style="width:{% widthratio cert.nb_certifies cert.nb_inscrits 100 %}%;"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-top-0 pt-0 pb-3 px-3">
+                    <span class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i>Gérer les certifications
+                    </span>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-award"></i>
+            <p>Aucune certification active.</p>
+            <a href="{% url 'certification_ajouter' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus me-1"></i>Créer une certification
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

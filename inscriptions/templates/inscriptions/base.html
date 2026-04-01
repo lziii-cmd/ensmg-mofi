@@ -485,6 +485,12 @@
             Paiements
         </a>
 
+        <a href="{% url 'certifier_home' %}"
+           class="nav-link {% if active_page == 'certifier' %}active{% endif %}">
+            <i class="bi bi-patch-check-fill nav-icon"></i>
+            Certifier
+        </a>
+
         <div class="nav-section-title">Actions rapides</div>
 
         <a href="{% url 'certification_ajouter' %}" class="nav-link">

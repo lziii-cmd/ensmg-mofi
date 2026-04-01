@@ -17,7 +17,7 @@
         <p>Fiche détaillée de l'inscrit &mdash; {{ inscriptions.count }} certification{{ inscriptions.count|pluralize }} inscrite{{ inscriptions.count|pluralize }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        <a href="{% url 'inscrire_a_certification' inscrit.pk %}" class="btn btn-success">
+        <a href="{% url 'inscription_wizard' %}" class="btn btn-success">
             <i class="bi bi-award me-1"></i>Inscrire à une certification
         </a>
         <a href="{% url 'inscrit_modifier' inscrit.pk %}" class="btn btn-outline-primary">
@@ -81,6 +81,48 @@
             </div>
         </div>
 
+        <!-- Attestations -->
+        {% with all_attestations=inscrit.inscriptions.all %}
+        {% if all_attestations %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6><i class="bi bi-patch-check-fill me-2 text-success"></i>Attestations</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for ic in all_attestations %}
+                    {% for att in ic.attestations.all %}
+                    <li class="list-group-item px-3 py-2">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="fw-600" style="font-size:0.82rem;">{{ ic.cohorte.certification.nom|truncatechars:28 }}</div>
+                                <div class="text-muted" style="font-size:0.74rem;">
+                                    <i class="bi bi-calendar3 me-1"></i>{{ att.date_delivrance|date:"d/m/Y" }}
+                                    &nbsp;&bull;&nbsp;{{ att.numero }}
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'attestation_view' att.pk %}"
+                                   class="btn btn-outline-primary btn-sm py-0 px-2"
+                                   target="_blank" title="Visualiser">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'attestation_download' att.pk %}"
+                                   class="btn btn-outline-success btn-sm py-0 px-2"
+                                   title="Télécharger">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
         <!-- Summary -->
         <div class="card">
             <div class="card-header">
@@ -89,8 +131,8 @@
             <div class="card-body" style="font-size:0.86rem;">
                 {% for ic in inscriptions %}
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted text-truncate me-2" style="max-width:130px;" title="{{ ic.certification.nom }}">
-                        {{ ic.certification.nom|truncatechars:22 }}
+                    <span class="text-muted text-truncate me-2" style="max-width:130px;" title="{{ ic.cohorte.certification.nom }}">
+                        {{ ic.cohorte.certification.nom|truncatechars:22 }}
                     </span>
                     <span class="fw-bold text-success">{{ ic.total_paye|floatformat:0 }} FCFA</span>
                 </div>
@@ -110,8 +152,9 @@
                 <div class="d-flex align-items-center gap-2">
                     <i class="bi bi-award text-primary"></i>
                     <h6 class="mb-0">
-                        <a href="{% url 'certification_detail' ic.certification.pk %}"
-                           class="text-decoration-none text-dark">{{ ic.certification.nom }}</a>
+                        <a href="{% url 'certification_detail' ic.cohorte.certification.pk %}"
+                           class="text-decoration-none text-dark">{{ ic.cohorte.certification.nom }}</a>
+                        <span class="text-muted" style="font-size:0.78rem;"> — {{ ic.cohorte.nom }}</span>
                     </h6>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -156,7 +199,7 @@
                 <!-- Payment progress -->
                 <div class="row align-items-center mb-3">
                     <div class="col-auto text-muted" style="font-size:0.8rem;">
-                        {{ ic.total_paye|floatformat:0 }} / {{ ic.certification.cout_total|floatformat:0 }} FCFA
+                        {{ ic.total_paye|floatformat:0 }} / {{ ic.montant_du|floatformat:0 }} FCFA
                     </div>
                     <div class="col">
                         <div class="progress" style="height:8px;">
@@ -241,7 +284,7 @@
                     <div class="modal-header">
                         <h6 class="modal-title">
                             <i class="bi bi-cash-coin me-2 text-success"></i>
-                            Ajouter un paiement — {{ ic.certification.nom|truncatechars:30 }}
+                            Ajouter un paiement — {{ ic.cohorte.certification.nom|truncatechars:30 }}
                         </h6>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
@@ -299,7 +342,7 @@
                 <div class="empty-state">
                     <i class="bi bi-award"></i>
                     <p>Cet inscrit n'est inscrit à aucune certification.</p>
-                    <a href="{% url 'inscrire_a_certification' inscrit.pk %}" class="btn btn-success btn-sm">
+                    <a href="{% url 'inscription_wizard' %}" class="btn btn-success btn-sm">
                         <i class="bi bi-award me-1"></i>Inscrire à une certification
                     </a>
                 </div>

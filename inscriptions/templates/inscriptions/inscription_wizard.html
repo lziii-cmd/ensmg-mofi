@@ -1,0 +1,261 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Inscrire un participant — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
+<li class="breadcrumb-item active">Inscrire un participant</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.wizard-section { border-left: 3px solid var(--accent); padding-left: 1rem; margin-bottom: 1.5rem; }
+.wizard-section-title { font-weight: 600; font-size: 0.92rem; color: #1a2340; margin-bottom: 0.75rem; }
+#participant-found { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-person-plus me-2 text-primary"></i>Inscrire un participant</h1>
+    <p class="text-muted">Sélectionnez la cohorte et le participant, puis confirmez l'inscription.</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clipboard-check me-2 text-primary"></i>Formulaire d'inscription</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate id="wizardForm">
+                    {% csrf_token %}
+
+                    <!-- Section 1 : Certification → Cohorte -->
+                    <div class="wizard-section">
+                        <div class="wizard-section-title"><i class="bi bi-award me-2 text-primary"></i>1. Certification et cohorte</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="id_certification" class="form-label">Certification <span class="text-danger">*</span></label>
+                                <select id="id_certification" class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    {% for cert in certifications %}
+                                    <option value="{{ cert.pk }}">{{ cert.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_cohorte_id" class="form-label">Cohorte <span class="text-danger">*</span></label>
+                                <select name="cohorte_id" id="id_cohorte_id" class="form-select" required>
+                                    <option value="">— Choisir une certification d'abord —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2 : Participant -->
+                    <div class="wizard-section">
+                        <div class="wizard-section-title"><i class="bi bi-person me-2 text-primary"></i>2. Participant</div>
+
+                        <!-- Search existing -->
+                        <div class="mb-3">
+                            <label class="form-label">Rechercher un participant existant</label>
+                            <div class="input-group">
+                                <input type="text" id="searchInscrit" class="form-control"
+                                       placeholder="Nom, prénom ou email...">
+                                <button type="button" class="btn btn-outline-secondary" id="btnSearch">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div id="searchResults" class="list-group mt-1" style="display:none; max-height:200px; overflow-y:auto;"></div>
+                        </div>
+
+                        <input type="hidden" name="inscrit_id" id="id_inscrit_id">
+
+                        <!-- Found participant info -->
+                        <div id="participant-found" class="alert alert-success d-flex align-items-center gap-2 mb-3">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span id="participant-found-name"></span>
+                            <button type="button" class="btn btn-sm btn-outline-success ms-auto" id="btnClearParticipant">
+                                <i class="bi bi-x"></i> Changer
+                            </button>
+                        </div>
+
+                        <!-- Or create new -->
+                        <div id="newParticipantSection">
+                            <div class="text-muted mb-2" style="font-size:0.83rem;">
+                                <i class="bi bi-info-circle me-1"></i>Ou remplissez les champs ci-dessous pour créer un nouveau participant :
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Prénom</label>
+                                    <input type="text" name="prenom" class="form-control" placeholder="Prénom">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Nom</label>
+                                    <input type="text" name="nom" class="form-control" placeholder="Nom de famille">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" name="email" class="form-control" placeholder="adresse@email.com">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Téléphone</label>
+                                    <input type="text" name="telephone" class="form-control" placeholder="+221 77 000 00 00">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Activité</label>
+                                    <select name="activite" class="form-select" id="id_activite">
+                                        {% for val, label in activite_choices %}
+                                        <option value="{{ val }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3 : Détails inscription -->
+                    <div class="wizard-section">
+                        <div class="wizard-section-title"><i class="bi bi-sliders me-2 text-primary"></i>3. Détails de l'inscription</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Statut initial</label>
+                                <select name="statut" class="form-select">
+                                    {% for val, label in statut_choices %}
+                                    <option value="{{ val }}" {% if val == 'inscrit' %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Montant dû (FCFA)</label>
+                                <div class="input-group">
+                                    <input type="number" name="montant_du" id="id_montant_du" class="form-control"
+                                           placeholder="Auto-calculé selon le tarif" min="0" step="1" value="0">
+                                    <span class="input-group-text">FCFA</span>
+                                </div>
+                                <div class="form-text">Laisser à 0 pour utiliser le tarif de la certification.</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2"
+                                          placeholder="Notes complémentaires..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Inscrire le participant
+                        </button>
+                        <a href="{% url 'inscrits_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i>Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const certifTarifs = {{ certif_tarifs_json|safe }};
+
+// Load cohortes when certification changes
+document.getElementById('id_certification').addEventListener('change', function () {
+    const certifId = this.value;
+    const cohorteSelect = document.getElementById('id_cohorte_id');
+    cohorteSelect.innerHTML = '<option value="">Chargement...</option>';
+
+    if (!certifId) {
+        cohorteSelect.innerHTML = '<option value="">— Choisir une certification d\'abord —</option>';
+        return;
+    }
+
+    fetch(`/api/cohortes/?certif_id=${certifId}`)
+        .then(r => r.json())
+        .then(data => {
+            cohorteSelect.innerHTML = '<option value="">— Sélectionner une cohorte —</option>';
+            data.cohortes.forEach(c => {
+                cohorteSelect.innerHTML += `<option value="${c.id}">${c.nom}</option>`;
+            });
+            if (data.cohortes.length === 0) {
+                cohorteSelect.innerHTML = '<option value="">Aucune cohorte disponible</option>';
+            }
+        });
+
+    // Update suggested tarif
+    updateTarif(certifId);
+});
+
+function updateTarif(certifId) {
+    if (!certifId || !certifTarifs[certifId]) return;
+    const activite = document.getElementById('id_activite').value;
+    const tarif = activite === 'professionnel'
+        ? certifTarifs[certifId].professionnel
+        : certifTarifs[certifId].etudiant;
+    const montantField = document.getElementById('id_montant_du');
+    if (montantField.value == 0 || montantField.value === '') {
+        montantField.value = tarif;
+    }
+}
+
+document.getElementById('id_activite').addEventListener('change', function () {
+    const certifId = document.getElementById('id_certification').value;
+    updateTarif(certifId);
+});
+
+// Search inscrits
+function doSearch() {
+    const q = document.getElementById('searchInscrit').value.trim();
+    const resultsDiv = document.getElementById('searchResults');
+    if (!q) { resultsDiv.style.display = 'none'; return; }
+
+    fetch(`/api/inscrits/recherche/?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            resultsDiv.innerHTML = '';
+            if (data.results.length === 0) {
+                resultsDiv.innerHTML = '<div class="list-group-item text-muted" style="font-size:0.83rem;">Aucun résultat</div>';
+            } else {
+                data.results.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action';
+                    btn.style.fontSize = '0.84rem';
+                    btn.textContent = item.text;
+                    btn.addEventListener('click', function () {
+                        selectParticipant(item.id, item.text);
+                    });
+                    resultsDiv.appendChild(btn);
+                });
+            }
+            resultsDiv.style.display = 'block';
+        });
+}
+
+document.getElementById('btnSearch').addEventListener('click', doSearch);
+document.getElementById('searchInscrit').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+});
+
+function selectParticipant(id, name) {
+    document.getElementById('id_inscrit_id').value = id;
+    document.getElementById('participant-found-name').textContent = name;
+    document.getElementById('participant-found').style.display = 'flex';
+    document.getElementById('newParticipantSection').style.display = 'none';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('searchInscrit').value = '';
+}
+
+document.getElementById('btnClearParticipant').addEventListener('click', function () {
+    document.getElementById('id_inscrit_id').value = '';
+    document.getElementById('participant-found').style.display = 'none';
+    document.getElementById('newParticipantSection').style.display = 'block';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Certifier — {{ certification.nom }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifier_home' %}" class="text-decoration-none text-muted">Certifier</a>
+</li>
+<li class="breadcrumb-item active">{{ certification.nom }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-patch-check-fill me-2 text-primary"></i>{{ certification.nom }}</h1>
+        <p class="text-muted">
+            {{ inscriptions.count }} inscrit{{ inscriptions.count|pluralize }} à certifier &mdash;
+            {{ certifies.count }} déjà certifié{{ certifies.count|pluralize }}
+        </p>
+    </div>
+    <a href="{% url 'certifier_home' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+</div>
+
+<!-- Section : À certifier -->
+{% if inscriptions %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">
+            <i class="bi bi-hourglass-split me-2 text-warning"></i>
+            Inscrits à certifier
+            <span class="badge bg-warning text-dark ms-1">{{ inscriptions.count }}</span>
+        </h6>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">
+                <i class="bi bi-check2-square me-1"></i>Tout sélectionner
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDeselectAll">
+                <i class="bi bi-square me-1"></i>Tout désélectionner
+            </button>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'certifier_action' certification.pk %}" id="formCertifier">
+        {% csrf_token %}
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.86rem;">
+                <thead style="background:#f8f9fe;">
+                    <tr>
+                        <th style="width:44px;">
+                            <input type="checkbox" class="form-check-input" id="checkAll">
+                        </th>
+                        <th>Nom</th>
+                        <th>Cohorte</th>
+                        <th>Statut actuel</th>
+                        <th>Paiement</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ic in inscriptions %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input inscrit-check"
+                                   name="inscription_ids" value="{{ ic.pk }}">
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;">
+                                    {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-600">{{ ic.inscrit.nom_complet }}</div>
+                                    <div class="text-muted" style="font-size:0.76rem;">
+                                        {% if ic.inscrit.activite == 'etudiant' %}
+                                            <span class="badge badge-etudiant" style="font-size:0.68rem;">Étudiant</span>
+                                        {% else %}
+                                            <span class="badge badge-professionnel" style="font-size:0.68rem;">Professionnel</span>
+                                        {% endif %}
+                                        {% if ic.inscrit.email %}
+                                            &nbsp;{{ ic.inscrit.email }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-muted" style="font-size:0.82rem;">{{ ic.cohorte.nom }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-statut-{{ ic.statut }} rounded-pill">
+                                {{ ic.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if ic.reste_a_payer > 0 %}
+                                <span class="badge bg-danger-subtle text-danger" style="font-size:0.74rem;">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Reste {{ ic.reste_a_payer|floatformat:0 }} FCFA
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success-subtle text-success" style="font-size:0.74rem;">
+                                    <i class="bi bi-check-circle me-1"></i>Soldé
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'inscrit_detail' ic.inscrit.pk %}"
+                               class="btn btn-outline-secondary btn-sm py-0 px-2" title="Fiche inscrit">
+                                <i class="bi bi-person"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer d-flex align-items-center justify-content-between gap-2">
+            <span class="text-muted" style="font-size:0.83rem;" id="selectionCount">
+                0 inscrit(s) sélectionné(s)
+            </span>
+            <button type="submit" class="btn btn-success" id="btnCertifier" disabled>
+                <i class="bi bi-patch-check-fill me-1"></i>
+                Certifier et générer les attestations
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Confirmation modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-success">
+                    <i class="bi bi-patch-check-fill me-2"></i>Confirmer la certification
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vous êtes sur le point de certifier <strong id="confirmNb">0</strong> inscrit(s).</p>
+                <div class="alert alert-info" style="font-size:0.84rem;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Un PDF d'attestation sera généré automatiquement pour chaque inscrit sélectionné.
+                    Le statut passera à <strong>Certifié</strong>.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success btn-sm" id="btnConfirmOk">
+                    <i class="bi bi-check-lg me-1"></i>Confirmer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-hourglass"></i>
+            <p>Tous les inscrits de cette certification ont déjà été certifiés ou il n'y a aucun inscrit.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- Section : Déjà certifiés -->
+{% if certifies %}
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="bi bi-patch-check-fill me-2 text-success"></i>
+            Inscrits certifiés
+            <span class="badge bg-success ms-1">{{ certifies.count }}</span>
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:0.86rem;">
+            <thead style="background:#f8f9fe;">
+                <tr>
+                    <th>Nom</th>
+                    <th>Cohorte</th>
+                    <th>Attestations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ic in certifies %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;background:#d4edda;color:#155724;">
+                                {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-600">{{ ic.inscrit.nom_complet }}</div>
+                                <span class="badge badge-statut-certifie rounded-pill" style="font-size:0.68rem;">Certifié</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-muted" style="font-size:0.82rem;">{{ ic.cohorte.nom }}</td>
+                    <td>
+                        {% for att in ic.attestations.all %}
+                        <div class="d-inline-flex gap-1 me-1 mb-1">
+                            <a href="{% url 'attestation_view' att.pk %}"
+                               class="btn btn-outline-primary btn-sm py-0 px-2"
+                               target="_blank" title="Visualiser {{ att.numero }}">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'attestation_download' att.pk %}"
+                               class="btn btn-outline-success btn-sm py-0 px-2"
+                               title="Télécharger {{ att.numero }}">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </div>
+                        {% empty %}
+                        <span class="text-muted" style="font-size:0.8rem;">—</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if inscriptions %}
+<script>
+(function () {
+    const checkAll   = document.getElementById('checkAll');
+    const checks     = document.querySelectorAll('.inscrit-check');
+    const btnCert    = document.getElementById('btnCertifier');
+    const countLabel = document.getElementById('selectionCount');
+    const confirmNb  = document.getElementById('confirmNb');
+    const btnOk      = document.getElementById('btnConfirmOk');
+    const form       = document.getElementById('formCertifier');
+    const modal      = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+    function updateCount() {
+        const n = document.querySelectorAll('.inscrit-check:checked').length;
+        countLabel.textContent = n + ' inscrit' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '');
+        btnCert.disabled = n === 0;
+        checkAll.indeterminate = n > 0 && n < checks.length;
+        checkAll.checked = n === checks.length;
+    }
+
+    checks.forEach(c => c.addEventListener('change', updateCount));
+
+    checkAll.addEventListener('change', function () {
+        checks.forEach(c => { c.checked = this.checked; });
+        updateCount();
+    });
+
+    document.getElementById('btnSelectAll').addEventListener('click', function () {
+        checks.forEach(c => { c.checked = true; });
+        checkAll.checked = true;
+        updateCount();
+    });
+
+    document.getElementById('btnDeselectAll').addEventListener('click', function () {
+        checks.forEach(c => { c.checked = false; });
+        checkAll.checked = false;
+        updateCount();
+    });
+
+    btnCert.addEventListener('click', function (e) {
+        e.preventDefault();
+        const n = document.querySelectorAll('.inscrit-check:checked').length;
+        confirmNb.textContent = n;
+        modal.show();
+    });
+
+    btnOk.addEventListener('click', function () {
+        modal.hide();
+        form.submit();
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}
