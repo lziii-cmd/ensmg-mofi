@@ -1675,6 +1675,12 @@ def portail_wizard(request):
                 compte = inscrit.compte_apprenant
                 user = compte.user
 
+            # Auto-login : connecte l'utilisateur automatiquement après l'inscription
+            if not request.user.is_authenticated:
+                from django.contrib.auth import login as auth_login
+                user.backend = 'django.contrib.auth.backends.ModelBackend'
+                auth_login(request, user)
+
             for k in ['wizard_step1', 'wizard_step2', 'wizard_step3']:
                 request.session.pop(k, None)
 
