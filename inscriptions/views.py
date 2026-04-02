@@ -13,6 +13,7 @@ from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 
 from .models import Certification, Cohorte, Inscrit, Inscription, Paiement, Attestation, CompteApprenant
@@ -1937,6 +1938,64 @@ def portail_paiement(request, pk):
             )
             messages.success(request, "Transaction Orange Money déclarée. L'administration vérifiera et confirmera votre inscription.")
 
+        # ── PAYTECH : checkout hébergé (Wave + OM + Carte en un) ─────────
+        elif moyen == 'paytech':
+            import requests as http_requests
+            paytech_key    = getattr(settings, 'PAYTECH_API_KEY', '')
+            paytech_secret = getattr(settings, 'PAYTECH_API_SECRET', '')
+            if not paytech_key or not paytech_secret:
+                messages.error(request, "Paiement PayTech non configuré. Contactez l'administration.")
+                return redirect('portail_paiement', pk=inscription.pk)
+
+            client_ref  = f"INS-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
+            success_url = request.build_absolute_uri(
+                f'/portail/paiement/{inscription.pk}/paytech-retour/?ref={client_ref}&statut=succes')
+            cancel_url  = request.build_absolute_uri(
+                f'/portail/paiement/{inscription.pk}/paytech-retour/?ref={client_ref}&statut=echec')
+            ipn_url     = request.build_absolute_uri(
+                f'/portail/paiement/{inscription.pk}/paytech-ipn/')
+
+            try:
+                resp = http_requests.post(
+                    'https://paytech.sn/api/payment/request-payment',
+                    headers={
+                        'API_KEY':    paytech_key,
+                        'API_SECRET': paytech_secret,
+                        'Content-Type': 'application/json',
+                    },
+                    json={
+                        'item_name':    f"Inscription {inscription.cohorte.certification.nom}",
+                        'item_price':   int(inscription.montant_du),
+                        'ref_command':  client_ref,
+                        'command_name': f"Inscription ENSMG — {inscription.cohorte.nom}",
+                        'currency':     'XOF',
+                        'env':          'prod',
+                        'ipn_url':      ipn_url,
+                        'success_url':  success_url,
+                        'cancel_url':   cancel_url,
+                    },
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                redirect_url = data.get('redirect_url')
+                token        = data.get('token', '')
+                if not redirect_url:
+                    raise ValueError("Pas d'URL de paiement dans la réponse PayTech.")
+                Paiement.objects.create(
+                    inscription=inscription,
+                    montant=inscription.montant_du,
+                    date_paiement=timezone.now().date(),
+                    moyen_paiement='paytech',
+                    reference=client_ref,
+                    statut='en_attente',
+                    notes=f"Token PayTech: {token}",
+                )
+                return redirect(redirect_url)
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'initiation du paiement PayTech : {e}")
+                return redirect('portail_paiement', pk=inscription.pk)
+
         # ── VIREMENT bancaire ─────────────────────────────────────────────
         elif moyen == 'virement':
             Paiement.objects.create(
@@ -1971,7 +2030,9 @@ def portail_paiement(request, pk):
         'inscription': inscription,
         'rib_info': rib_info,
         'username': username,
-        'wave_configured': bool(getattr(settings, 'WAVE_API_KEY', '')),
+        'wave_configured':    bool(getattr(settings, 'WAVE_API_KEY', '')),
+        'paytech_configured': bool(getattr(settings, 'PAYTECH_API_KEY', '') and
+                                   getattr(settings, 'PAYTECH_API_SECRET', '')),
     })
 
 
@@ -2007,6 +2068,67 @@ def portail_wave_retour(request, pk):
         'moyen': 'wave',
         'wave_succes': statut == 'succes',
     })
+
+
+def portail_paytech_retour(request, pk):
+    """Retour navigateur après paiement PayTech (success_url / cancel_url)."""
+    inscription = get_object_or_404(Inscription, pk=pk)
+    statut = request.GET.get('statut', 'echec')
+    ref    = request.GET.get('ref', '')
+
+    if statut == 'succes':
+        paiement = Paiement.objects.filter(
+            inscription=inscription,
+            reference=ref,
+            moyen_paiement='paytech',
+        ).first()
+        if paiement and paiement.statut == 'en_attente':
+            paiement.statut = 'confirme'
+            paiement.save(update_fields=['statut'])
+            if inscription.statut == 'pre_inscrit':
+                inscription.statut = 'inscrit'
+                inscription.save(update_fields=['statut'])
+            notifier_paiement_confirme(paiement)
+        messages.success(request, "Paiement PayTech confirmé ! Votre inscription est validée.")
+    else:
+        messages.error(request, "Le paiement a été annulé ou a échoué.")
+
+    username = request.session.get('new_compte_username', '')
+    return render(request, 'inscriptions/portail_confirmation.html', {
+        'inscription': inscription,
+        'username': username,
+        'moyen': 'paytech',
+        'paytech_succes': statut == 'succes',
+    })
+
+
+@csrf_exempt
+def portail_paytech_ipn(request, pk):
+    """Webhook IPN PayTech — confirmation serveur-à-serveur."""
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    inscription = get_object_or_404(Inscription, pk=pk)
+    ref_command = request.POST.get('ref_command', '')
+    type_event  = request.POST.get('type_event', '')
+
+    if type_event == 'sale_complete' and ref_command:
+        paiement = Paiement.objects.filter(
+            inscription=inscription,
+            reference=ref_command,
+            moyen_paiement='paytech',
+        ).first()
+        if paiement and paiement.statut == 'en_attente':
+            paiement.statut = 'confirme'
+            paiement.save(update_fields=['statut'])
+            if inscription.statut == 'pre_inscrit':
+                inscription.statut = 'inscrit'
+                inscription.save(update_fields=['statut'])
+            notifier_paiement_confirme(paiement)
+
+    from django.http import JsonResponse
+    return JsonResponse({'status': 'ok'})
 
 
 # ---------------------------------------------------------------------------

@@ -215,6 +215,7 @@ class Paiement(models.Model):
     MOYEN_CHOICES = [
         ("wave", "Wave"),
         ("orange_money", "Orange Money"),
+        ("paytech", "PayTech"),
         ("carte", "Carte bancaire"),
         ("stripe", "Stripe"),
         ("especes", "Espèces"),

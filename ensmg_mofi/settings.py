@@ -170,3 +170,7 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ensmg.sn')
 WAVE_WEBHOOK_SECRET = os.environ.get('WAVE_WEBHOOK_SECRET', '')
 # Clé API Wave Business (obtenir sur https://business.wave.com/developers)
 WAVE_API_KEY = os.environ.get('WAVE_API_KEY', '')
+
+# PayTech (InTech) — https://paytech.sn
+PAYTECH_API_KEY    = os.environ.get('PAYTECH_API_KEY', '')
+PAYTECH_API_SECRET = os.environ.get('PAYTECH_API_SECRET', '')
