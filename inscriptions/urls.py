@@ -73,6 +73,8 @@ urlpatterns = [
     # Espace apprenant
     path("apprenant/", views.espace_apprenant, name="espace_apprenant"),
     path("apprenant/profil/", views.apprenant_profil, name="apprenant_profil"),
+    path("apprenant/paiements/", views.apprenant_paiements, name="apprenant_paiements"),
+    path("apprenant/attestations/", views.apprenant_attestations, name="apprenant_attestations"),
     path("apprenant/changer-mdp/", views.apprenant_changer_mdp, name="apprenant_changer_mdp"),
     path("apprenant/payer/<int:inscription_pk>/", views.apprenant_payer, name="apprenant_payer"),
 

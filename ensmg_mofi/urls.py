@@ -10,7 +10,7 @@ from inscriptions import views as inscriptions_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', inscriptions_views.custom_login, name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', inscriptions_views.custom_logout, name='logout'),
     path('', include('inscriptions.urls')),
     # API REST
     path('api/', include('inscriptions.api_urls')),

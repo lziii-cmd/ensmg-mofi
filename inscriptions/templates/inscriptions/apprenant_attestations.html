@@ -1,0 +1,76 @@
+{% extends "inscriptions/apprenant_base.html" %}
+
+{% block title %}Mes attestations — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Mes attestations</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+        <h5 style="font-weight:700;color:#1a2340;margin:0;">
+            <i class="bi bi-patch-check me-2 text-primary"></i>Mes attestations
+        </h5>
+        <p style="color:#718096;font-size:0.85rem;margin:0.2rem 0 0;">Vos certificats de participation délivrés par l'ENSMG</p>
+    </div>
+</div>
+
+{% if attestations %}
+<div class="row g-3">
+    {% for item in attestations %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100" style="border-radius:14px;">
+            <div class="card-body">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <div style="width:44px;height:44px;background:#dcfce7;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-patch-check-fill" style="font-size:1.3rem;color:#15803d;"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:#1a2340;font-size:0.95rem;line-height:1.3;">
+                            {{ item.inscription.cohorte.certification.nom }}
+                        </div>
+                        <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
+                            {{ item.inscription.cohorte.nom }}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="font-size:0.8rem;color:#4a5568;margin-bottom:0.5rem;">
+                    <i class="bi bi-hash me-1 text-muted"></i>
+                    <span style="font-family:monospace;background:#f0f2f8;padding:0.15rem 0.4rem;border-radius:4px;">
+                        {{ item.attestation.numero }}
+                    </span>
+                </div>
+                <div style="font-size:0.8rem;color:#718096;">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    Délivrée le {{ item.attestation.date_delivrance|date:"d/m/Y" }}
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top" style="border-color:#f0f2f8 !important;padding:0.75rem 1rem;">
+                <div class="d-flex gap-2">
+                    <a href="{% url 'attestation_view' item.attestation.pk %}" class="btn btn-sm btn-outline-primary flex-fill" target="_blank">
+                        <i class="bi bi-eye me-1"></i>Voir
+                    </a>
+                    <a href="{% url 'attestation_download' item.attestation.pk %}" class="btn btn-sm btn-success flex-fill">
+                        <i class="bi bi-download me-1"></i>Télécharger
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-patch-check" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:0.75rem;"></i>
+        <p style="font-size:0.9rem;font-weight:600;">Aucune attestation pour le moment.</p>
+        <p style="font-size:0.82rem;">Les attestations sont délivrées une fois votre formation validée par l'administration.</p>
+        <a href="{% url 'espace_apprenant' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour au tableau de bord
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

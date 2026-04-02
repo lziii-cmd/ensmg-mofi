@@ -1172,26 +1172,13 @@ def _generer_attestation_pdf(inscription, verification_url=""):
     gold_line(top_y - 22, w=2.5)
     gold_line(top_y - 26, w=0.8)
 
-    # ── Médaillon central (cercle doré) ───────────────────────────────────────
-    med_x = W / 2
-    med_y = H / 2 + 28
-    med_r = 36
-
-    c.setFillColor(GOLD)
-    c.setStrokeColor(GOLD2)
-    c.setLineWidth(2)
-    c.circle(med_x, med_y + 68, med_r, fill=1, stroke=1)
-
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(med_x, med_y + 68 - 8, "★")
-
-    c.setFillColor(WHITE)
-    c.setFont("Helvetica-Bold", 7.5)
-    c.drawCentredString(med_x, med_y + 68 - 20, "ENSMG")
-
     # ── Titre principal ───────────────────────────────────────────────────────
-    title_y = top_y - 60
+    title_y = top_y - 55
+
+    # Décoration étoiles dorées
+    c.setFillColor(GOLD)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(W / 2, title_y + 22, "★  ★  ★")
 
     c.setFillColor(NAVY)
     c.setFont("Helvetica-Bold", 32)
@@ -1257,8 +1244,22 @@ def _generer_attestation_pdf(inscription, verification_url=""):
     # ── Zone basse : date + signature + QR ────────────────────────────────────
     footer_y = body_y - 40
 
-    # Date et lieu (gauche)
-    sig_x = inner + 50
+    # Sceau ENSMG (cercle doré, bas-gauche)
+    seal_x = inner + 38
+    seal_y = footer_y - 8
+    c.setFillColor(GOLD)
+    c.setStrokeColor(GOLD2)
+    c.setLineWidth(1.5)
+    c.circle(seal_x, seal_y, 26, fill=1, stroke=1)
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(seal_x, seal_y - 6, "★")
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 6)
+    c.drawCentredString(seal_x, seal_y - 16, "ENSMG")
+
+    # Date et lieu (à droite du sceau)
+    sig_x = inner + 74
     c.setFillColor(NAVY)
     c.setFont("Helvetica-Bold", 9)
     c.drawString(sig_x, footer_y + 8, "Fait à Dakar, le")
@@ -1429,6 +1430,13 @@ def attestation_verifier(request, numero):
 # Custom login (redirects by user type)
 # ---------------------------------------------------------------------------
 
+def custom_logout(request):
+    """Logout — accepts GET and POST, redirects to homepage."""
+    from django.contrib.auth import logout as auth_logout
+    auth_logout(request)
+    return redirect('portail_accueil_home')
+
+
 def custom_login(request):
     """Login page that redirects apprenants to their space and admins to dashboard."""
     from django.contrib.auth import authenticate, login as auth_login
@@ -1517,11 +1525,11 @@ def _creer_compte_apprenant(inscrit):
 # ---------------------------------------------------------------------------
 
 def portail_accueil(request):
-    """Public landing page — redirect to dashboard if admin/staff, to espace if apprenant."""
+    """Public landing page — redirect staff/admin to dashboard, show certifications to everyone else."""
     if request.user.is_authenticated:
         try:
             _ = request.user.compte_apprenant
-            return redirect('espace_apprenant')
+            # Apprenants can browse certifications — don't redirect
         except Exception:
             if request.user.is_staff or request.user.is_superuser:
                 return redirect('dashboard')
@@ -1911,6 +1919,52 @@ def espace_apprenant(request):
         'active_page': 'espace',
     }
     return render(request, 'inscriptions/apprenant_dashboard.html', context)
+
+
+@_apprenant_required
+def apprenant_paiements(request):
+    """Dedicated paiements list page for the apprenant."""
+    compte = request.user.compte_apprenant
+    inscrit = compte.inscrit
+    inscriptions = (
+        inscrit.inscriptions
+        .select_related('cohorte__certification')
+        .prefetch_related('paiements')
+        .order_by('-date_inscription')
+    )
+    paiements = []
+    for ins in inscriptions:
+        for p in ins.paiements.all():
+            paiements.append({'paiement': p, 'inscription': ins})
+    return render(request, 'inscriptions/apprenant_paiements.html', {
+        'compte': compte,
+        'inscrit': inscrit,
+        'paiements': paiements,
+        'active_page': 'paiements',
+    })
+
+
+@_apprenant_required
+def apprenant_attestations(request):
+    """Dedicated attestations list page for the apprenant."""
+    compte = request.user.compte_apprenant
+    inscrit = compte.inscrit
+    inscriptions = (
+        inscrit.inscriptions
+        .select_related('cohorte__certification')
+        .prefetch_related('attestations')
+        .order_by('-date_inscription')
+    )
+    attestations = []
+    for ins in inscriptions:
+        for att in ins.attestations.all():
+            attestations.append({'attestation': att, 'inscription': ins})
+    return render(request, 'inscriptions/apprenant_attestations.html', {
+        'compte': compte,
+        'inscrit': inscrit,
+        'attestations': attestations,
+        'active_page': 'attestations',
+    })
 
 
 def apprenant_changer_mdp(request):
