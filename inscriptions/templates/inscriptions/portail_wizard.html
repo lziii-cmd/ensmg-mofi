@@ -389,10 +389,10 @@
         </form>
 
         {% elif step == 3 %}
-        <!-- STEP 3: Certification & Cohorte -->
+        <!-- STEP 3: Certification → Cohorte -->
         <div class="wizard-card-header">
             <h2><i class="bi bi-award-fill me-2" style="color:var(--accent);"></i>Choisir votre formation</h2>
-            <p>Sélectionnez la cohorte à laquelle vous souhaitez vous inscrire.</p>
+            <p>Sélectionnez d'abord la certification, puis la session disponible.</p>
         </div>
 
         <form method="post" action="/portail/inscription/?step=3">
@@ -403,11 +403,26 @@
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
             {% endif %}
 
-            <div class="form-group-row {% if form.cohorte.errors %}field-error{% endif %}">
-                <label class="form-label" for="{{ form.cohorte.id_for_label }}">Cohorte *</label>
-                {{ form.cohorte }}
+            <!-- 1. Choisir la certification -->
+            <div class="form-group-row">
+                <label class="form-label">Certification *</label>
+                <select id="certif-select" class="form-select">
+                    <option value="">— Choisir une certification —</option>
+                    {% for cert in certifications %}
+                    <option value="{{ cert.pk }}">{{ cert.nom }}</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Sélectionnez le programme de certification souhaité.</small>
+            </div>
+
+            <!-- 2. Sessions disponibles (masqué jusqu'à sélection) -->
+            <div class="form-group-row {% if form.cohorte.errors %}field-error{% endif %}" id="cohorte-bloc" style="display:none;">
+                <label class="form-label" for="{{ form.cohorte.id_for_label }}">Session *</label>
+                <select name="cohorte" id="{{ form.cohorte.id_for_label }}" class="form-select" required>
+                    <option value="">— Choisir une session —</option>
+                </select>
                 {% if form.cohorte.errors %}<ul class="errorlist">{% for e in form.cohorte.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-                <small class="text-muted">Les cohortes affichent la certification et la session.</small>
+                <small class="text-muted">Les sessions correspondent aux cohortes actives de la certification.</small>
             </div>
 
             <div id="tarif-display" class="tarif-highlight" style="display:none;">
@@ -420,7 +435,7 @@
                 <a href="/portail/inscription/?step=2" class="btn-wizard-back">
                     <i class="bi bi-arrow-left"></i> Retour
                 </a>
-                <button type="submit" class="btn btn-primary px-4">
+                <button type="submit" class="btn btn-primary px-4" id="btn-step3" disabled>
                     Continuer <i class="bi bi-arrow-right ms-1"></i>
                 </button>
             </div>
@@ -482,7 +497,7 @@
             {% csrf_token %}
             <input type="hidden" name="step" value="4">
             <button type="submit" class="btn-wizard-next mt-2">
-                <i class="bi bi-check2-circle me-1"></i>Confirmer et choisir le paiement
+                <i class="bi bi-check2-circle me-1"></i>Confirmer et s'inscrire
             </button>
         </form>
 
@@ -517,40 +532,59 @@ document.getElementById('profil_pro').addEventListener('change', toggleProfil);
 toggleProfil();
 {% endif %}
 
-// Step 3: show tariff based on cohorte selection
+// Step 3: certification → cohorte cascade
 {% if step == 3 %}
 const certifTarifs = {{ certif_tarifs_json|safe }};
+const allCohortes  = {{ cohortes_json|safe }};
 
-function getActivite() {
-    // Try to get activite from session-stored data (not directly accessible from JS)
-    // Default to showing both, we'll rely on server side
-    return 'etudiant';
-}
+const certifSelect = document.getElementById('certif-select');
+const cohorteBloc  = document.getElementById('cohorte-bloc');
+const cohorteSelect= document.getElementById('{{ form.cohorte.id_for_label }}');
+const btnStep3     = document.getElementById('btn-step3');
+const tarifDisplay = document.getElementById('tarif-display');
+const tarifAmount  = document.getElementById('tarif-amount');
 
-const cohorteSelect = document.querySelector('[name="cohorte"]');
-if (cohorteSelect) {
-    cohorteSelect.addEventListener('change', function() {
-        const val = this.value;
-        const display = document.getElementById('tarif-display');
-        const amountEl = document.getElementById('tarif-amount');
-        if (!val) {
-            display.style.display = 'none';
-            return;
-        }
-        // Find matching certif from option text
-        const optionText = this.options[this.selectedIndex].text;
-        for (const [certId, info] of Object.entries(certifTarifs)) {
-            if (optionText.startsWith(info.nom)) {
-                // Show both tariffs
-                amountEl.textContent = info.etudiant.toLocaleString('fr-FR') + ' / ' + info.professionnel.toLocaleString('fr-FR');
-                display.style.display = 'block';
-                const label = display.querySelector('.amount-label');
-                label.textContent = 'Tarif étudiant / professionnel';
-                break;
-            }
-        }
-    });
-}
+certifSelect.addEventListener('change', function () {
+    const certifId = parseInt(this.value);
+    // Reset cohorte select
+    cohorteSelect.innerHTML = '<option value="">— Choisir une session —</option>';
+    tarifDisplay.style.display = 'none';
+    btnStep3.disabled = true;
+
+    if (!certifId) {
+        cohorteBloc.style.display = 'none';
+        return;
+    }
+
+    // Filtrer les cohortes pour cette certification
+    const filtered = allCohortes.filter(c => c.certif_id === certifId);
+    if (filtered.length === 0) {
+        cohorteBloc.style.display = 'block';
+        const opt = document.createElement('option');
+        opt.value = ''; opt.textContent = 'Aucune session disponible pour le moment';
+        cohorteSelect.appendChild(opt);
+    } else {
+        filtered.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.nom;
+            cohorteSelect.appendChild(opt);
+        });
+        cohorteBloc.style.display = 'block';
+    }
+
+    // Afficher le tarif de la certification
+    if (certifTarifs[certifId]) {
+        const info = certifTarifs[certifId];
+        tarifAmount.textContent = info.etudiant.toLocaleString('fr-FR') + ' / ' + info.professionnel.toLocaleString('fr-FR');
+        tarifDisplay.querySelector('.amount-label').textContent = 'Tarif étudiant / professionnel';
+        tarifDisplay.style.display = 'block';
+    }
+});
+
+cohorteSelect.addEventListener('change', function () {
+    btnStep3.disabled = !this.value;
+});
 {% endif %}
 </script>
 {% endblock %}

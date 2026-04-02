@@ -1711,9 +1711,17 @@ def portail_wizard(request):
             return redirect('/portail/inscription/?step=1')
         from .forms import WizardStep3Form
         form = WizardStep3Form()
+        cohortes_data = [
+            {'id': co.pk, 'nom': co.nom, 'certif_id': co.certification_id,
+             'certif_nom': co.certification.nom}
+            for co in Cohorte.objects.select_related('certification')
+                                     .filter(certification__actif=True)
+                                     .order_by('certification__nom', 'nom')
+        ]
         return render(request, 'inscriptions/portail_wizard.html', {
             'step': 3, 'form': form, 'certifications': certifications,
             'certif_tarifs_json': json.dumps(certif_tarifs),
+            'cohortes_json': json.dumps(cohortes_data),
         })
     elif step == 4:
         step1 = request.session.get('wizard_step1', {})

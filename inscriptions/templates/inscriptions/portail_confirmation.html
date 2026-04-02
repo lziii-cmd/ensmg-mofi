@@ -235,10 +235,17 @@
     </div>
 
     <!-- CTA -->
-    <a href="{% url 'login' %}" class="btn-go">
-        <i class="bi bi-box-arrow-in-right"></i>
-        Se connecter à mon espace
+    {% if request.user.is_authenticated %}
+    <a href="{% url 'espace_apprenant' %}" class="btn-go">
+        <i class="bi bi-speedometer2"></i>
+        Accéder à mon espace
     </a>
+    {% else %}
+    <a href="{% url 'login' %}?next={% url 'espace_apprenant' %}" class="btn-go">
+        <i class="bi bi-box-arrow-in-right"></i>
+        Accéder à mon espace
+    </a>
+    {% endif %}
     <br>
     <a href="{% url 'portail_accueil' %}" style="color:#718096;font-size:0.85rem;text-decoration:none;">
         <i class="bi bi-house me-1"></i>Retour à l'accueil
