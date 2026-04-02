@@ -140,11 +140,12 @@ class Inscrit(models.Model):
 
 class Inscription(models.Model):
     STATUT_CHOICES = [
-        ("inscrit", "Inscrit"),
-        ("en_formation", "En formation"),
-        ("abandon", "Abandon"),
-        ("formation_terminee", "Formation terminée"),
-        ("certifie", "Certifié"),
+        ("pre_inscrit",       "Pré-inscrit"),        # Inscrit, paiement non encore confirmé
+        ("inscrit",           "Inscrit"),             # Paiement confirmé — officiellement admis
+        ("en_formation",      "En formation"),        # Cohorte démarrée (auto)
+        ("abandon",           "Abandon"),             # Manuel
+        ("formation_terminee","Formation terminée"),  # Cohorte terminée (auto)
+        ("certifie",          "Certifié"),            # Attestation délivrée (auto)
     ]
 
     inscrit = models.ForeignKey(

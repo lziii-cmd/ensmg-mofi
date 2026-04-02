@@ -233,34 +233,39 @@
 
                     <!-- Wave -->
                     <div class="tab-pane fade show active" id="tab-wave">
-                        <div class="sim-notice">
-                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:1px;"></i>
-                            <div>Paiement simulé. Votre inscription sera enregistrée et confirmée par l'administration après vérification.</div>
+                        {% if wave_configured %}
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1rem;font-size:0.84rem;color:#1e40af;display:flex;align-items:flex-start;gap:0.5rem;">
+                            <i class="bi bi-shield-check-fill" style="flex-shrink:0;margin-top:1px;font-size:1rem;"></i>
+                            <div>Vous allez être redirigé vers la plateforme sécurisée <strong>Wave</strong> pour finaliser votre paiement. Aucune donnée bancaire ne transite par notre site.</div>
                         </div>
                         <form method="post">
                             {% csrf_token %}
                             <input type="hidden" name="moyen_paiement" value="wave">
-                            <div class="mobile-pay-form">
-                                <div class="phone-input-group">
-                                    <div class="payment-logo wave"><i class="bi bi-phone"></i></div>
-                                    <div style="flex:1;">
-                                        <label class="form-label">Numéro Wave</label>
-                                        <input type="tel" name="numero_mobile" class="form-control"
-                                               placeholder="+221 77 000 00 00" pattern="[0-9+\s]{8,20}">
-                                    </div>
+                            <div style="display:flex;align-items:center;gap:1rem;padding:1rem;background:#f8fafc;border-radius:10px;margin-bottom:1rem;">
+                                <div class="payment-logo wave" style="width:56px;height:56px;font-size:1.6rem;"><i class="bi bi-phone"></i></div>
+                                <div>
+                                    <div style="font-weight:700;color:#1a2340;font-size:1rem;">Wave Mobile Money</div>
+                                    <div style="font-size:0.82rem;color:#718096;">Paiement instantané et sécurisé</div>
+                                    <div style="font-size:0.85rem;color:#1d4ed8;font-weight:600;margin-top:0.2rem;">{{ inscription.montant_du|floatformat:0 }} FCFA</div>
                                 </div>
                             </div>
                             <button type="submit" class="btn-pay">
-                                <i class="bi bi-send me-1"></i>Confirmer le paiement Wave
+                                <i class="bi bi-box-arrow-up-right me-2"></i>Payer avec Wave — {{ inscription.montant_du|floatformat:0 }} FCFA
                             </button>
                         </form>
+                        {% else %}
+                        <div style="background:#fef9c3;border:1px solid #fcd34d;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1rem;font-size:0.84rem;color:#92400e;">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Le paiement Wave n'est pas encore activé. Choisissez Orange Money ou Virement.
+                        </div>
+                        {% endif %}
                     </div>
 
                     <!-- Orange Money -->
                     <div class="tab-pane fade" id="tab-om">
-                        <div class="sim-notice">
-                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:1px;"></i>
-                            <div>Paiement simulé. L'administration confirmera votre inscription après vérification.</div>
+                        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1.25rem;font-size:0.84rem;color:#9a3412;">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Effectuez d'abord votre paiement Orange Money au numéro <strong>+221 77 XXX XX XX</strong>, puis saisissez l'identifiant de transaction reçu par SMS.
                         </div>
                         <form method="post">
                             {% csrf_token %}
@@ -269,40 +274,31 @@
                                 <div class="phone-input-group">
                                     <div class="payment-logo orange"><i class="bi bi-phone-vibrate"></i></div>
                                     <div style="flex:1;">
-                                        <label class="form-label">Numéro Orange Money</label>
+                                        <label class="form-label">Votre numéro Orange Money</label>
                                         <input type="tel" name="numero_mobile" class="form-control"
                                                placeholder="+221 77 000 00 00" pattern="[0-9+\s]{8,20}">
                                     </div>
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Identifiant de transaction <span class="text-danger">*</span></label>
+                                    <input type="text" name="txn_id" class="form-control" required
+                                           placeholder="Ex: ORC2506041234" style="font-family:monospace;font-size:0.9rem;">
+                                    <small class="text-muted">L'identifiant figure dans le SMS de confirmation Orange Money.</small>
+                                </div>
                             </div>
                             <button type="submit" class="btn-pay" style="background:#e85c0e;">
-                                <i class="bi bi-send me-1"></i>Confirmer le paiement Orange Money
+                                <i class="bi bi-check2-circle me-1"></i>Soumettre ma transaction — {{ inscription.montant_du|floatformat:0 }} FCFA
                             </button>
                         </form>
                     </div>
 
-                    <!-- Carte -->
+                    <!-- Carte (désactivé pour l'instant) -->
                     <div class="tab-pane fade" id="tab-carte">
-                        <div class="sim-notice" style="background:#f0fdf4;border-color:#86efac;color:#15803d;">
-                            <i class="bi bi-credit-card-fill" style="flex-shrink:0;margin-top:1px;"></i>
-                            <div>Le paiement par carte est traité via <strong>CinetPay</strong>. Votre inscription sera confirmée automatiquement.</div>
+                        <div style="text-align:center;padding:2rem 1rem;color:#718096;">
+                            <i class="bi bi-credit-card" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:0.75rem;"></i>
+                            <p style="font-size:0.9rem;font-weight:600;">Paiement par carte bientôt disponible</p>
+                            <p style="font-size:0.82rem;">Veuillez utiliser Wave, Orange Money ou Virement bancaire.</p>
                         </div>
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="moyen_paiement" value="carte">
-                            <div class="mobile-pay-form">
-                                <div class="phone-input-group">
-                                    <div class="payment-logo carte"><i class="bi bi-credit-card"></i></div>
-                                    <div>
-                                        <div style="font-weight:600;color:#1a2340;">Paiement sécurisé</div>
-                                        <div style="font-size:0.8rem;color:#718096;">Visa, Mastercard acceptés</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn-pay" style="background:#15803d;">
-                                <i class="bi bi-lock me-1"></i>Payer par carte bancaire
-                            </button>
-                        </form>
                     </div>
 
                     <!-- Virement -->

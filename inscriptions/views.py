@@ -105,11 +105,40 @@ def api_search_inscrits(request):
 
 
 # ---------------------------------------------------------------------------
+# Auto-transitions de statut selon les dates de cohorte
+# ---------------------------------------------------------------------------
+
+def _auto_transition_statuts():
+    """
+    Parcourt les inscriptions et met à jour automatiquement le statut selon
+    les dates de la cohorte :
+      - statut = 'inscrit' + cohorte.date_debut <= today  → 'en_formation'
+      - statut = 'en_formation' + cohorte.date_fin <= today → 'formation_terminee'
+    Les pré-inscrits (sans paiement confirmé) ne sont PAS promus.
+    """
+    today = timezone.now().date()
+
+    # inscrit (paiement confirmé) + formation démarrée → en formation
+    Inscription.objects.filter(
+        statut='inscrit',
+        cohorte__date_debut__lte=today,
+        cohorte__date_fin__gte=today,   # encore en cours
+    ).update(statut='en_formation')
+
+    # en_formation + formation terminée → formation_terminee
+    Inscription.objects.filter(
+        statut='en_formation',
+        cohorte__date_fin__lt=today,
+    ).update(statut='formation_terminee')
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 
 @login_required
 def dashboard(request):
+    _auto_transition_statuts()
     filter_certif_ids = request.session.get("filter_certif_ids", [])
     filter_cohorte_ids = request.session.get("filter_cohorte_ids", [])
 
@@ -1634,7 +1663,7 @@ def portail_wizard(request):
             )
             inscription, created = Inscription.objects.get_or_create(
                 inscrit=inscrit, cohorte=cohorte,
-                defaults={'statut': 'inscrit', 'montant_du': montant_du},
+                defaults={'statut': 'pre_inscrit', 'montant_du': montant_du},
             )
             if created:
                 notifier_inscription(inscription)
@@ -1779,7 +1808,7 @@ def portail_inscrire(request, certif_pk):
             # Créer l'inscription (ou récupérer si déjà inscrit à cette cohorte)
             inscription, created = Inscription.objects.get_or_create(
                 inscrit=inscrit, cohorte=cohorte,
-                defaults={"statut": "inscrit", "montant_du": montant_du},
+                defaults={"statut": "pre_inscrit", "montant_du": montant_du},
             )
             if created:
                 notifier_inscription(inscription)
@@ -1827,18 +1856,73 @@ def portail_paiement(request, pk):
         moyen = request.POST.get('moyen_paiement', '')
         reference = request.POST.get('reference_virement', '').strip()
 
-        if moyen in ['wave', 'orange_money', 'carte']:
-            ref = request.POST.get('numero_mobile', '') or f"SIM-{uuid.uuid4().hex[:8].upper()}"
+        # ── WAVE : vrai checkout via l'API Wave Business ──────────────────
+        if moyen == 'wave':
+            import requests as http_requests
+            wave_api_key = getattr(settings, 'WAVE_API_KEY', '')
+            if not wave_api_key:
+                messages.error(request, "Paiement Wave non configuré. Contactez l'administration.")
+                return redirect('portail_paiement', pk=inscription.pk)
+
+            client_ref = f"INS-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
+            success_url = request.build_absolute_uri(f'/portail/paiement/{inscription.pk}/wave-retour/?ref={client_ref}&statut=succes')
+            error_url   = request.build_absolute_uri(f'/portail/paiement/{inscription.pk}/wave-retour/?ref={client_ref}&statut=echec')
+
+            try:
+                resp = http_requests.post(
+                    'https://api.wave.com/v1/checkout/sessions',
+                    headers={
+                        'Authorization': f'Bearer {wave_api_key}',
+                        'Content-Type': 'application/json',
+                    },
+                    json={
+                        'amount': str(int(inscription.montant_du)),
+                        'currency': 'XOF',
+                        'client_reference': client_ref,
+                        'success_url': success_url,
+                        'error_url': error_url,
+                    },
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                wave_url = data.get('wave_launch_url') or data.get('checkout_url')
+                if not wave_url:
+                    raise ValueError("Pas d'URL de paiement dans la réponse Wave.")
+                # Enregistrer la session en attente
+                Paiement.objects.create(
+                    inscription=inscription,
+                    montant=inscription.montant_du,
+                    date_paiement=timezone.now().date(),
+                    moyen_paiement='wave',
+                    reference=client_ref,
+                    statut='en_attente',
+                    notes=f"Session Wave: {data.get('id', '')}",
+                )
+                return redirect(wave_url)
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'initiation du paiement Wave : {e}")
+                return redirect('portail_paiement', pk=inscription.pk)
+
+        # ── ORANGE MONEY : déclaration de transaction réelle ──────────────
+        elif moyen == 'orange_money':
+            txn_id = request.POST.get('txn_id', '').strip()
+            numero = request.POST.get('numero_mobile', '').strip()
+            if not txn_id:
+                messages.error(request, "Veuillez saisir l'identifiant de transaction Orange Money.")
+                return redirect('portail_paiement', pk=inscription.pk)
             Paiement.objects.create(
                 inscription=inscription,
                 montant=inscription.montant_du,
                 date_paiement=timezone.now().date(),
-                moyen_paiement=moyen,
-                reference=ref,
+                moyen_paiement='orange_money',
+                reference=txn_id,
                 statut='en_attente',
-                notes="Initié depuis le portail — en attente de confirmation",
+                notes=f"N° Orange Money : {numero} — Réf. transaction : {txn_id}",
             )
-            messages.success(request, "Votre demande de paiement a été enregistrée. En attente de confirmation.")
+            messages.success(request, "Transaction Orange Money déclarée. L'administration vérifiera et confirmera votre inscription.")
+
+        # ── VIREMENT bancaire ─────────────────────────────────────────────
         elif moyen == 'virement':
             Paiement.objects.create(
                 inscription=inscription,
@@ -1849,7 +1933,7 @@ def portail_paiement(request, pk):
                 statut='en_attente',
                 notes="Virement bancaire déclaré depuis le portail",
             )
-            messages.success(request, "Votre virement a été déclaré. L'administration vérifiera et confirmera votre inscription.")
+            messages.success(request, "Virement déclaré. L'administration le vérifiera et confirmera votre inscription.")
 
         request.session.pop('pending_inscription_id', None)
 
@@ -1861,6 +1945,7 @@ def portail_paiement(request, pk):
 
     rib_info = {
         'banque': "Banque de l'Habitat du Sénégal (BHS)",
+
         'titulaire': 'ENSMG — École Nationale Supérieure de Management et de Gouvernance',
         'iban': 'SN38 SN010 10100 20030050001 23',
         'swift': 'BHSASNDA',
@@ -1871,6 +1956,41 @@ def portail_paiement(request, pk):
         'inscription': inscription,
         'rib_info': rib_info,
         'username': username,
+        'wave_configured': bool(getattr(settings, 'WAVE_API_KEY', '')),
+    })
+
+
+def portail_wave_retour(request, pk):
+    """Page de retour après paiement Wave (success_url / error_url)."""
+    inscription = get_object_or_404(Inscription, pk=pk)
+    statut = request.GET.get('statut', 'echec')
+    ref    = request.GET.get('ref', '')
+
+    if statut == 'succes':
+        # Marquer le paiement Wave en_attente comme confirmé (le webhook
+        # confirmera définitivement, mais on peut pré-confirmer ici)
+        paiement = Paiement.objects.filter(
+            inscription=inscription,
+            reference=ref,
+            moyen_paiement='wave',
+        ).first()
+        if paiement and paiement.statut == 'en_attente':
+            paiement.statut = 'confirme'
+            paiement.save(update_fields=['statut'])
+            if inscription.statut == 'pre_inscrit':
+                inscription.statut = 'inscrit'
+                inscription.save(update_fields=['statut'])
+            notifier_paiement_confirme(paiement)
+        messages.success(request, "Paiement Wave confirmé ! Votre inscription est validée.")
+    else:
+        messages.error(request, "Le paiement Wave a échoué ou a été annulé.")
+
+    username = request.session.get('new_compte_username', '')
+    return render(request, 'inscriptions/portail_confirmation.html', {
+        'inscription': inscription,
+        'username': username,
+        'moyen': 'wave',
+        'wave_succes': statut == 'succes',
     })
 
 
@@ -1895,6 +2015,7 @@ def _apprenant_required(view_func):
 @_apprenant_required
 def espace_apprenant(request):
     """Learner personal dashboard."""
+    _auto_transition_statuts()
     compte = request.user.compte_apprenant
     inscrit = compte.inscrit
 
@@ -2043,8 +2164,13 @@ def admin_confirmer_paiement(request, pk):
     if request.method == 'POST':
         paiement.statut = 'confirme'
         paiement.save()
+        # Pré-inscrit ayant confirmé son paiement → passe en "Inscrit"
+        inscription = paiement.inscription
+        if inscription.statut == 'pre_inscrit':
+            inscription.statut = 'inscrit'
+            inscription.save(update_fields=['statut'])
         notifier_paiement_confirme(paiement)
-        messages.success(request, f"Paiement de {paiement.montant} FCFA confirmé.")
+        messages.success(request, f"Paiement de {paiement.montant} FCFA confirmé. Statut mis à jour : Inscrit.")
         return redirect('inscrit_detail', pk=paiement.inscription.inscrit.pk)
     return render(request, 'inscriptions/confirmer_paiement.html', {'paiement': paiement})
 

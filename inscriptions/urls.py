@@ -69,6 +69,7 @@ urlpatterns = [
     path("portail/inscrire/<int:certif_pk>/", views.portail_inscrire, name="portail_inscrire"),
     path("portail/inscription/", views.portail_wizard, name="portail_wizard"),
     path("portail/paiement/<int:pk>/", views.portail_paiement, name="portail_paiement"),
+    path("portail/paiement/<int:pk>/wave-retour/", views.portail_wave_retour, name="portail_wave_retour"),
 
     # Espace apprenant
     path("apprenant/", views.espace_apprenant, name="espace_apprenant"),
