@@ -1,0 +1,232 @@
+{% extends "inscriptions/portail_base.html" %}
+
+{% block title %}Rejoindre {{ certification.nom }} — ENSMG{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rejoindre-container {
+        max-width: 760px;
+        margin: 3rem auto;
+        padding: 0 1rem;
+    }
+    .certif-banner {
+        background: linear-gradient(135deg, #1a2340, #243056);
+        color: #fff;
+        border-radius: 16px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+    .certif-banner .certif-icon {
+        width: 56px; height: 56px;
+        background: rgba(79,110,247,0.25);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.6rem;
+        color: #a5b4fc;
+        flex-shrink: 0;
+    }
+    .certif-banner .certif-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+    }
+    .certif-banner .certif-sub {
+        font-size: 0.82rem;
+        color: rgba(255,255,255,0.6);
+        margin-top: 0.2rem;
+    }
+    .choice-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    @media (max-width: 576px) { .choice-grid { grid-template-columns: 1fr; } }
+    .choice-card {
+        background: #fff;
+        border: 2px solid #e8edf5;
+        border-radius: 14px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .choice-card:hover, .choice-card.selected {
+        border-color: var(--accent);
+        box-shadow: 0 4px 16px rgba(79,110,247,0.15);
+    }
+    .choice-card .choice-icon {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+    .choice-card .choice-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 0.25rem;
+    }
+    .choice-card .choice-desc {
+        font-size: 0.8rem;
+        color: #718096;
+    }
+    .panel-section {
+        background: #fff;
+        border: 1px solid #e8edf5;
+        border-radius: 14px;
+        padding: 1.75rem 2rem;
+        display: none;
+    }
+    .panel-section.show { display: block; }
+    .panel-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e8edf5;
+    }
+    .btn-submit-main {
+        width: 100%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 0.85rem;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        transition: all 0.2s;
+    }
+    .btn-submit-main:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rejoindre-container">
+
+    <!-- Certification banner -->
+    <div class="certif-banner">
+        <div class="certif-icon"><i class="bi bi-award-fill"></i></div>
+        <div>
+            <div class="certif-title">{{ certification.nom }}</div>
+            <div class="certif-sub">
+                {% if certification.duree %}<i class="bi bi-clock me-1"></i>{{ certification.duree }} &nbsp;&mdash;&nbsp;{% endif %}
+                Inscrivez-vous maintenant pour démarrer votre parcours
+            </div>
+        </div>
+    </div>
+
+    <!-- Choice cards -->
+    <div class="choice-grid">
+        <div class="choice-card {% if show_login %}selected{% endif %}" onclick="showPanel('login', this)">
+            <span class="choice-icon">🔑</span>
+            <div class="choice-title">J'ai déjà un compte</div>
+            <div class="choice-desc">Connectez-vous avec vos identifiants ENSMG</div>
+        </div>
+        <div class="choice-card {% if show_wizard %}selected{% endif %}" onclick="showPanel('wizard', this)">
+            <span class="choice-icon">✨</span>
+            <div class="choice-title">Je suis nouveau</div>
+            <div class="choice-desc">Créer mon compte et m'inscrire à cette certification</div>
+        </div>
+    </div>
+
+    <!-- Login panel -->
+    <div class="panel-section {% if show_login %}show{% endif %}" id="panel-login">
+        <div class="panel-title"><i class="bi bi-box-arrow-in-right me-2 text-primary"></i>Connexion à votre espace</div>
+        {% if error_login %}
+        <div class="alert alert-danger" style="font-size:0.84rem;">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Identifiants incorrects. Vérifiez votre nom d'utilisateur et mot de passe.
+        </div>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="login">
+            <div class="mb-3">
+                <label class="form-label">Nom d'utilisateur</label>
+                <input type="text" name="username" class="form-control" placeholder="Votre identifiant" autofocus required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Mot de passe</label>
+                <input type="password" name="password" class="form-control" placeholder="Votre mot de passe" required>
+            </div>
+            <button type="submit" class="btn-submit-main">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter et accéder à mon espace
+            </button>
+            <div class="text-center mt-3" style="font-size:0.82rem;color:#718096;">
+                <a href="{% url 'password_reset' %}" class="text-decoration-none">Mot de passe oublié ?</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Wizard step 1 panel -->
+    <div class="panel-section {% if show_wizard %}show{% endif %}" id="panel-wizard">
+        <div class="panel-title"><i class="bi bi-person-plus me-2 text-success"></i>Créer mon compte — Étape 1 sur 4</div>
+        <form method="post" action="{% url 'portail_rejoindre' certification.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="inscription">
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label">Nom <span class="text-danger">*</span></label>
+                    <input type="text" name="nom" class="form-control" value="{{ form.nom.value|default:'' }}" required placeholder="Votre nom de famille">
+                    {% if form.nom.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.nom.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Prénom <span class="text-danger">*</span></label>
+                    <input type="text" name="prenom" class="form-control" value="{{ form.prenom.value|default:'' }}" required placeholder="Votre prénom">
+                    {% if form.prenom.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.prenom.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" required placeholder="votre@email.com">
+                    {% if form.email.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.email.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Téléphone <span class="text-danger">*</span></label>
+                    <input type="tel" name="telephone" class="form-control" value="{{ form.telephone.value|default:'' }}" required placeholder="+221 77 000 00 00">
+                    {% if form.telephone.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.telephone.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Adresse</label>
+                    <input type="text" name="adresse" class="form-control" value="{{ form.adresse.value|default:'' }}" placeholder="Votre adresse (optionnel)">
+                </div>
+            </div>
+            <button type="submit" class="btn-submit-main">
+                <i class="bi bi-arrow-right me-2"></i>Continuer — Étape suivante
+            </button>
+        </form>
+        <p style="font-size:0.8rem;color:#718096;text-align:center;margin-top:1rem;">
+            Vous recevrez vos identifiants de connexion par email après validation.
+        </p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showPanel(type, el) {
+    document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('panel-login').classList.remove('show');
+    document.getElementById('panel-wizard').classList.remove('show');
+    document.getElementById('panel-' + type).classList.add('show');
+    document.getElementById('panel-' + type).scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+{% if show_login or error_login %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.choice-card')[0].classList.add('selected');
+});
+{% endif %}
+{% if show_wizard %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.choice-card')[1].classList.add('selected');
+});
+{% endif %}
+</script>
+{% endblock %}

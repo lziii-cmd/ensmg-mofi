@@ -1,4 +1,5 @@
 {% extends "inscriptions/portail_base.html" %}
+{% load humanize %}
 
 {% block title %}ENSMG — Portail des Certifications{% endblock %}
 
@@ -331,11 +332,7 @@
         Inscrivez-vous en ligne en quelques minutes.
     </p>
     <div class="hero-actions">
-        <a href="{% url 'portail_wizard' %}" class="btn-hero-primary">
-            <i class="bi bi-pencil-square"></i>
-            S'inscrire maintenant
-        </a>
-        <a href="#certifications" class="btn-hero-secondary">
+        <a href="#certifications" class="btn-hero-primary">
             <i class="bi bi-grid-3x3-gap"></i>
             Voir les certifications
         </a>
@@ -389,14 +386,14 @@
                     <div class="cert-tarifs">
                         <div class="cert-tarif-item">
                             <span class="tarif-label"><i class="bi bi-mortarboard me-1"></i>Étudiant</span>
-                            <div class="tarif-value">{{ cert.tarif_etudiant|floatformat:0 }} <span>FCFA</span></div>
+                            <div class="tarif-value">{{ cert.tarif_etudiant|floatformat:0|intcomma }} <span>FCFA</span></div>
                         </div>
                         <div class="cert-tarif-item">
                             <span class="tarif-label"><i class="bi bi-briefcase me-1"></i>Professionnel</span>
-                            <div class="tarif-value">{{ cert.tarif_professionnel|floatformat:0 }} <span>FCFA</span></div>
+                            <div class="tarif-value">{{ cert.tarif_professionnel|floatformat:0|intcomma }} <span>FCFA</span></div>
                         </div>
                     </div>
-                    <a href="{% url 'portail_inscrire' cert.pk %}" class="btn-inscrir">
+                    <a href="{% url 'portail_rejoindre' cert.pk %}" class="btn-inscrir">
                         <i class="bi bi-arrow-right-circle me-1"></i>S'inscrire à cette certification
                     </a>
                 </div>
@@ -451,10 +448,7 @@
             </div>
         </div>
         <div class="text-center mt-4">
-            <a href="{% url 'portail_wizard' %}" class="btn btn-primary btn-lg px-5">
-                <i class="bi bi-pencil-square me-2"></i>Commencer l'inscription
-            </a>
-            <div class="mt-3" style="color:rgba(255,255,255,0.5);font-size:0.85rem;">
+            <div style="color:rgba(255,255,255,0.5);font-size:0.85rem;">
                 Déjà inscrit ?
                 <a href="{% url 'login' %}" style="color:#a5b4fc;">Connectez-vous ici</a>
             </div>

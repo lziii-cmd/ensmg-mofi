@@ -1,4 +1,5 @@
 {% extends 'inscriptions/base.html' %}
+{% load money_filters %}
 
 {% block title %}Paiements — ENSMG Certification{% endblock %}
 
@@ -12,7 +13,7 @@
         <h1><i class="bi bi-cash-stack me-2 text-success"></i>Liste des paiements</h1>
         <p>
             {{ paiements.count }} paiement{{ paiements.count|pluralize }}
-            — Total : <strong class="text-success">{{ total_filtre|floatformat:0 }} FCFA</strong>
+            — Total : <strong class="text-success">{{ total_filtre|fr_money }} FCFA</strong>
         </p>
     </div>
     <a href="{% url 'paiement_ajouter' %}" class="btn btn-success">
@@ -98,7 +99,7 @@
                             </a>
                         </td>
                         <td class="fw-bold text-success" style="white-space:nowrap; font-size:0.9rem;">
-                            {{ p.montant|floatformat:0 }} FCFA
+                            {{ p.montant|fr_money }} FCFA
                         </td>
                         <td>
                             {% if p.moyen_paiement == 'wave' %}
@@ -144,7 +145,7 @@
                                 </div>
                                 <div class="modal-body pt-2" style="font-size:0.875rem;">
                                     <p class="mb-0">
-                                        Supprimer le paiement de <strong>{{ p.montant|floatformat:0 }} FCFA</strong>
+                                        Supprimer le paiement de <strong>{{ p.montant|fr_money }} FCFA</strong>
                                         pour <strong>{{ p.inscription.inscrit }}</strong> ?
                                     </p>
                                 </div>
@@ -165,7 +166,7 @@
                 <tfoot>
                     <tr style="background:#f8fafc; font-weight:600;">
                         <td class="ps-3" colspan="3">Total</td>
-                        <td class="text-success" style="white-space:nowrap;">{{ total_filtre|floatformat:0 }} FCFA</td>
+                        <td class="text-success" style="white-space:nowrap;">{{ total_filtre|fr_money }} FCFA</td>
                         <td colspan="3"></td>
                     </tr>
                 </tfoot>
@@ -189,4 +190,21 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const searchInput = document.getElementById('search-input') || document.querySelector('input[name="q"]') || document.querySelector('input[name="search"]') || document.querySelector('input[type="search"]');
+    if (!searchInput) return;
+    searchInput.id = 'search-input';
+    let timer;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+            searchInput.form.submit();
+        }, 400);
+    });
+})();
+</script>
 {% endblock %}

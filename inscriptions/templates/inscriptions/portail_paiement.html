@@ -1,4 +1,5 @@
 {% extends "inscriptions/portail_base.html" %}
+{% load money_filters %}
 
 {% block title %}Paiement — ENSMG{% endblock %}
 
@@ -113,11 +114,11 @@
     .payment-logo.wave { background: #dbeafe; color: #1e40af; }
     .payment-logo.orange { background: #ffedd5; color: #c2410c; }
     .payment-logo.carte { background: #f0fdf4; color: #15803d; }
-    .payment-logo.paytech { background: #fdf4ff; color: #7e22ce; }
+    .payment-logo.intouch { background: #fdf4ff; color: #7e22ce; }
 
-    .btn-paytech {
+    .btn-intouch {
         width: 100%;
-        background: linear-gradient(135deg, #7e22ce, #9333ea);
+        background: linear-gradient(135deg, #1a2340, #2e3d6b);
         color: #fff;
         border: none;
         padding: 0.85rem;
@@ -131,8 +132,8 @@
         justify-content: center;
         gap: 0.5rem;
     }
-    .btn-paytech:hover {
-        background: linear-gradient(135deg, #6b21a8, #7e22ce);
+    .btn-intouch:hover {
+        background: linear-gradient(135deg, #0f1428, #243056);
         transform: translateY(-1px);
     }
 
@@ -219,7 +220,7 @@
             </div>
             <div class="montant-due">
                 <span class="label">Montant à régler</span>
-                <span class="amount">{{ inscription.montant_du|floatformat:0 }}</span>
+                <span class="amount">{{ inscription.montant_du|fr_money }}</span>
                 <span class="currency">FCFA</span>
             </div>
         </div>
@@ -230,8 +231,8 @@
             <div class="payment-tabs">
                 <ul class="nav nav-tabs mb-3" id="payTabs">
                     <li class="nav-item">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-paytech">
-                            <i class="bi bi-grid-3x3-gap payment-tab-icon"></i>PayTech
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-intouch">
+                            <i class="bi bi-grid-3x3-gap payment-tab-icon"></i>InTouch Sénégal
                         </button>
                     </li>
                     <li class="nav-item">
@@ -253,33 +254,33 @@
 
                 <div class="tab-content">
 
-                    <!-- PayTech -->
-                    <div class="tab-pane fade show active" id="tab-paytech">
-                        {% if paytech_configured %}
-                        <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1rem;font-size:0.84rem;color:#6b21a8;display:flex;align-items:flex-start;gap:0.5rem;">
-                            <i class="bi bi-shield-check-fill" style="flex-shrink:0;margin-top:1px;font-size:1rem;"></i>
-                            <div>Vous allez être redirigé vers la plateforme sécurisée <strong>PayTech</strong>. Choisissez votre moyen de paiement (Wave, Orange Money, Carte…) directement sur leur page.</div>
+                    <!-- InTouch Sénégal -->
+                    <div class="tab-pane fade show active" id="tab-intouch">
+                        {% if intouch_configured %}
+                        <div style="background:#eef1ff;border:1px solid #c7d2fe;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1rem;font-size:0.84rem;color:#1a2340;display:flex;align-items:flex-start;gap:0.5rem;">
+                            <i class="bi bi-shield-check-fill" style="flex-shrink:0;margin-top:1px;font-size:1rem;color:#4f6ef7;"></i>
+                            <div>Vous allez être redirigé vers la plateforme sécurisée <strong>InTouch Sénégal</strong>. Choisissez votre moyen de paiement (Wave, Orange Money, Carte…) directement sur leur page.</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:1rem;padding:1rem;background:#f8fafc;border-radius:10px;margin-bottom:1rem;">
-                            <div class="payment-logo paytech" style="width:56px;height:56px;font-size:1.6rem;"><i class="bi bi-grid-3x3-gap"></i></div>
+                            <div class="payment-logo intouch" style="width:56px;height:56px;font-size:1.6rem;"><i class="bi bi-grid-3x3-gap"></i></div>
                             <div>
-                                <div style="font-weight:700;color:#1a2340;font-size:1rem;">PayTech — Multi-paiement</div>
+                                <div style="font-weight:700;color:#1a2340;font-size:1rem;">InTouch Sénégal — Multi-paiement</div>
                                 <div style="font-size:0.82rem;color:#718096;">Wave · Orange Money · Carte bancaire et plus</div>
-                                <div style="font-size:0.85rem;color:#7e22ce;font-weight:600;margin-top:0.2rem;">{{ inscription.montant_du|floatformat:0 }} FCFA</div>
+                                <div style="font-size:0.85rem;color:#4f6ef7;font-weight:600;margin-top:0.2rem;">{{ inscription.montant_du|fr_money }} FCFA</div>
                             </div>
                         </div>
                         <form method="post">
                             {% csrf_token %}
-                            <input type="hidden" name="moyen_paiement" value="paytech">
-                            <button type="submit" class="btn-paytech">
+                            <input type="hidden" name="moyen_paiement" value="intouch">
+                            <button type="submit" class="btn-intouch">
                                 <i class="bi bi-box-arrow-up-right"></i>
-                                Payer {{ inscription.montant_du|floatformat:0 }} FCFA via PayTech
+                                Payer {{ inscription.montant_du|fr_money }} FCFA via InTouch
                             </button>
                         </form>
                         {% else %}
                         <div style="text-align:center;padding:2rem 1rem;color:#718096;">
                             <i class="bi bi-grid-3x3-gap" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:0.75rem;"></i>
-                            <p style="font-size:0.9rem;font-weight:600;">PayTech non configuré</p>
+                            <p style="font-size:0.9rem;font-weight:600;">InTouch Sénégal non configuré</p>
                             <p style="font-size:0.82rem;">Veuillez utiliser Wave, Orange Money ou Virement bancaire.</p>
                         </div>
                         {% endif %}
@@ -300,11 +301,11 @@
                                 <div>
                                     <div style="font-weight:700;color:#1a2340;font-size:1rem;">Wave Mobile Money</div>
                                     <div style="font-size:0.82rem;color:#718096;">Paiement instantané et sécurisé</div>
-                                    <div style="font-size:0.85rem;color:#1d4ed8;font-weight:600;margin-top:0.2rem;">{{ inscription.montant_du|floatformat:0 }} FCFA</div>
+                                    <div style="font-size:0.85rem;color:#1d4ed8;font-weight:600;margin-top:0.2rem;">{{ inscription.montant_du|fr_money }} FCFA</div>
                                 </div>
                             </div>
                             <button type="submit" class="btn-pay">
-                                <i class="bi bi-box-arrow-up-right me-2"></i>Payer avec Wave — {{ inscription.montant_du|floatformat:0 }} FCFA
+                                <i class="bi bi-box-arrow-up-right me-2"></i>Payer avec Wave — {{ inscription.montant_du|fr_money }} FCFA
                             </button>
                         </form>
                         {% else %}
@@ -341,7 +342,7 @@
                                 </div>
                             </div>
                             <button type="submit" class="btn-pay" style="background:#e85c0e;">
-                                <i class="bi bi-check2-circle me-1"></i>Soumettre ma transaction — {{ inscription.montant_du|floatformat:0 }} FCFA
+                                <i class="bi bi-check2-circle me-1"></i>Soumettre ma transaction — {{ inscription.montant_du|fr_money }} FCFA
                             </button>
                         </form>
                     </div>

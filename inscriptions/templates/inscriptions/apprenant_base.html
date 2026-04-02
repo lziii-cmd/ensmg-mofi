@@ -316,14 +316,7 @@
         <a href="{% url 'espace_apprenant' %}" class="nav-link {% if active_page == 'espace' %}active{% endif %}">
             <i class="bi bi-speedometer2 nav-icon"></i> Tableau de bord
         </a>
-        <a href="{% url 'apprenant_profil' %}" class="nav-link {% if active_page == 'profil' %}active{% endif %}">
-            <i class="bi bi-person-circle nav-icon"></i> Mon profil
-        </a>
-
         <div class="nav-section">Mes formations</div>
-        <a href="{% url 'espace_apprenant' %}" class="nav-link {% if active_page == 'inscriptions' %}active{% endif %}">
-            <i class="bi bi-journal-text nav-icon"></i> Mes inscriptions
-        </a>
         <a href="{% url 'apprenant_paiements' %}" class="nav-link {% if active_page == 'paiements' %}active{% endif %}">
             <i class="bi bi-credit-card nav-icon"></i> Mes paiements
         </a>
@@ -331,9 +324,9 @@
             <i class="bi bi-patch-check nav-icon"></i> Mes attestations
         </a>
 
-        <div class="nav-section">Nouvelles certifications</div>
-        <a href="{% url 'portail_accueil' %}" class="nav-link">
-            <i class="bi bi-plus-circle nav-icon"></i> Voir les certifications
+        <div class="nav-section">Certifications</div>
+        <a href="{% url 'apprenant_certifications' %}" class="nav-link {% if active_page == 'certifications' %}active{% endif %}">
+            <i class="bi bi-award nav-icon"></i> Nouvelles certifications
         </a>
     </div>
 
@@ -364,6 +357,12 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             {% if compte %}
+            <a href="{% url 'apprenant_notifications' %}" class="btn btn-sm btn-light position-relative" style="border:1px solid #e2e8f0;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-bell" style="font-size:0.95rem;color:#4a5568;"></i>
+                {% if nb_notifs_non_lues %}
+                <span class="position-absolute" style="top:-3px;right:-3px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:0.6rem;display:flex;align-items:center;justify-content:center;font-weight:700;">{{ nb_notifs_non_lues }}</span>
+                {% endif %}
+            </a>
             <div class="dropdown">
                 <button class="btn btn-sm btn-light d-flex align-items-center gap-2 border"
                         style="border-color:#e2e8f0 !important; border-radius:20px; padding:0.3rem 0.7rem 0.3rem 0.4rem;"

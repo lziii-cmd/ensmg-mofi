@@ -23,7 +23,43 @@
     </a>
 </div>
 
+<!-- Summary cards at top -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card" style="border-left:4px solid #f59e0b;cursor:pointer;"
+             onclick="toggleSection('section-a-certifier')"
+             data-bs-toggle="collapse" data-bs-target="#section-a-certifier">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#d97706;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div>
+                    <div style="font-size:1.6rem;font-weight:800;color:#1a2340;line-height:1;">{{ inscriptions.count }}</div>
+                    <div style="font-size:0.8rem;color:#718096;">Non certifié{{ inscriptions.count|pluralize }}</div>
+                </div>
+                <i class="bi bi-chevron-down ms-auto text-muted" id="icon-a-certifier"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card" style="border-left:4px solid #10b981;cursor:pointer;"
+             data-bs-toggle="collapse" data-bs-target="#section-certifies">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:#d1fae5;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#059669;">
+                    <i class="bi bi-patch-check-fill"></i>
+                </div>
+                <div>
+                    <div style="font-size:1.6rem;font-weight:800;color:#1a2340;line-height:1;">{{ certifies.count }}</div>
+                    <div style="font-size:0.8rem;color:#718096;">Certifié{{ certifies.count|pluralize }}</div>
+                </div>
+                <i class="bi bi-chevron-down ms-auto text-muted"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Section : À certifier -->
+<div class="collapse show" id="section-a-certifier">
 {% if inscriptions %}
 <div class="card mb-4">
     <div class="card-header d-flex align-items-center justify-content-between">
@@ -167,9 +203,10 @@
     </div>
 </div>
 {% endif %}
-
+</div>
 
 <!-- Section : Déjà certifiés -->
+<div class="collapse" id="section-certifies">
 {% if certifies %}
 <div class="card">
     <div class="card-header">
@@ -228,6 +265,7 @@
     </div>
 </div>
 {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_js %}

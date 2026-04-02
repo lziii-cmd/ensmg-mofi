@@ -1,4 +1,5 @@
 {% extends "inscriptions/portail_base.html" %}
+{% load humanize %}
 
 {% block title %}S'inscrire — {{ certification.nom }} — ENSMG{% endblock %}
 
@@ -326,7 +327,7 @@
                         <label for="profil_etudiant">
                             <i class="bi bi-mortarboard-fill"></i>
                             <span>Étudiant(e)</span>
-                            <small>{{ certification.tarif_etudiant|floatformat:0 }} FCFA</small>
+                            <small>{{ certification.tarif_etudiant|floatformat:0|intcomma }} FCFA</small>
                         </label>
                     </div>
                     <div class="profile-option">
@@ -335,7 +336,7 @@
                         <label for="profil_pro">
                             <i class="bi bi-briefcase-fill"></i>
                             <span>Professionnel(le)</span>
-                            <small>{{ certification.tarif_professionnel|floatformat:0 }} FCFA</small>
+                            <small>{{ certification.tarif_professionnel|floatformat:0|intcomma }} FCFA</small>
                         </label>
                     </div>
                 </div>

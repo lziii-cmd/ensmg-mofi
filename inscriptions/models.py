@@ -215,9 +215,8 @@ class Paiement(models.Model):
     MOYEN_CHOICES = [
         ("wave", "Wave"),
         ("orange_money", "Orange Money"),
-        ("paytech", "PayTech"),
+        ("intouch", "InTouch Sénégal"),
         ("carte", "Carte bancaire"),
-        ("stripe", "Stripe"),
         ("especes", "Espèces"),
         ("virement", "Virement bancaire"),
     ]
@@ -323,3 +322,32 @@ class CompteApprenant(models.Model):
 
     def __str__(self):
         return f"Compte de {self.inscrit}"
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ('nouvelle_certification', 'Nouvelle certification disponible'),
+        ('attestation_generee', 'Attestation générée'),
+        ('paiement_confirme', 'Paiement confirmé'),
+    ]
+    destinataire = models.ForeignKey(
+        CompteApprenant,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name="Destinataire"
+    )
+    type_notif = models.CharField(
+        max_length=30, choices=TYPE_CHOICES, verbose_name="Type"
+    )
+    message = models.TextField(verbose_name="Message")
+    lu = models.BooleanField(default=False, verbose_name="Lu")
+    date_creation = models.DateTimeField(auto_now_add=True)
+    lien = models.CharField(max_length=200, blank=True, verbose_name="Lien")
+
+    class Meta:
+        ordering = ['-date_creation']
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications"
+
+    def __str__(self):
+        return f"[{self.type_notif}] → {self.destinataire}"

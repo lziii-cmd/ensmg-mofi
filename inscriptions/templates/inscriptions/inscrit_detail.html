@@ -88,36 +88,41 @@
             <div class="card-header">
                 <h6><i class="bi bi-patch-check-fill me-2 text-success"></i>Attestations</h6>
             </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
+            <div class="card-body">
+                <div class="row g-2">
                     {% for ic in all_attestations %}
                     {% for att in ic.attestations.all %}
-                    <li class="list-group-item px-3 py-2">
-                        <div class="d-flex align-items-center justify-content-between gap-2">
-                            <div>
-                                <div class="fw-600" style="font-size:0.82rem;">{{ ic.cohorte.certification.nom|truncatechars:28 }}</div>
-                                <div class="text-muted" style="font-size:0.74rem;">
-                                    <i class="bi bi-calendar3 me-1"></i>{{ att.date_delivrance|date:"d/m/Y" }}
-                                    &nbsp;&bull;&nbsp;{{ att.numero }}
+                    <div class="col-12">
+                        <div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:10px;padding:0.75rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                            <div style="display:flex;align-items:center;gap:0.75rem;">
+                                <div style="width:36px;height:36px;background:#dcfce7;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="bi bi-patch-check-fill text-success"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.84rem;font-weight:600;color:#1a2340;">{{ ic.cohorte.certification.nom|truncatechars:32 }}</div>
+                                    <div style="font-size:0.73rem;color:#a0aec0;margin-top:0.1rem;">
+                                        <i class="bi bi-calendar3 me-1"></i>{{ att.date_delivrance|date:"d/m/Y" }}
+                                        &nbsp;&bull;&nbsp;<span style="font-family:monospace;">{{ att.numero }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="d-flex gap-1">
+                            <div class="d-flex gap-1 flex-shrink-0">
                                 <a href="{% url 'attestation_view' att.pk %}"
-                                   class="btn btn-outline-primary btn-sm py-0 px-2"
+                                   class="btn btn-outline-primary btn-sm" style="padding:0.2rem 0.5rem;"
                                    target="_blank" title="Visualiser">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <a href="{% url 'attestation_download' att.pk %}"
-                                   class="btn btn-outline-success btn-sm py-0 px-2"
+                                   class="btn btn-outline-success btn-sm" style="padding:0.2rem 0.5rem;"
                                    title="Télécharger">
                                     <i class="bi bi-download"></i>
                                 </a>
                             </div>
                         </div>
-                    </li>
+                    </div>
                     {% endfor %}
                     {% endfor %}
-                </ul>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -308,7 +313,8 @@
                                         <option value="especes">Espèces</option>
                                         <option value="wave">Wave</option>
                                         <option value="orange_money">Orange Money</option>
-                                        <option value="stripe">Stripe</option>
+                                        <option value="intouch">InTouch Sénégal</option>
+                                        <option value="carte">Carte bancaire</option>
                                         <option value="virement">Virement bancaire</option>
                                     </select>
                                 </div>

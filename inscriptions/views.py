@@ -264,6 +264,15 @@ def certification_ajouter(request):
         if form.is_valid():
             certification = form.save()
             messages.success(request, f'Certification "{certification.nom}" créée avec succès.')
+            # Notify all apprenants of new certification
+            from .models import Notification
+            for compte in CompteApprenant.objects.all():
+                Notification.objects.create(
+                    destinataire=compte,
+                    type_notif='nouvelle_certification',
+                    message=f"Nouvelle certification disponible : « {certification.nom} ». Inscrivez-vous dès maintenant !",
+                    lien='/apprenant/certifications/',
+                )
             return redirect("certification_detail", pk=certification.pk)
     else:
         form = CertificationForm()
@@ -1407,6 +1416,30 @@ def certifier_action(request, pk):
             contenu_pdf=pdf_bytes,
         )
         notifier_attestation(att)
+        # Notify the apprenant via notification + email
+        try:
+            from .models import Notification
+            if hasattr(inscription.inscrit, 'compte_apprenant'):
+                Notification.objects.create(
+                    destinataire=inscription.inscrit.compte_apprenant,
+                    type_notif='attestation_generee',
+                    message=f"Votre attestation pour « {inscription.cohorte.certification.nom} » a été générée et est disponible en téléchargement.",
+                    lien='/apprenant/attestations/',
+                )
+        except Exception:
+            pass
+        _send_email_apprenant(
+            inscription.inscrit,
+            subject=f"[ENSMG] Votre attestation est disponible — {inscription.cohorte.certification.nom}",
+            body=(
+                f"Bonjour {inscription.inscrit.prenom},\n\n"
+                f"Félicitations ! Votre attestation pour la certification « {inscription.cohorte.certification.nom} » "
+                f"a été générée avec succès.\n\n"
+                f"Vous pouvez la télécharger depuis votre espace apprenant : https://ensmg.sn/apprenant/attestations/\n\n"
+                f"Numéro d'attestation : {numero}\n\n"
+                f"Cordialement,\nL'équipe ENSMG"
+            ),
+        )
         nb_ok += 1
 
     messages.success(request, f"{nb_ok} attestation(s) générée(s) avec succès.")
@@ -1552,21 +1585,99 @@ def _creer_compte_apprenant(inscrit):
 
 
 # ---------------------------------------------------------------------------
+# Email utility
+# ---------------------------------------------------------------------------
+
+def _send_email_apprenant(inscrit, subject, body):
+    """Send an email to an apprenant. Silently ignores errors (no email configured)."""
+    if not inscrit.email:
+        return
+    try:
+        from django.core.mail import send_mail
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[inscrit.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Portail public
 # ---------------------------------------------------------------------------
 
 def portail_accueil(request):
-    """Public landing page — redirect staff/admin to dashboard, show certifications to everyone else."""
+    """Public landing page — redirect authenticated users to their space."""
     if request.user.is_authenticated:
         try:
             _ = request.user.compte_apprenant
-            # Apprenants can browse certifications — don't redirect
+            return redirect('espace_apprenant')
         except Exception:
-            if request.user.is_staff or request.user.is_superuser:
-                return redirect('dashboard')
+            pass
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('dashboard')
     certifications = Certification.objects.filter(actif=True).order_by('nom')
     return render(request, 'inscriptions/portail_accueil.html', {
         'certifications': certifications,
+    })
+
+
+def portail_rejoindre(request, certif_pk):
+    """Page d'accueil pour s'inscrire à une certification — choix login ou inscription."""
+    from .forms import WizardStep1Form
+    certification = get_object_or_404(Certification, pk=certif_pk, actif=True)
+
+    # If already authenticated apprenant, redirect directly to inscription directe
+    if request.user.is_authenticated:
+        try:
+            _ = request.user.compte_apprenant
+            return redirect('apprenant_inscription_directe', certif_pk=certif_pk)
+        except Exception:
+            return redirect('dashboard')
+
+    error_login = False
+    show_login = request.POST.get('action') == 'login' or request.GET.get('panel') == 'login'
+    show_wizard = request.POST.get('action') == 'inscription' or request.GET.get('panel') == 'inscription'
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'login':
+            from django.contrib.auth import authenticate, login as auth_login
+            username = request.POST.get('username', '').strip()
+            password = request.POST.get('password', '').strip()
+            user = authenticate(request, username=username, password=password)
+            if user:
+                auth_login(request, user)
+                return redirect('espace_apprenant')
+            else:
+                error_login = True
+                show_login = True
+
+        elif action == 'inscription':
+            # Store certif in session then redirect to wizard step 1
+            request.session['rejoindre_certif_id'] = certif_pk
+            form = WizardStep1Form(request.POST)
+            if form.is_valid():
+                request.session['wizard_step1'] = form.cleaned_data
+                return redirect('/portail/inscription/?step=2')
+            return render(request, 'inscriptions/portail_rejoindre.html', {
+                'certification': certification,
+                'form': form,
+                'show_wizard': True,
+                'error_login': False,
+            })
+
+    form = WizardStep1Form()
+    return render(request, 'inscriptions/portail_rejoindre.html', {
+        'certification': certification,
+        'form': form,
+        'show_login': show_login,
+        'show_wizard': show_wizard,
+        'error_login': error_login,
     })
 
 
@@ -1938,22 +2049,22 @@ def portail_paiement(request, pk):
             )
             messages.success(request, "Transaction Orange Money déclarée. L'administration vérifiera et confirmera votre inscription.")
 
-        # ── PAYTECH : checkout hébergé (Wave + OM + Carte en un) ─────────
-        elif moyen == 'paytech':
+        # ── INTOUCH : checkout hébergé ────────────────────────────────────
+        elif moyen == 'intouch':
             import requests as http_requests
             paytech_key    = getattr(settings, 'PAYTECH_API_KEY', '')
             paytech_secret = getattr(settings, 'PAYTECH_API_SECRET', '')
             if not paytech_key or not paytech_secret:
-                messages.error(request, "Paiement PayTech non configuré. Contactez l'administration.")
+                messages.error(request, "Paiement InTouch non configuré. Contactez l'administration.")
                 return redirect('portail_paiement', pk=inscription.pk)
 
             client_ref  = f"INS-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
             success_url = request.build_absolute_uri(
-                f'/portail/paiement/{inscription.pk}/paytech-retour/?ref={client_ref}&statut=succes')
+                f'/portail/paiement/{inscription.pk}/intouch-retour/?ref={client_ref}&statut=succes')
             cancel_url  = request.build_absolute_uri(
-                f'/portail/paiement/{inscription.pk}/paytech-retour/?ref={client_ref}&statut=echec')
+                f'/portail/paiement/{inscription.pk}/intouch-retour/?ref={client_ref}&statut=echec')
             ipn_url     = request.build_absolute_uri(
-                f'/portail/paiement/{inscription.pk}/paytech-ipn/')
+                f'/portail/paiement/{inscription.pk}/intouch-ipn/')
 
             try:
                 resp = http_requests.post(
@@ -1981,19 +2092,19 @@ def portail_paiement(request, pk):
                 redirect_url = data.get('redirect_url')
                 token        = data.get('token', '')
                 if not redirect_url:
-                    raise ValueError("Pas d'URL de paiement dans la réponse PayTech.")
+                    raise ValueError("Pas d'URL de paiement dans la réponse InTouch.")
                 Paiement.objects.create(
                     inscription=inscription,
                     montant=inscription.montant_du,
                     date_paiement=timezone.now().date(),
-                    moyen_paiement='paytech',
+                    moyen_paiement='intouch',
                     reference=client_ref,
                     statut='en_attente',
-                    notes=f"Token PayTech: {token}",
+                    notes=f"Token InTouch: {token}",
                 )
                 return redirect(redirect_url)
             except Exception as e:
-                messages.error(request, f"Erreur lors de l'initiation du paiement PayTech : {e}")
+                messages.error(request, f"Erreur lors de l'initiation du paiement InTouch : {e}")
                 return redirect('portail_paiement', pk=inscription.pk)
 
         # ── VIREMENT bancaire ─────────────────────────────────────────────
@@ -2031,7 +2142,7 @@ def portail_paiement(request, pk):
         'rib_info': rib_info,
         'username': username,
         'wave_configured':    bool(getattr(settings, 'WAVE_API_KEY', '')),
-        'paytech_configured': bool(getattr(settings, 'PAYTECH_API_KEY', '') and
+        'intouch_configured': bool(getattr(settings, 'PAYTECH_API_KEY', '') and
                                    getattr(settings, 'PAYTECH_API_SECRET', '')),
     })
 
@@ -2070,8 +2181,8 @@ def portail_wave_retour(request, pk):
     })
 
 
-def portail_paytech_retour(request, pk):
-    """Retour navigateur après paiement PayTech (success_url / cancel_url)."""
+def portail_intouch_retour(request, pk):
+    """Retour navigateur après paiement InTouch (success_url / cancel_url)."""
     inscription = get_object_or_404(Inscription, pk=pk)
     statut = request.GET.get('statut', 'echec')
     ref    = request.GET.get('ref', '')
@@ -2080,7 +2191,7 @@ def portail_paytech_retour(request, pk):
         paiement = Paiement.objects.filter(
             inscription=inscription,
             reference=ref,
-            moyen_paiement='paytech',
+            moyen_paiement='intouch',
         ).first()
         if paiement and paiement.statut == 'en_attente':
             paiement.statut = 'confirme'
@@ -2089,7 +2200,7 @@ def portail_paytech_retour(request, pk):
                 inscription.statut = 'inscrit'
                 inscription.save(update_fields=['statut'])
             notifier_paiement_confirme(paiement)
-        messages.success(request, "Paiement PayTech confirmé ! Votre inscription est validée.")
+        messages.success(request, "Paiement InTouch confirmé ! Votre inscription est validée.")
     else:
         messages.error(request, "Le paiement a été annulé ou a échoué.")
 
@@ -2097,14 +2208,18 @@ def portail_paytech_retour(request, pk):
     return render(request, 'inscriptions/portail_confirmation.html', {
         'inscription': inscription,
         'username': username,
-        'moyen': 'paytech',
-        'paytech_succes': statut == 'succes',
+        'moyen': 'intouch',
+        'intouch_succes': statut == 'succes',
     })
 
 
+# Keep backward-compatible alias
+portail_paytech_retour = portail_intouch_retour
+
+
 @csrf_exempt
-def portail_paytech_ipn(request, pk):
-    """Webhook IPN PayTech — confirmation serveur-à-serveur."""
+def portail_intouch_ipn(request, pk):
+    """Webhook IPN InTouch — confirmation serveur-à-serveur."""
     if request.method != 'POST':
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
@@ -2117,7 +2232,7 @@ def portail_paytech_ipn(request, pk):
         paiement = Paiement.objects.filter(
             inscription=inscription,
             reference=ref_command,
-            moyen_paiement='paytech',
+            moyen_paiement='intouch',
         ).first()
         if paiement and paiement.statut == 'en_attente':
             paiement.statut = 'confirme'
@@ -2129,6 +2244,10 @@ def portail_paytech_ipn(request, pk):
 
     from django.http import JsonResponse
     return JsonResponse({'status': 'ok'})
+
+
+# Keep backward-compatible alias
+portail_paytech_ipn = portail_intouch_ipn
 
 
 # ---------------------------------------------------------------------------
@@ -2167,6 +2286,11 @@ def espace_apprenant(request):
     total_paye = sum(i.total_paye for i in inscriptions)
     total_restant = max(total_du - total_paye, 0)
 
+    from .models import Notification
+    nb_notifs_non_lues = Notification.objects.filter(
+        destinataire=compte, lu=False
+    ).count()
+
     context = {
         'compte': compte,
         'inscrit': inscrit,
@@ -2175,6 +2299,7 @@ def espace_apprenant(request):
         'total_paye': total_paye,
         'total_restant': total_restant,
         'active_page': 'espace',
+        'nb_notifs_non_lues': nb_notifs_non_lues,
     }
     return render(request, 'inscriptions/apprenant_dashboard.html', context)
 
@@ -2243,10 +2368,11 @@ def apprenant_changer_mdp(request):
             request.user.save()
             compte.mdp_change = True
             compte.save()
-            from django.contrib.auth import update_session_auth_hash
-            update_session_auth_hash(request, request.user)
-            messages.success(request, "Mot de passe changé avec succès. Bienvenue !")
-            return redirect('espace_apprenant')
+            # Logout so user must login with new password
+            from django.contrib.auth import logout as auth_logout
+            auth_logout(request)
+            messages.success(request, "Mot de passe changé avec succès. Veuillez vous reconnecter.")
+            return redirect('login')
     else:
         from .forms import ChangerMdpApprenantForm
         form = ChangerMdpApprenantForm()
@@ -2287,6 +2413,128 @@ def apprenant_payer(request, inscription_pk):
     return redirect('portail_paiement', pk=inscription.pk)
 
 
+def apprenant_certifications(request):
+    """Liste des certifications disponibles pour l'apprenant."""
+    _auto_transition_statuts()
+    try:
+        compte = request.user.compte_apprenant
+        inscrit = compte.inscrit
+    except Exception:
+        return redirect('login')
+
+    from .models import Notification
+    nb_notifs_non_lues = Notification.objects.filter(
+        destinataire=compte, lu=False
+    ).count()
+
+    certifs_actives = Certification.objects.filter(actif=True).order_by('nom')
+    certifs_inactives = Certification.objects.filter(actif=False).order_by('nom')
+
+    return render(request, 'inscriptions/apprenant_certifications.html', {
+        'compte': compte,
+        'inscrit': inscrit,
+        'certifs_actives': certifs_actives,
+        'certifs_inactives': certifs_inactives,
+        'active_page': 'certifications',
+        'nb_notifs_non_lues': nb_notifs_non_lues,
+    })
+
+
+def apprenant_inscription_directe(request, certif_pk):
+    """Authenticated apprenant registers directly for a certification (skips portail wizard)."""
+    try:
+        compte = request.user.compte_apprenant
+        inscrit = compte.inscrit
+    except Exception:
+        return redirect('login')
+
+    certification = get_object_or_404(Certification, pk=certif_pk, actif=True)
+
+    # Find the first active cohorte for this certification
+    cohorte = Cohorte.objects.filter(
+        certification=certification, actif=True
+    ).order_by('date_debut').first()
+
+    from .models import Notification
+    nb_notifs_non_lues = Notification.objects.filter(
+        destinataire=compte, lu=False
+    ).count()
+
+    errors = {}
+
+    if request.method == 'POST':
+        cohorte_id = request.POST.get('cohorte_id', '').strip()
+        if cohorte_id:
+            try:
+                cohorte = Cohorte.objects.get(pk=cohorte_id, certification=certification, actif=True)
+            except Cohorte.DoesNotExist:
+                errors['cohorte'] = "Cohorte invalide."
+        if not cohorte:
+            errors['cohorte'] = "Aucune session disponible pour cette certification."
+
+        if not errors:
+            activite = inscrit.activite
+            montant_du = float(
+                certification.tarif_professionnel if activite == 'professionnel'
+                else certification.tarif_etudiant
+            )
+            inscription, created = Inscription.objects.get_or_create(
+                inscrit=inscrit,
+                cohorte=cohorte,
+                defaults={'statut': 'pre_inscrit', 'montant_du': montant_du},
+            )
+            if created:
+                notifier_inscription(inscription)
+
+            request.session['pending_inscription_id'] = inscription.pk
+            request.session['paiement_skip_redirect'] = 'espace_apprenant'
+            request.session.pop('new_compte_username', None)
+            return redirect('portail_paiement', pk=inscription.pk)
+
+    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by('nom')
+
+    return render(request, 'inscriptions/apprenant_inscription_directe.html', {
+        'compte': compte,
+        'inscrit': inscrit,
+        'certification': certification,
+        'cohorte': cohorte,
+        'cohortes': cohortes,
+        'errors': errors,
+        'active_page': 'certifications',
+        'nb_notifs_non_lues': nb_notifs_non_lues,
+    })
+
+
+def apprenant_notifications(request):
+    """Liste et gestion des notifications de l'apprenant."""
+    try:
+        compte = request.user.compte_apprenant
+        inscrit = compte.inscrit
+    except Exception:
+        return redirect('login')
+
+    from .models import Notification
+
+    if request.method == 'POST' and request.POST.get('marquer_tout_lu'):
+        Notification.objects.filter(destinataire=compte, lu=False).update(lu=True)
+        messages.success(request, "Toutes les notifications marquées comme lues.")
+        return redirect('apprenant_notifications')
+
+    notifs = Notification.objects.filter(destinataire=compte).order_by('-date_creation')
+    nb_notifs_non_lues = notifs.filter(lu=False).count()
+
+    # Marquer comme lues les notifications affichées
+    notifs.filter(lu=False).update(lu=True)
+
+    return render(request, 'inscriptions/apprenant_notifications.html', {
+        'compte': compte,
+        'inscrit': inscrit,
+        'notifs': notifs,
+        'active_page': 'notifications',
+        'nb_notifs_non_lues': 0,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Admin: confirm pending payments
 # ---------------------------------------------------------------------------
@@ -2307,6 +2555,30 @@ def admin_confirmer_paiement(request, pk):
             inscription.statut = 'inscrit'
             inscription.save(update_fields=['statut'])
         notifier_paiement_confirme(paiement)
+        # Send notification + email to apprenant
+        try:
+            from .models import Notification
+            if hasattr(inscription.inscrit, 'compte_apprenant'):
+                Notification.objects.create(
+                    destinataire=inscription.inscrit.compte_apprenant,
+                    type_notif='paiement_confirme',
+                    message=f"Votre paiement de {paiement.montant} FCFA pour « {inscription.cohorte.certification.nom} » a été confirmé. Votre inscription est validée.",
+                    lien='/apprenant/',
+                )
+        except Exception:
+            pass
+        _send_email_apprenant(
+            inscription.inscrit,
+            subject=f"[ENSMG] Paiement confirmé — {inscription.cohorte.certification.nom}",
+            body=(
+                f"Bonjour {inscription.inscrit.prenom},\n\n"
+                f"Votre paiement de {paiement.montant} FCFA pour la certification "
+                f"« {inscription.cohorte.certification.nom} » a été confirmé.\n\n"
+                f"Votre inscription est maintenant validée. Vous pouvez accéder à votre espace apprenant : "
+                f"https://ensmg.sn/apprenant/\n\n"
+                f"Cordialement,\nL'équipe ENSMG"
+            ),
+        )
         messages.success(request, f"Paiement de {paiement.montant} FCFA confirmé. Statut mis à jour : Inscrit.")
         return redirect('inscrit_detail', pk=paiement.inscription.inscrit.pk)
     return render(request, 'inscriptions/confirmer_paiement.html', {'paiement': paiement})

@@ -1,4 +1,5 @@
 {% extends 'inscriptions/base.html' %}
+{% load humanize %}
 
 {% block title %}Tableau de bord — ENSMG Certification{% endblock %}
 
@@ -55,7 +56,7 @@
                 <i class="bi bi-cash-coin"></i>
             </div>
             <div>
-                <div class="stat-value" style="color:#b45309; font-size:1.35rem;">{{ total_encaisse|floatformat:0 }}</div>
+                <div class="stat-value" style="color:#b45309; font-size:1.35rem;">{{ total_encaisse|floatformat:0|intcomma }}</div>
                 <div class="stat-label">FCFA encaissés</div>
             </div>
         </div>
@@ -140,7 +141,7 @@
                         <td><span class="fw-bold text-primary">{{ stat.nb_inscrits }}</span></td>
                         <td><span class="badge badge-statut-en_formation rounded-pill">{{ stat.nb_en_formation }}</span></td>
                         <td><span class="badge badge-statut-certifie rounded-pill">{{ stat.nb_certifies }}</span></td>
-                        <td><span class="fw-bold text-success">{{ stat.montant_encaisse|floatformat:0 }}</span></td>
+                        <td><span class="fw-bold text-success">{{ stat.montant_encaisse|floatformat:0|intcomma }}</span></td>
                         <td class="pe-3">
                             <a href="{% url 'certification_detail' stat.certification.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-eye"></i>
@@ -246,7 +247,7 @@
                             </div>
                         </div>
                         <span class="fw-bold text-success" style="font-size:0.88rem; white-space:nowrap;">
-                            {{ p.montant|floatformat:0 }} FCFA
+                            {{ p.montant|floatformat:0|intcomma }} FCFA
                         </span>
                     </li>
                     {% endfor %}

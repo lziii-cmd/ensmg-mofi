@@ -69,7 +69,11 @@ urlpatterns = [
     path("portail/inscrire/<int:certif_pk>/", views.portail_inscrire, name="portail_inscrire"),
     path("portail/inscription/", views.portail_wizard, name="portail_wizard"),
     path("portail/paiement/<int:pk>/", views.portail_paiement, name="portail_paiement"),
+    path("portail/rejoindre/<int:certif_pk>/", views.portail_rejoindre, name="portail_rejoindre"),
     path("portail/paiement/<int:pk>/wave-retour/", views.portail_wave_retour, name="portail_wave_retour"),
+    path("portail/paiement/<int:pk>/intouch-retour/", views.portail_intouch_retour, name="portail_intouch_retour"),
+    path("portail/paiement/<int:pk>/intouch-ipn/", views.portail_intouch_ipn, name="portail_intouch_ipn"),
+    # Legacy paytech aliases (backward compat)
     path("portail/paiement/<int:pk>/paytech-retour/", views.portail_paytech_retour, name="portail_paytech_retour"),
     path("portail/paiement/<int:pk>/paytech-ipn/", views.portail_paytech_ipn, name="portail_paytech_ipn"),
 
@@ -80,6 +84,9 @@ urlpatterns = [
     path("apprenant/attestations/", views.apprenant_attestations, name="apprenant_attestations"),
     path("apprenant/changer-mdp/", views.apprenant_changer_mdp, name="apprenant_changer_mdp"),
     path("apprenant/payer/<int:inscription_pk>/", views.apprenant_payer, name="apprenant_payer"),
+    path("apprenant/certifications/", views.apprenant_certifications, name="apprenant_certifications"),
+    path("apprenant/certifications/<int:certif_pk>/inscrire/", views.apprenant_inscription_directe, name="apprenant_inscription_directe"),
+    path("apprenant/notifications/", views.apprenant_notifications, name="apprenant_notifications"),
 
     # Dashboard financier
     path("finances/", views.dashboard_financier, name="dashboard_financier"),
