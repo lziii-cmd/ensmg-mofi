@@ -99,8 +99,8 @@ urlpatterns = [
     # Dashboard financier
     path("finances/", views.dashboard_financier, name="dashboard_financier"),
 
-    # Création de compte admin public (sans authentification)
-    path("register/", views.register_admin, name="register_admin"),
+    # Création de compte admin — protégée par clé dans l'URL (/register/<REGISTER_KEY>/)
+    path("register/<str:key>/", views.register_admin, name="register_admin"),
 
     # Bootstrap (création admin à distance — protégé par BOOTSTRAP_KEY)
     path("bootstrap/", views.bootstrap_admin, name="bootstrap_admin"),

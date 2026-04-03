@@ -167,6 +167,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ensmg.sn')
 
+# ── Clé d'accès à la page de création de compte admin (/register/<key>/) ──────
+REGISTER_KEY = os.environ.get('REGISTER_KEY', 'ensmg-admin-2024')
+
 # ── Webhooks ──────────────────────────────────────────────────────────────────
 WAVE_WEBHOOK_SECRET = os.environ.get('WAVE_WEBHOOK_SECRET', '')
 # Clé API Wave Business (obtenir sur https://business.wave.com/developers)

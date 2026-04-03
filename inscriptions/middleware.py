@@ -8,7 +8,6 @@ PUBLIC_PATHS = {
     '/',            # Page d'accueil (liste des certifications)
     '/login/',      # Connexion
     '/logout/',     # Déconnexion
-    '/register/',   # Création de compte admin
 }
 
 PUBLIC_PREFIXES = (
@@ -21,6 +20,7 @@ PUBLIC_PREFIXES = (
     '/api/',
     '/password-reset/',
     '/accounts/',
+    '/register/',           # Création compte admin — accès conditionné à la clé dans l'URL
 )
 
 

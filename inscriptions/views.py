@@ -1921,8 +1921,14 @@ def _send_email_apprenant(inscrit, subject, body):
 # Portail public
 # ---------------------------------------------------------------------------
 
-def register_admin(request):
-    """Public page to create an admin account — no authentication required."""
+def register_admin(request, key=""):
+    """Page de création de compte admin — protégée par clé dans l'URL."""
+    from django.conf import settings as _s
+    from django.http import Http404
+    register_key = _s.REGISTER_KEY
+    if not register_key or key != register_key:
+        raise Http404
+
     errors = {}
     form_data = {}
 
