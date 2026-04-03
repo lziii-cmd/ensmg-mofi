@@ -1402,13 +1402,12 @@ def _generer_qr_image(url):
 
 
 def _generer_attestation_pdf(inscription, verification_url="", partenaire_logo_path=None, partenaire_nom=None, partenaire_titre_signataire=None):
-    """Génère le PDF d'attestation (certificat formel) et retourne les bytes."""
-    import os, math
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.units import cm, mm
-    from reportlab.lib import colors
-    from reportlab.pdfgen import canvas as rl_canvas
-    from reportlab.lib.utils import ImageReader
+    """Génère le PDF d'attestation via WeasyPrint (template PNG + overlay CSS)."""
+    import os, base64
+    from django.conf import settings
+    from django.template.loader import render_to_string
+
+    from PIL import Image, ImageDraw, ImageFont
     from django.conf import settings
 
     inscrit       = inscription.inscrit
@@ -1416,260 +1415,160 @@ def _generer_attestation_pdf(inscription, verification_url="", partenaire_logo_p
     cohorte       = inscription.cohorte
     today         = timezone.now().date()
 
-    date_debut_str = cohorte.date_debut.strftime("%d/%m/%Y") if cohorte.date_debut else ""
-    date_fin_str   = cohorte.date_fin.strftime("%d/%m/%Y")   if cohorte.date_fin   else today.strftime("%d/%m/%Y")
+    STATIC   = os.path.join(settings.BASE_DIR, 'inscriptions', 'static', 'inscriptions')
+    IMG_DIR  = os.path.join(STATIC, 'img')
+    FONT_DIR = os.path.join(STATIC, 'fonts')
+    NAVY = (13, 36, 97)
+    GREY = (68, 68, 68)
+    DPI  = 150
 
-    buffer = io.BytesIO()
-    W, H = landscape(A4)   # ~841 x 595 pts
+    # ── A4 landscape en pixels à DPI ─────────────────────────────────────────
+    A4W = int(297 * DPI / 25.4)   # 1748 px
+    A4H = int(210 * DPI / 25.4)   # 1240 px
 
-    c = rl_canvas.Canvas(buffer, pagesize=landscape(A4))
-
-    # ── Palette ───────────────────────────────────────────────────────────────
-    NAVY   = colors.HexColor("#0d2461")   # bleu profond ENSMG
-    BLUE   = colors.HexColor("#1a56db")   # bleu vif
-    GOLD   = colors.HexColor("#c9a84c")
-    WHITE  = colors.white
-    GREY   = colors.HexColor("#444444")
-    LGREY  = colors.HexColor("#888888")
-    BLACK  = colors.HexColor("#111111")
-
-    # ── Fond blanc pur ────────────────────────────────────────────────────────
-    c.setFillColor(WHITE)
-    c.rect(0, 0, W, H, fill=1, stroke=0)
-
-    # ────────────────────────────────────────────────────────────────────────
-    # BORDURE DÉCORATIVE style celtique (imitation motif entrelacé)
-    # On dessine 3 rectangles concentriques de couleurs alternées
-    # ────────────────────────────────────────────────────────────────────────
-    M1, M2, M3, M4 = 10, 16, 20, 26   # marges imbriquées
-
-    # Rectangle extérieur (bleu épais)
-    c.setStrokeColor(NAVY)
-    c.setLineWidth(8)
-    c.rect(M1, M1, W - 2*M1, H - 2*M1, fill=0, stroke=1)
-
-    # Bande blanche de séparation
-    c.setStrokeColor(WHITE)
-    c.setLineWidth(3)
-    c.rect(M2, M2, W - 2*M2, H - 2*M2, fill=0, stroke=1)
-
-    # Rectangle intermédiaire (bleu fin)
-    c.setStrokeColor(NAVY)
-    c.setLineWidth(2)
-    c.rect(M3, M3, W - 2*M3, H - 2*M3, fill=0, stroke=1)
-
-    # Bande blanche de séparation
-    c.setStrokeColor(WHITE)
-    c.setLineWidth(3)
-    c.rect(M4, M4, W - 2*M4, H - 2*M4, fill=0, stroke=1)
-
-    # Rectangle intérieur (bleu fin)
-    INNER = 30
-    c.setStrokeColor(NAVY)
-    c.setLineWidth(1.2)
-    c.rect(INNER, INNER, W - 2*INNER, H - 2*INNER, fill=0, stroke=1)
-
-    # ── Motifs coins (carrés bleus) ───────────────────────────────────────────
-    sq = 14
-    for (cx, cy) in [(M1, M1), (W - M1, M1), (M1, H - M1), (W - M1, H - M1)]:
-        c.setFillColor(NAVY)
-        c.rect(cx - sq/2, cy - sq/2, sq, sq, fill=1, stroke=0)
+    # Charger le template et le redimensionner exactement en A4
+    tmpl = Image.open(os.path.join(IMG_DIR, 'cert_template.png')).convert('RGB')
+    img  = tmpl.resize((A4W, A4H), Image.LANCZOS)
+    W, H = A4W, A4H
+    draw = ImageDraw.Draw(img)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
-    def hline(y, x0=INNER+8, x1=W-INNER-8, color=NAVY, w=0.8):
-        c.setStrokeColor(color)
-        c.setLineWidth(w)
-        c.line(x0, y, x1, y)
+    def px(x_mm, y_mm):
+        """mm → pixels dans l'image A4."""
+        return int(x_mm * W / 297), int(y_mm * H / 210)
 
-    def draw_logo(path, cx, cy, size=62):
-        """Dessine un logo centré sur (cx,cy) dans un carré de 'size' pts."""
-        if path and os.path.exists(path):
+    def white_box(x1_mm, y1_mm, x2_mm, y2_mm):
+        x1, y1 = px(x1_mm, y1_mm)
+        x2, y2 = px(x2_mm, y2_mm)
+        draw.rectangle([x1, y1, x2, y2], fill='white')
+
+    def pt(size_mm):
+        """Taille de police en px (1mm ≈ 2.83pt, 1pt ≈ 1.33px à 96dpi → adaptée au DPI)."""
+        return max(10, int(size_mm * DPI / 25.4))
+
+    def load_font(name, size_mm):
+        try:
+            return ImageFont.truetype(os.path.join(FONT_DIR, name), pt(size_mm))
+        except Exception:
+            return ImageFont.load_default()
+
+    def load_sys_font(name, size_mm):
+        for path in [f'C:/Windows/Fonts/{name}', f'/usr/share/fonts/truetype/liberation/{name}',
+                     f'/usr/share/fonts/{name}']:
             try:
-                img = ImageReader(path)
-                iw, ih = img.getSize()
-                ratio = iw / ih
-                if ratio >= 1:
-                    dw, dh = size, size / ratio
-                else:
-                    dw, dh = size * ratio, size
-                c.drawImage(img, cx - dw/2, cy - dh/2, width=dw, height=dh,
-                            preserveAspectRatio=True, mask='auto')
+                return ImageFont.truetype(path, pt(size_mm))
             except Exception:
-                pass
+                continue
+        return ImageFont.load_default()
 
-    # ── Logo ENSMG (gauche) ───────────────────────────────────────────────────
-    logo_ensmg = os.path.join(settings.BASE_DIR, 'inscriptions', 'static', 'inscriptions', 'img', 'logo_ensmg.jpeg')
-    logo_y = H - INNER - 44
-    draw_logo(logo_ensmg, cx=INNER + 52, cy=logo_y, size=70)
+    def draw_centered(text, y_mm, font, color=NAVY):
+        _, y = px(0, y_mm)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        draw.text(((W - tw) // 2, y), text, font=font, fill=color)
 
-    # ── Logo partenaire (droite) ──────────────────────────────────────────────
-    if partenaire_logo_path:
-        draw_logo(partenaire_logo_path, cx=W - INNER - 52, cy=logo_y, size=70)
+    def draw_right(text, x_right_mm, y_mm, font, color=NAVY):
+        xr, y = px(x_right_mm, y_mm)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        draw.text((xr - tw, y), text, font=font, fill=color)
+
+    # ── Fontes ────────────────────────────────────────────────────────────────
+    font_script = load_font('DancingScript-Bold.ttf', 14)   # ~14mm = 53pt
+    font_bold   = load_sys_font('arialbd.ttf', 5.5)         # ~5.5mm = 23pt bold
+    font_reg    = load_sys_font('arial.ttf',   4.5)         # ~4.5mm = 19pt
+    font_sm     = load_sys_font('arial.ttf',   3.5)         # ~3.5mm = 15pt
+    font_tiny   = load_sys_font('arial.ttf',   2.8)         # ~2.8mm = 12pt
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # OVERLAYS
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # 1. Supprimer le logo central en haut (mm: 127.2,3.2 → 170.8,25.1)
+    white_box(125, 0, 173, 27)
+
+    # 2. Numéro de certificat (box template: mm 5.9,8.6 → 46.8,13.5)
+    cert_num = f"ENSMG-{today.year}-{inscription.pk:04d}"
+    white_box(5.5, 8.2, 48, 14)
+    x1, y1 = px(5.5, 8.2)
+    x2, y2 = px(48,  14)
+    draw.rounded_rectangle([x1, y1, x2, y2], radius=6, outline=NAVY, width=2)
+    cert_txt = f"Certificat N° : {cert_num}"
+    bbox = draw.textbbox((0, 0), cert_txt, font=font_tiny)
+    tw = bbox[2] - bbox[0]; th = bbox[3] - bbox[1]
+    draw.text((x1 + 8, (y1 + y2) // 2 - th // 2), cert_txt, font=font_tiny, fill=GREY)
+
+    # 3. Nom du bénéficiaire (zone template: mm 21.7,101.1 → 274.1,118.9)
+    white_box(2, 100, 295, 120)
+    nom_txt = f"{inscrit.prenom} {inscrit.nom}"
+    fn = font_script
+    bbox_n = draw.textbbox((0, 0), nom_txt, font=fn)
+    while (bbox_n[2] - bbox_n[0]) > int(0.85 * W) and fn.size > pt(7):
+        fn = ImageFont.truetype(os.path.join(FONT_DIR, 'DancingScript-Bold.ttf'), fn.size - 4)
+        bbox_n = draw.textbbox((0, 0), nom_txt, font=fn)
+    _, y_top = px(0, 100); _, y_bot = px(0, 120)
+    th_n = bbox_n[3] - bbox_n[1]
+    y_name = y_top + (y_bot - y_top - th_n) // 2
+    draw.text(((W - (bbox_n[2] - bbox_n[0])) // 2, y_name), nom_txt, font=fn, fill=NAVY)
+
+    # 4. Formation + description (zone template: mm 21.7,120.2 → 274.1,142.1)
+    white_box(2, 119, 295, 160)
+    nom_cert = certification.nom
+    bbox_f = draw.textbbox((0, 0), nom_cert, font=font_bold)
+    if (bbox_f[2] - bbox_f[0]) > int(0.82 * W):
+        words = nom_cert.split()
+        mid   = len(words) // 2
+        draw_centered(' '.join(words[:mid]), 123, font_bold, NAVY)
+        draw_centered(' '.join(words[mid:]), 132, font_bold, NAVY)
+        desc_y = 143
     else:
-        # Placeholder rectangle en pointillé
-        px, py, ps = W - INNER - 87, logo_y - 35, 70
-        c.setStrokeColor(LGREY)
-        c.setLineWidth(0.7)
-        c.setDash(3, 3)
-        c.rect(px, py, ps, ps, fill=0, stroke=1)
-        c.setDash()
-        c.setFillColor(LGREY)
-        c.setFont("Helvetica", 7)
-        c.drawCentredString(px + ps/2, py + ps/2 - 4, "Logo Partenaire")
+        draw_centered(nom_cert, 127, font_bold, NAVY)
+        desc_y = 139
 
-    # ── Nom de l'établissement (centre, entre les deux logos) ─────────────────
-    top_y = H - INNER - 18
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(W / 2, top_y, "ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE")
-    c.setFont("Helvetica", 8.5)
-    c.setFillColor(LGREY)
-    c.drawCentredString(W / 2, top_y - 14, "ENSMG  ·  Dakar, Sénégal")
+    desc = certification.description.strip() if certification.description else ''
+    if desc:
+        desc_txt = f"({desc})" if not desc.startswith('(') else desc
+        draw_centered(desc_txt, desc_y, font_reg, GREY)
 
-    # ── Séparateur double ligne ───────────────────────────────────────────────
-    sep_y = logo_y - 44
-    hline(sep_y + 3, color=NAVY, w=2)
-    hline(sep_y,     color=GOLD, w=0.8)
-
-    # ── Titre : ATTESTATION DE PARTICIPATION ─────────────────────────────────
-    # Centrer le bloc de contenu verticalement entre sep_y et SEP_Y
-    SEP_Y = INNER + 130   # position de la ligne séparatrice signatures (définie plus bas)
-    CONTENT_H = 150       # hauteur estimée du bloc titre + corps
-    available_h = sep_y - SEP_Y
-    title_y = sep_y - (available_h - CONTENT_H) / 2
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 28)
-    c.drawCentredString(W / 2, title_y, "ATTESTATION DE PARTICIPATION")
-
-    # Trait or sous le titre
-    tw = c.stringWidth("ATTESTATION DE PARTICIPATION", "Helvetica-Bold", 28)
-    hline(title_y - 6, x0=W/2 - tw/2, x1=W/2 + tw/2, color=GOLD, w=1.2)
-
-    # ── "délivrée à" ──────────────────────────────────────────────────────────
-    body_y = title_y - 30
-    c.setFillColor(GREY)
-    c.setFont("Helvetica-Oblique", 11)
-    c.drawCentredString(W / 2, body_y, "délivrée à")
-
-    # ── Nom du bénéficiaire ───────────────────────────────────────────────────
-    body_y -= 26
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 22)
-    nom_complet = inscrit.nom_complet.upper()
-    c.drawCentredString(W / 2, body_y, nom_complet)
-
-    # Soulignement sous le nom
-    nw = c.stringWidth(nom_complet, "Helvetica-Bold", 22)
-    hline(body_y - 3, x0=W/2 - nw/2, x1=W/2 + nw/2, color=NAVY, w=0.8)
-
-    # ── Texte de description ──────────────────────────────────────────────────
-    body_y -= 22
-    # Construire la phrase dynamiquement
-    if date_debut_str and date_debut_str != date_fin_str:
-        periode = f"du {date_debut_str} au {date_fin_str}"
-    elif date_fin_str:
-        periode = f"le {date_fin_str}"
-    else:
-        periode = ""
-
-    ligne1 = f"qui a suivi avec succès la formation intitulée :"
-    ligne2 = f"« {certification.nom} »"
-    if periode:
-        ligne3 = f"organisée à l'ENSMG, {periode}."
-    else:
-        ligne3 = f"organisée à l'ENSMG, Dakar, Sénégal."
-
-    c.setFillColor(GREY)
-    c.setFont("Helvetica", 10.5)
-    c.drawCentredString(W / 2, body_y, ligne1)
-    body_y -= 16
-    c.setFont("Helvetica-Bold", 11)
-    c.setFillColor(NAVY)
-    c.drawCentredString(W / 2, body_y, ligne2)
-    body_y -= 16
-    c.setFont("Helvetica", 10)
-    c.setFillColor(GREY)
-    c.drawCentredString(W / 2, body_y, ligne3)
-
-    # ── Séparateur avant signatures ───────────────────────────────────────────
-    hline(SEP_Y, color=NAVY, w=1)
-
-    # ── Zone signatures (ancrée en bas) ───────────────────────────────────────
-    # footer_y = centre vertical du bloc signature
-    footer_y = INNER + 95
-    sig_w = 170
-
-    MOIS_FR = ["janvier","février","mars","avril","mai","juin",
-               "juillet","août","septembre","octobre","novembre","décembre"]
-    date_fr = f"{today.day:02d} {MOIS_FR[today.month - 1]} {today.year}"
-
-    # --- Signature ENSMG (gauche) ---
-    sig1_cx = INNER + 24 + sig_w / 2
-    c.setFillColor(LGREY)
-    c.setFont("Helvetica", 7.5)
-    c.drawCentredString(sig1_cx, footer_y + 22, "Signature & Cachet")
-    c.setStrokeColor(LGREY)
-    c.setLineWidth(0.5)
-    c.line(sig1_cx - sig_w/2 + 10, footer_y + 10, sig1_cx + sig_w/2 - 10, footer_y + 10)
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(sig1_cx, footer_y - 2, "Le Directeur Général")
-    c.setFont("Helvetica", 8)
-    c.setFillColor(GREY)
-    c.drawCentredString(sig1_cx, footer_y - 14, "ENSMG")
-
-    # --- Date et lieu (centre) ---
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(W / 2, footer_y + 22, "Fait à Dakar, le")
-    c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(W / 2, footer_y + 6, date_fr)
-
-    # --- Signature Partenaire (droite) ---
-    sig2_cx = W - INNER - 24 - sig_w / 2
-    c.setFillColor(LGREY)
-    c.setFont("Helvetica", 7.5)
-    c.drawCentredString(sig2_cx, footer_y + 22, "Signature & Cachet")
-    c.setStrokeColor(LGREY)
-    c.setLineWidth(0.5)
-    c.line(sig2_cx - sig_w/2 + 10, footer_y + 10, sig2_cx + sig_w/2 - 10, footer_y + 10)
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9)
-    titre_part = partenaire_titre_signataire or "Le Représentant"
-    c.drawCentredString(sig2_cx, footer_y - 2, titre_part)
-    c.setFont("Helvetica", 8)
-    c.setFillColor(GREY)
-    nom_part = partenaire_nom or "Partenaire"
-    c.drawCentredString(sig2_cx, footer_y - 14, nom_part)
-
-    # ── QR code (bas gauche) ──────────────────────────────────────────────────
+    # 5. QR code (zone template: mm 7.5,144.8 → 44.6,183.1)
+    white_box(6, 143, 46, 184)
     if verification_url:
-        import qrcode as _qrcode
-        _qr = _qrcode.QRCode(version=2, box_size=4, border=2,
-                              error_correction=_qrcode.constants.ERROR_CORRECT_H)
-        _qr.add_data(verification_url)
-        _qr.make(fit=True)
-        _pil = _qr.make_image(fill_color="#0d2461", back_color="white")
-        _qr_buf = io.BytesIO()
-        _pil.save(_qr_buf, format="PNG")
-        _qr_buf.seek(0)
-        qr_size = 56
-        qr_x = INNER + 8
-        qr_y = INNER + 8
-        c.drawImage(ImageReader(_qr_buf), qr_x, qr_y, width=qr_size, height=qr_size,
-                    preserveAspectRatio=True)
-        c.setFillColor(LGREY)
-        c.setFont("Helvetica", 6)
-        c.drawString(qr_x, qr_y - 9, "N.B. : Scannez le code QR pour vérifier l'authenticité de cette attestation.")
+        try:
+            import qrcode as _qrcode
+            _qr = _qrcode.QRCode(version=2, box_size=8, border=2,
+                                  error_correction=_qrcode.constants.ERROR_CORRECT_H)
+            _qr.add_data(verification_url)
+            _qr.make(fit=True)
+            qr_img = _qr.make_image(fill_color=(13, 36, 97), back_color='white').convert('RGB')
+            qr_px  = int(38 * W / 297)
+            qr_img = qr_img.resize((qr_px, qr_px), Image.LANCZOS)
+            qx, qy = px(7.5, 144.8)
+            img.paste(qr_img, (qx, qy))
+        except Exception:
+            pass
 
-    # ── Numéro de référence (bas centre) ─────────────────────────────────────
-    ref = f"Réf. ATT-{inscription.pk:06d}"
-    c.setFillColor(LGREY)
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(W / 2, INNER + 10, ref)
+    # 6. Partenaire signataire (zone template: mm 171.8,162.6 → 239.2,169.5)
+    part_nom = partenaire_nom or certification.partenaire_nom or ''
+    if part_nom:
+        white_box(170, 162, 241, 170)
+        _, y_p  = px(0, 163.5)
+        cx_p    = (px(170, 0)[0] + px(241, 0)[0]) // 2
+        bbox_p  = draw.textbbox((0, 0), part_nom, font=font_sm)
+        tw_p    = bbox_p[2] - bbox_p[0]
+        draw.text((cx_p - tw_p // 2, y_p), part_nom, font=font_sm, fill=GREY)
 
-    c.save()
-    return buffer.getvalue()
+    # 7. Date (zone template: mm 221.8,194.1 → 291.4,203.6)
+    white_box(220, 193, 293, 204)
+    date_str  = f"Fait à Dakar, le {today.day:02d} / {today.month:02d} / {today.year}"
+    _, y_date = px(0, 196)
+    bbox_d    = draw.textbbox((0, 0), date_str, font=font_sm)
+    tw_d      = bbox_d[2] - bbox_d[0]
+    draw.text((W - px(8, 0)[0] - tw_d, y_date), date_str, font=font_sm, fill=NAVY)
+
+    # ── Export PDF A4 à DPI ───────────────────────────────────────────────────
+    buf = io.BytesIO()
+    img.save(buf, format='PDF', resolution=DPI)
+    return buf.getvalue()
 
 
 @login_required
@@ -1725,59 +1624,138 @@ def certifier_action(request, pk):
 
     nb_ok = 0
     for inscription in inscriptions_qs:
+        # Éviter les doublons si déjà certifié
+        if inscription.attestations.exists():
+            continue
+
         inscription.statut = "certifie"
         inscription.save()
 
         numero = f"ATT-{certification.pk:04d}-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
-        verification_url = request.build_absolute_uri(f"/attestations/{numero}/verifier/")
-        part_logo = None
-        if certification.partenaire_logo:
-            import os
-            from django.conf import settings as _s
-            part_logo = os.path.join(_s.MEDIA_ROOT, certification.partenaire_logo.name)
-        pdf_bytes = _generer_attestation_pdf(
-            inscription,
-            verification_url=verification_url,
-            partenaire_logo_path=part_logo,
-            partenaire_nom=certification.partenaire_nom or None,
-            partenaire_titre_signataire=certification.partenaire_titre_signataire or None,
-        )
 
-        att = Attestation.objects.create(
+        # Créer l'attestation sans PDF — le PDF sera chargé manuellement
+        Attestation.objects.create(
             inscription=inscription,
             numero=numero,
             date_delivrance=timezone.now().date(),
-            contenu_pdf=pdf_bytes,
-        )
-        notifier_attestation(att)
-        # Notify the apprenant via notification + email
-        try:
-            from .models import Notification
-            if hasattr(inscription.inscrit, 'compte_apprenant'):
-                Notification.objects.create(
-                    destinataire=inscription.inscrit.compte_apprenant,
-                    type_notif='attestation_generee',
-                    message=f"Votre attestation pour « {inscription.cohorte.certification.nom} » a été générée et est disponible en téléchargement.",
-                    lien='/apprenant/attestations/',
-                )
-        except Exception:
-            pass
-        _send_email_apprenant(
-            inscription.inscrit,
-            subject=f"[ENSMG] Votre attestation est disponible — {inscription.cohorte.certification.nom}",
-            body=(
-                f"Bonjour {inscription.inscrit.prenom},\n\n"
-                f"Félicitations ! Votre attestation pour la certification « {inscription.cohorte.certification.nom} » "
-                f"a été générée avec succès.\n\n"
-                f"Vous pouvez la télécharger depuis votre espace apprenant : https://ensmg.sn/apprenant/attestations/\n\n"
-                f"Numéro d'attestation : {numero}\n\n"
-                f"Cordialement,\nL'équipe ENSMG"
-            ),
+            contenu_pdf=None,
         )
         nb_ok += 1
 
-    messages.success(request, f"{nb_ok} attestation(s) générée(s) avec succès.")
+    if nb_ok:
+        messages.success(
+            request,
+            f"{nb_ok} apprenant(s) certifié(s). "
+            "Téléchargez les QR codes, apposez-les sur vos documents, "
+            "puis chargez les attestations PDF ci-dessous."
+        )
+    else:
+        messages.info(request, "Tous les inscrits sélectionnés ont déjà une attestation.")
     return redirect("certifier_inscrits", pk=pk)
+
+
+@login_required
+def attestation_qr_download(request, pk):
+    """Génère et télécharge le QR code de vérification d'une attestation (PNG)."""
+    attestation = get_object_or_404(Attestation, pk=pk)
+    verification_url = request.build_absolute_uri(
+        f"/attestations/{attestation.numero}/verifier/"
+    )
+    try:
+        import qrcode as _qrcode
+        from PIL import Image as _PilImage
+
+        qr = _qrcode.QRCode(
+            version=2, box_size=12, border=4,
+            error_correction=_qrcode.constants.ERROR_CORRECT_H,
+        )
+        qr.add_data(verification_url)
+        qr.make(fit=True)
+
+        # Générer en RGBA avec fond transparent et modules navy ENSMG
+        # On passe par un masque : canal R de l'image N&B = masque d'opacité inversé
+        qr_bw = qr.make_image(fill_color="black", back_color="white").convert("L")
+        w, h = qr_bw.size
+        # Canal alpha : 255 là où c'est foncé (module QR), 0 là où c'est blanc (fond)
+        from PIL import ImageOps as _ops
+        alpha = _ops.invert(qr_bw)           # blanc→noir (0), noir→blanc (255)
+        alpha = alpha.point(lambda x: 0 if x < 128 else 255)  # seuillage propre
+
+        qr_rgba = _PilImage.new("RGBA", (w, h), (13, 36, 97, 255))  # tout en navy
+        qr_rgba.putalpha(alpha)                                        # fond transparent
+
+        buf = io.BytesIO()
+        qr_rgba.save(buf, format="PNG")
+        buf.seek(0)
+        nom = attestation.inscription.inscrit.nom_complet.replace(" ", "_")
+        response = HttpResponse(buf.getvalue(), content_type="image/png")
+        response["Content-Disposition"] = (
+            f'attachment; filename="QR_{nom}_{attestation.numero}.png"'
+        )
+        return response
+    except Exception as e:
+        messages.error(request, f"Erreur QR : {e}")
+        return redirect(request.META.get("HTTP_REFERER", "certifier_home"))
+
+
+@login_required
+def attestation_upload_pdf(request, pk):
+    """Charge (ou remplace) le PDF d'une attestation existante."""
+    attestation = get_object_or_404(Attestation, pk=pk)
+    certif_pk = attestation.inscription.cohorte.certification.pk
+
+    if request.method == "POST":
+        pdf_file = request.FILES.get("pdf_file")
+        if not pdf_file:
+            messages.error(request, "Aucun fichier sélectionné.")
+        elif not pdf_file.name.lower().endswith(".pdf"):
+            messages.error(request, "Le fichier doit être au format PDF.")
+        elif pdf_file.size > 20 * 1024 * 1024:
+            messages.error(request, "Fichier trop volumineux (max 20 Mo).")
+        else:
+            attestation.contenu_pdf = pdf_file.read()
+            attestation.save()
+
+            # Notifier l'apprenant
+            notifier_attestation(attestation)
+            try:
+                from .models import Notification
+                inscrit = attestation.inscription.inscrit
+                if hasattr(inscrit, "compte_apprenant"):
+                    Notification.objects.create(
+                        destinataire=inscrit.compte_apprenant,
+                        type_notif="attestation_generee",
+                        message=(
+                            f"Votre attestation pour « {attestation.inscription.cohorte.certification.nom} » "
+                            "est maintenant disponible en téléchargement."
+                        ),
+                        lien="/apprenant/attestations/",
+                    )
+            except Exception:
+                pass
+            _send_email_apprenant(
+                attestation.inscription.inscrit,
+                subject=(
+                    f"[ENSMG] Votre attestation est disponible — "
+                    f"{attestation.inscription.cohorte.certification.nom}"
+                ),
+                body=(
+                    f"Bonjour {attestation.inscription.inscrit.prenom},\n\n"
+                    f"Félicitations ! Votre attestation pour la certification "
+                    f"« {attestation.inscription.cohorte.certification.nom} » "
+                    f"est maintenant disponible en téléchargement.\n\n"
+                    f"Connectez-vous à votre espace apprenant : "
+                    f"https://ensmg.sn/apprenant/attestations/\n\n"
+                    f"Numéro d'attestation : {attestation.numero}\n\n"
+                    f"Cordialement,\nL'équipe ENSMG"
+                ),
+            )
+            messages.success(
+                request,
+                f"PDF chargé avec succès pour {attestation.inscription.inscrit.nom_complet}."
+            )
+
+    return redirect("certifier_inscrits", pk=certif_pk)
 
 
 @login_required

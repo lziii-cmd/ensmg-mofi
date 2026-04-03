@@ -286,7 +286,8 @@
                 <p>Vous êtes sur le point de certifier <strong id="confirmNb">0</strong> inscrit(s).</p>
                 <div class="alert alert-info" style="font-size:0.84rem;">
                     <i class="bi bi-info-circle me-1"></i>
-                    Une attestation PDF sera générée pour chaque inscrit sélectionné.
+                    Un <strong>QR code de vérification</strong> sera généré pour chaque inscrit.
+                    Téléchargez-le, apposez-le sur votre document, puis chargez le PDF final.
                     Le statut passera à <strong>Certifié</strong>.
                 </div>
             </div>
@@ -315,25 +316,67 @@
 {% endif %}
 </div>
 
+<!-- ── Modals upload PDF (un par attestation — générés dynamiquement) ── -->
+{% for ic in certifies %}
+{% for att in ic.attestations.all %}
+<div class="modal fade" id="uploadModal{{ att.pk }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="post" action="{% url 'attestation_upload_pdf' att.pk %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title">
+                        <i class="bi bi-upload me-2 text-primary"></i>
+                        Charger le PDF
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-2" style="font-size:.83rem;">
+                        <strong>{{ ic.inscrit.nom_complet }}</strong><br>
+                        <span style="font-size:.75rem;">{{ att.numero }}</span>
+                    </p>
+                    <input type="file" class="form-control form-control-sm" name="pdf_file"
+                           accept=".pdf" required>
+                    <div class="form-text">Fichier PDF uniquement, max 20 Mo.</div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-upload me-1"></i>Charger
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endfor %}
+
 <!-- ── Panel: Déjà certifiés ── -->
 <div class="cert-panel" id="panel-certif">
 {% if certifies %}
 <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h6 class="mb-0">
             <i class="bi bi-patch-check-fill me-2 text-success"></i>
             Inscrits certifiés
             <span class="badge bg-success ms-1">{{ certifies.count }}</span>
         </h6>
+        <span class="text-muted" style="font-size:.78rem;">
+            <i class="bi bi-info-circle me-1"></i>
+            Téléchargez le QR, apposez-le sur votre document, puis chargez le PDF.
+        </span>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0" style="font-size:0.86rem;">
+        <table class="table table-hover mb-0 align-middle" style="font-size:0.86rem;">
             <thead style="background:#f0fdf4;">
                 <tr>
                     <th class="ps-3">Nom</th>
                     <th>Cohorte</th>
                     <th>Contact</th>
-                    <th class="pe-3">Attestation(s)</th>
+                    <th>Statut PDF</th>
+                    <th class="pe-3 text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -357,19 +400,52 @@
                     <td style="font-size:.8rem;color:#718096;">
                         {% if ic.inscrit.email %}{{ ic.inscrit.email }}{% else %}—{% endif %}
                     </td>
-                    <td class="pe-3">
+                    <td>
                         {% for att in ic.attestations.all %}
-                        <div class="d-inline-flex gap-1 me-1 mb-1">
+                            {% if att.contenu_pdf %}
+                                <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.72rem;">
+                                    <i class="bi bi-file-earmark-check me-1"></i>PDF chargé
+                                </span>
+                            {% else %}
+                                <span class="badge" style="background:#fef3c7;color:#92400e;font-size:.72rem;">
+                                    <i class="bi bi-clock me-1"></i>En attente PDF
+                                </span>
+                            {% endif %}
+                        {% empty %}
+                            <span class="text-muted" style="font-size:.8rem;">—</span>
+                        {% endfor %}
+                    </td>
+                    <td class="pe-3 text-end">
+                        {% for att in ic.attestations.all %}
+                        <div class="d-inline-flex gap-1 flex-wrap justify-content-end">
+                            <!-- QR Code -->
+                            <a href="{% url 'attestation_qr_download' att.pk %}"
+                               class="btn btn-outline-secondary btn-sm py-0 px-2"
+                               title="Télécharger le QR code de vérification">
+                                <i class="bi bi-qr-code"></i>
+                            </a>
+                            <!-- Charger / Remplacer PDF -->
+                            <button type="button"
+                                    class="btn btn-sm py-0 px-2 {% if att.contenu_pdf %}btn-outline-warning{% else %}btn-primary{% endif %}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#uploadModal{{ att.pk }}"
+                                    title="{% if att.contenu_pdf %}Remplacer le PDF{% else %}Charger le PDF{% endif %}">
+                                <i class="bi bi-upload"></i>
+                                {% if not att.contenu_pdf %}<span class="ms-1" style="font-size:.72rem;">Charger PDF</span>{% endif %}
+                            </button>
+                            <!-- Voir PDF (si dispo) -->
+                            {% if att.contenu_pdf %}
                             <a href="{% url 'attestation_view' att.pk %}"
                                class="btn btn-outline-primary btn-sm py-0 px-2"
-                               target="_blank" title="Visualiser {{ att.numero }}">
+                               target="_blank" title="Visualiser">
                                 <i class="bi bi-eye"></i>
                             </a>
                             <a href="{% url 'attestation_download' att.pk %}"
                                class="btn btn-outline-success btn-sm py-0 px-2"
-                               title="Télécharger {{ att.numero }}">
+                               title="Télécharger">
                                 <i class="bi bi-download"></i>
                             </a>
+                            {% endif %}
                         </div>
                         {% empty %}
                         <span class="text-muted" style="font-size:.8rem;">—</span>

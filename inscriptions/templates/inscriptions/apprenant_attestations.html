@@ -48,6 +48,7 @@
                 </div>
             </div>
             <div class="card-footer bg-transparent border-top" style="border-color:#f0f2f8 !important;padding:0.75rem 1rem;">
+                {% if item.attestation.contenu_pdf %}
                 <div class="d-flex gap-2">
                     <a href="{% url 'attestation_view' item.attestation.pk %}" class="btn btn-sm btn-outline-primary flex-fill" target="_blank">
                         <i class="bi bi-eye me-1"></i>Voir
@@ -56,6 +57,14 @@
                         <i class="bi bi-download me-1"></i>Télécharger
                     </a>
                 </div>
+                {% else %}
+                <div class="d-flex align-items-center gap-2" style="font-size:0.8rem;color:#92400e;">
+                    <div style="width:28px;height:28px;background:#fef3c7;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-hourglass-split" style="color:#d97706;"></i>
+                    </div>
+                    <span>Document en cours de préparation par l'administration.</span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

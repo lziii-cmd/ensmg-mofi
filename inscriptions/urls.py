@@ -68,6 +68,8 @@ urlpatterns = [
     path("certifier/<int:pk>/action/", views.certifier_action, name="certifier_action"),
     path("attestations/<int:pk>/telecharger/", views.attestation_download, name="attestation_download"),
     path("attestations/<int:pk>/voir/", views.attestation_view, name="attestation_view"),
+    path("attestations/<int:pk>/qr/", views.attestation_qr_download, name="attestation_qr_download"),
+    path("attestations/<int:pk>/upload/", views.attestation_upload_pdf, name="attestation_upload_pdf"),
     path("attestations/<str:numero>/verifier/", views.attestation_verifier, name="attestation_verifier"),
 
     # Portail public
