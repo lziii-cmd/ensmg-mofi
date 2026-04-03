@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -43,30 +44,19 @@
         }
 
         .asidebar-brand {
-            padding: 1.25rem 1rem 1rem;
+            padding: 1.4rem 1rem 1rem;
             border-bottom: 1px solid rgba(255,255,255,0.07);
-        }
-
-        .asidebar-brand .brand-icon {
-            width: 40px; height: 40px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.15rem; color: #fff;
-            margin-bottom: 0.6rem;
-        }
-
-        .asidebar-brand .brand-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .asidebar-brand .brand-sub {
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             color: rgba(255,255,255,0.45);
             text-transform: uppercase;
             letter-spacing: 0.8px;
+            margin-top: 0.3rem;
         }
 
         /* User info block */
@@ -295,21 +285,11 @@
 
 <!-- Sidebar -->
 <nav id="apprenant-sidebar">
-    <div class="asidebar-brand">
-        <div class="brand-icon"><i class="bi bi-award-fill"></i></div>
-        <div class="brand-title">ENSMG</div>
+    <div class="asidebar-brand text-center">
+        <img src="{% static 'inscriptions/img/logo_ensmg.jpeg' %}"
+             alt="ENSMG" style="width:72px; height:72px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.15); margin-bottom:0.5rem;">
         <div class="brand-sub" title="École Nationale Supérieure de Management et de Gouvernance">Espace Apprenant</div>
     </div>
-
-    {% if compte %}
-    <div class="apprenant-info d-flex align-items-center gap-2">
-        <div class="apprenant-avatar">{{ inscrit.prenom|first|upper }}{{ inscrit.nom|first|upper }}</div>
-        <div>
-            <div class="name">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
-            <div class="role">Apprenant</div>
-        </div>
-    </div>
-    {% endif %}
 
     <div class="apprenant-nav">
         <div class="nav-section">Mon espace</div>
