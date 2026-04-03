@@ -1906,6 +1906,53 @@ def _send_email_apprenant(inscrit, subject, body):
 # Portail public
 # ---------------------------------------------------------------------------
 
+def register_admin(request):
+    """Public page to create an admin account — no authentication required."""
+    errors = {}
+    form_data = {}
+
+    if request.method == 'POST':
+        prenom   = request.POST.get('prenom', '').strip()
+        nom      = request.POST.get('nom', '').strip()
+        email    = request.POST.get('email', '').strip().lower()
+        password  = request.POST.get('password', '')
+        password2 = request.POST.get('password2', '')
+        form_data = {'prenom': prenom, 'nom': nom, 'email': email}
+
+        if not prenom:
+            errors['prenom'] = "Le prénom est obligatoire."
+        if not nom:
+            errors['nom'] = "Le nom est obligatoire."
+        if not email:
+            errors['email'] = "L'adresse email est obligatoire."
+        elif User.objects.filter(username__iexact=email).exists() or User.objects.filter(email__iexact=email).exists():
+            errors['email'] = "Un compte avec cet email existe déjà."
+        if not password:
+            errors['password'] = "Le mot de passe est obligatoire."
+        elif len(password) < 6:
+            errors['password'] = "Le mot de passe doit contenir au moins 6 caractères."
+        if password and password != password2:
+            errors['password2'] = "Les mots de passe ne correspondent pas."
+
+        if not errors:
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                first_name=prenom,
+                last_name=nom,
+                is_staff=True,
+                is_superuser=True,
+            )
+            messages.success(request, f"Compte créé avec succès ! Connectez-vous avec {email}.")
+            return redirect('login')
+
+    return render(request, 'inscriptions/register_admin.html', {
+        'errors': errors,
+        'form_data': form_data,
+    })
+
+
 def bootstrap_admin(request):
     """
     One-time bootstrap: creates admin account if it doesn't exist.
