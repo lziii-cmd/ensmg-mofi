@@ -15,6 +15,10 @@ class Certification(models.Model):
         max_digits=12, decimal_places=2, default=0, verbose_name="Tarif professionnel (FCFA)"
     )
     actif = models.BooleanField(default=True, verbose_name="Active")
+    # Partenaire (optionnel — utilisé sur l'attestation PDF)
+    partenaire_nom              = models.CharField(max_length=200, blank=True, verbose_name="Nom du partenaire")
+    partenaire_logo             = models.ImageField(upload_to="partenaires/", blank=True, null=True, verbose_name="Logo du partenaire")
+    partenaire_titre_signataire = models.CharField(max_length=200, blank=True, default="Le Représentant", verbose_name="Titre du signataire partenaire")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

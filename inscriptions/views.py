@@ -1290,223 +1290,272 @@ def _generer_qr_image(url):
     return RLImage(buf, width=2.8 * 28.35, height=2.8 * 28.35)   # ~2.8 cm
 
 
-def _generer_attestation_pdf(inscription, verification_url=""):
+def _generer_attestation_pdf(inscription, verification_url="", partenaire_logo_path=None, partenaire_nom=None, partenaire_titre_signataire=None):
     """Génère le PDF d'attestation (certificat formel) et retourne les bytes."""
+    import os, math
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import cm, mm
     from reportlab.lib import colors
     from reportlab.pdfgen import canvas as rl_canvas
     from reportlab.lib.utils import ImageReader
+    from django.conf import settings
 
     inscrit       = inscription.inscrit
     certification = inscription.cohorte.certification
     cohorte       = inscription.cohorte
     today         = timezone.now().date()
 
-    date_fin_str = cohorte.date_fin.strftime("%d/%m/%Y") if cohorte.date_fin else today.strftime("%d/%m/%Y")
+    date_debut_str = cohorte.date_debut.strftime("%d/%m/%Y") if cohorte.date_debut else ""
+    date_fin_str   = cohorte.date_fin.strftime("%d/%m/%Y")   if cohorte.date_fin   else today.strftime("%d/%m/%Y")
 
     buffer = io.BytesIO()
-    # Paysage A4
-    W, H = landscape(A4)  # ~841 x 595 pts
+    W, H = landscape(A4)   # ~841 x 595 pts
 
     c = rl_canvas.Canvas(buffer, pagesize=landscape(A4))
 
-    # ── Couleurs ──────────────────────────────────────────────────────────────
-    BLACK  = colors.HexColor("#0a0a0a")
-    NAVY   = colors.HexColor("#1a2340")
+    # ── Palette ───────────────────────────────────────────────────────────────
+    NAVY   = colors.HexColor("#0d2461")   # bleu profond ENSMG
+    BLUE   = colors.HexColor("#1a56db")   # bleu vif
     GOLD   = colors.HexColor("#c9a84c")
-    GOLD2  = colors.HexColor("#e8c96a")
     WHITE  = colors.white
-    GREY   = colors.HexColor("#555555")
+    GREY   = colors.HexColor("#444444")
     LGREY  = colors.HexColor("#888888")
+    BLACK  = colors.HexColor("#111111")
 
-    # ── Fond ivoire ───────────────────────────────────────────────────────────
-    c.setFillColor(colors.HexColor("#fdfbf5"))
+    # ── Fond blanc pur ────────────────────────────────────────────────────────
+    c.setFillColor(WHITE)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
-    # ── Bordure extérieure noire épaisse ──────────────────────────────────────
-    margin = 18
-    c.setStrokeColor(BLACK)
-    c.setLineWidth(6)
-    c.rect(margin, margin, W - 2*margin, H - 2*margin, fill=0, stroke=1)
+    # ────────────────────────────────────────────────────────────────────────
+    # BORDURE DÉCORATIVE style celtique (imitation motif entrelacé)
+    # On dessine 3 rectangles concentriques de couleurs alternées
+    # ────────────────────────────────────────────────────────────────────────
+    M1, M2, M3, M4 = 10, 16, 20, 26   # marges imbriquées
 
-    # ── Bordure or fine intérieure ─────────────────────────────────────────────
-    gap = 10
-    inner = margin + gap
-    c.setStrokeColor(GOLD)
-    c.setLineWidth(1.5)
-    c.rect(inner, inner, W - 2*inner, H - 2*inner, fill=0, stroke=1)
+    # Rectangle extérieur (bleu épais)
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(8)
+    c.rect(M1, M1, W - 2*M1, H - 2*M1, fill=0, stroke=1)
 
-    # ── Coins décoratifs (triangles noirs) ────────────────────────────────────
-    cs = 38  # coin size
-    for (cx, cy, dx, dy) in [
-        (margin, H - margin, 1, -1),   # top-left
-        (W - margin, H - margin, -1, -1),  # top-right
-        (margin, margin, 1, 1),         # bottom-left
-        (W - margin, margin, -1, 1),    # bottom-right
-    ]:
-        c.setFillColor(BLACK)
-        p = c.beginPath()
-        p.moveTo(cx, cy)
-        p.lineTo(cx + dx * cs, cy)
-        p.lineTo(cx, cy + dy * cs)
-        p.close()
-        c.drawPath(p, fill=1, stroke=0)
+    # Bande blanche de séparation
+    c.setStrokeColor(WHITE)
+    c.setLineWidth(3)
+    c.rect(M2, M2, W - 2*M2, H - 2*M2, fill=0, stroke=1)
 
-    # ── Ligne or décorative sous le header ────────────────────────────────────
-    def gold_line(y, x0=None, x1=None, w=1.5):
-        x0 = x0 or inner + 10
-        x1 = x1 or W - inner - 10
-        c.setStrokeColor(GOLD)
+    # Rectangle intermédiaire (bleu fin)
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(2)
+    c.rect(M3, M3, W - 2*M3, H - 2*M3, fill=0, stroke=1)
+
+    # Bande blanche de séparation
+    c.setStrokeColor(WHITE)
+    c.setLineWidth(3)
+    c.rect(M4, M4, W - 2*M4, H - 2*M4, fill=0, stroke=1)
+
+    # Rectangle intérieur (bleu fin)
+    INNER = 30
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(1.2)
+    c.rect(INNER, INNER, W - 2*INNER, H - 2*INNER, fill=0, stroke=1)
+
+    # ── Motifs coins (carrés bleus) ───────────────────────────────────────────
+    sq = 14
+    for (cx, cy) in [(M1, M1), (W - M1, M1), (M1, H - M1), (W - M1, H - M1)]:
+        c.setFillColor(NAVY)
+        c.rect(cx - sq/2, cy - sq/2, sq, sq, fill=1, stroke=0)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def hline(y, x0=INNER+8, x1=W-INNER-8, color=NAVY, w=0.8):
+        c.setStrokeColor(color)
         c.setLineWidth(w)
         c.line(x0, y, x1, y)
 
-    # ── En-tête établissement ─────────────────────────────────────────────────
-    top_y = H - inner - 18
+    def draw_logo(path, cx, cy, size=62):
+        """Dessine un logo centré sur (cx,cy) dans un carré de 'size' pts."""
+        if path and os.path.exists(path):
+            try:
+                img = ImageReader(path)
+                iw, ih = img.getSize()
+                ratio = iw / ih
+                if ratio >= 1:
+                    dw, dh = size, size / ratio
+                else:
+                    dw, dh = size * ratio, size
+                c.drawImage(img, cx - dw/2, cy - dh/2, width=dw, height=dh,
+                            preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
 
+    # ── Logo ENSMG (gauche) ───────────────────────────────────────────────────
+    logo_ensmg = os.path.join(settings.BASE_DIR, 'inscriptions', 'static', 'inscriptions', 'img', 'logo_ensmg.jpeg')
+    logo_y = H - INNER - 44
+    draw_logo(logo_ensmg, cx=INNER + 52, cy=logo_y, size=70)
+
+    # ── Logo partenaire (droite) ──────────────────────────────────────────────
+    if partenaire_logo_path:
+        draw_logo(partenaire_logo_path, cx=W - INNER - 52, cy=logo_y, size=70)
+    else:
+        # Placeholder rectangle en pointillé
+        px, py, ps = W - INNER - 87, logo_y - 35, 70
+        c.setStrokeColor(LGREY)
+        c.setLineWidth(0.7)
+        c.setDash(3, 3)
+        c.rect(px, py, ps, ps, fill=0, stroke=1)
+        c.setDash()
+        c.setFillColor(LGREY)
+        c.setFont("Helvetica", 7)
+        c.drawCentredString(px + ps/2, py + ps/2 - 4, "Logo Partenaire")
+
+    # ── Nom de l'établissement (centre, entre les deux logos) ─────────────────
+    top_y = H - INNER - 18
     c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 11)
+    c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(W / 2, top_y, "ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE")
-
     c.setFont("Helvetica", 8.5)
     c.setFillColor(LGREY)
     c.drawCentredString(W / 2, top_y - 14, "ENSMG  ·  Dakar, Sénégal")
 
-    gold_line(top_y - 22, w=2.5)
-    gold_line(top_y - 26, w=0.8)
+    # ── Séparateur double ligne ───────────────────────────────────────────────
+    sep_y = logo_y - 44
+    hline(sep_y + 3, color=NAVY, w=2)
+    hline(sep_y,     color=GOLD, w=0.8)
 
-    # ── Titre principal ───────────────────────────────────────────────────────
-    title_y = top_y - 55
-
-    # Décoration étoiles dorées
-    c.setFillColor(GOLD)
-    c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(W / 2, title_y + 22, "★  ★  ★")
-
+    # ── Titre : ATTESTATION DE PARTICIPATION ─────────────────────────────────
+    # Centrer le bloc de contenu verticalement entre sep_y et SEP_Y
+    SEP_Y = INNER + 130   # position de la ligne séparatrice signatures (définie plus bas)
+    CONTENT_H = 150       # hauteur estimée du bloc titre + corps
+    available_h = sep_y - SEP_Y
+    title_y = sep_y - (available_h - CONTENT_H) / 2
     c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 32)
-    c.drawCentredString(W / 2, title_y, "CERTIFICAT DE PARTICIPATION")
-
-    # Ligne décorative sous le titre
-    gold_line(title_y - 10, x0=W/2 - 130, x1=W/2 + 130, w=1)
-
-    # ── Sous-titre ────────────────────────────────────────────────────────────
-    c.setFillColor(GOLD)
-    c.setFont("Helvetica-BoldOblique", 11)
-    c.drawCentredString(W / 2, title_y - 26, "ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE")
-
-    # ── Corps du certificat ───────────────────────────────────────────────────
-    body_y = title_y - 56
-
-    c.setFillColor(GREY)
-    c.setFont("Helvetica", 11)
-    c.drawCentredString(W / 2, body_y, "NOUS CERTIFIONS QUE :")
-
-    # Nom du bénéficiaire (grand, doré)
-    body_y -= 30
-    c.setFillColor(GOLD)
     c.setFont("Helvetica-Bold", 28)
-    c.drawCentredString(W / 2, body_y, inscrit.nom_complet.upper())
+    c.drawCentredString(W / 2, title_y, "ATTESTATION DE PARTICIPATION")
 
-    # Soulignement doré sous le nom
-    nom_w = c.stringWidth(inscrit.nom_complet.upper(), "Helvetica-Bold", 28)
-    line_x0 = W / 2 - nom_w / 2
-    line_x1 = W / 2 + nom_w / 2
-    gold_line(body_y - 4, x0=line_x0, x1=line_x1, w=1)
+    # Trait or sous le titre
+    tw = c.stringWidth("ATTESTATION DE PARTICIPATION", "Helvetica-Bold", 28)
+    hline(title_y - 6, x0=W/2 - tw/2, x1=W/2 + tw/2, color=GOLD, w=1.2)
 
-    # Texte intermédiaire
-    body_y -= 22
-    activite_lbl = "Étudiant(e)" if inscrit.activite == "etudiant" else "Professionnel(le)"
+    # ── "délivrée à" ──────────────────────────────────────────────────────────
+    body_y = title_y - 30
     c.setFillColor(GREY)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(W / 2, body_y, activite_lbl)
+    c.setFont("Helvetica-Oblique", 11)
+    c.drawCentredString(W / 2, body_y, "délivrée à")
 
-    body_y -= 20
-    c.setFont("Helvetica", 11)
+    # ── Nom du bénéficiaire ───────────────────────────────────────────────────
+    body_y -= 26
     c.setFillColor(NAVY)
-    c.drawCentredString(W / 2, body_y, "a suivi avec succès la formation :")
+    c.setFont("Helvetica-Bold", 22)
+    nom_complet = inscrit.nom_complet.upper()
+    c.drawCentredString(W / 2, body_y, nom_complet)
 
-    # Nom de la certification
+    # Soulignement sous le nom
+    nw = c.stringWidth(nom_complet, "Helvetica-Bold", 22)
+    hline(body_y - 3, x0=W/2 - nw/2, x1=W/2 + nw/2, color=NAVY, w=0.8)
+
+    # ── Texte de description ──────────────────────────────────────────────────
     body_y -= 22
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 15)
-    c.drawCentredString(W / 2, body_y, certification.nom)
+    # Construire la phrase dynamiquement
+    if date_debut_str and date_debut_str != date_fin_str:
+        periode = f"du {date_debut_str} au {date_fin_str}"
+    elif date_fin_str:
+        periode = f"le {date_fin_str}"
+    else:
+        periode = ""
 
-    # Cohorte / période
-    body_y -= 18
+    ligne1 = f"qui a suivi avec succès la formation intitulée :"
+    ligne2 = f"« {certification.nom} »"
+    if periode:
+        ligne3 = f"organisée à l'ENSMG, {periode}."
+    else:
+        ligne3 = f"organisée à l'ENSMG, Dakar, Sénégal."
+
+    c.setFillColor(GREY)
+    c.setFont("Helvetica", 10.5)
+    c.drawCentredString(W / 2, body_y, ligne1)
+    body_y -= 16
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(NAVY)
+    c.drawCentredString(W / 2, body_y, ligne2)
+    body_y -= 16
+    c.setFont("Helvetica", 10)
+    c.setFillColor(GREY)
+    c.drawCentredString(W / 2, body_y, ligne3)
+
+    # ── Séparateur avant signatures ───────────────────────────────────────────
+    hline(SEP_Y, color=NAVY, w=1)
+
+    # ── Zone signatures (ancrée en bas) ───────────────────────────────────────
+    # footer_y = centre vertical du bloc signature
+    footer_y = INNER + 95
+    sig_w = 170
+
+    MOIS_FR = ["janvier","février","mars","avril","mai","juin",
+               "juillet","août","septembre","octobre","novembre","décembre"]
+    date_fr = f"{today.day:02d} {MOIS_FR[today.month - 1]} {today.year}"
+
+    # --- Signature ENSMG (gauche) ---
+    sig1_cx = INNER + 24 + sig_w / 2
     c.setFillColor(LGREY)
-    c.setFont("Helvetica", 9)
-    session_txt = f"Session : {cohorte.nom}"
-    if cohorte.date_debut:
-        session_txt += f"  ·  Du {cohorte.date_debut.strftime('%d/%m/%Y')} au {date_fin_str}"
-    c.drawCentredString(W / 2, body_y, session_txt)
-
-    # ── Ligne séparatrice ─────────────────────────────────────────────────────
-    gold_line(body_y - 18, w=1.5)
-
-    # ── Zone basse : date + signature + QR ────────────────────────────────────
-    footer_y = body_y - 40
-
-    # Sceau ENSMG (cercle doré, bas-gauche)
-    seal_x = inner + 38
-    seal_y = footer_y - 8
-    c.setFillColor(GOLD)
-    c.setStrokeColor(GOLD2)
-    c.setLineWidth(1.5)
-    c.circle(seal_x, seal_y, 26, fill=1, stroke=1)
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(seal_x, seal_y - 6, "★")
-    c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 6)
-    c.drawCentredString(seal_x, seal_y - 16, "ENSMG")
-
-    # Date et lieu (à droite du sceau)
-    sig_x = inner + 74
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(sig_x, footer_y + 8, "Fait à Dakar, le")
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(sig_x, footer_y - 6, today.strftime("%d/%m/%Y"))
-
-    # Signature (centre)
-    sig_cx = W / 2
-    c.setFillColor(LGREY)
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(sig_cx, footer_y + 8, "Signature & Cachet")
+    c.setFont("Helvetica", 7.5)
+    c.drawCentredString(sig1_cx, footer_y + 22, "Signature & Cachet")
     c.setStrokeColor(LGREY)
-    c.setLineWidth(0.6)
-    c.line(sig_cx - 60, footer_y - 2, sig_cx + 60, footer_y - 2)
+    c.setLineWidth(0.5)
+    c.line(sig1_cx - sig_w/2 + 10, footer_y + 10, sig1_cx + sig_w/2 - 10, footer_y + 10)
     c.setFillColor(NAVY)
     c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(sig_cx, footer_y - 14, "Le Directeur Général")
+    c.drawCentredString(sig1_cx, footer_y - 2, "Le Directeur Général")
     c.setFont("Helvetica", 8)
-    c.setFillColor(LGREY)
-    c.drawCentredString(sig_cx, footer_y - 24, "École Nationale Supérieure de Management et de Gouvernance (ENSMG)")
+    c.setFillColor(GREY)
+    c.drawCentredString(sig1_cx, footer_y - 14, "ENSMG")
 
-    # QR code (droite)
+    # --- Date et lieu (centre) ---
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(W / 2, footer_y + 22, "Fait à Dakar, le")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawCentredString(W / 2, footer_y + 6, date_fr)
+
+    # --- Signature Partenaire (droite) ---
+    sig2_cx = W - INNER - 24 - sig_w / 2
+    c.setFillColor(LGREY)
+    c.setFont("Helvetica", 7.5)
+    c.drawCentredString(sig2_cx, footer_y + 22, "Signature & Cachet")
+    c.setStrokeColor(LGREY)
+    c.setLineWidth(0.5)
+    c.line(sig2_cx - sig_w/2 + 10, footer_y + 10, sig2_cx + sig_w/2 - 10, footer_y + 10)
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Bold", 9)
+    titre_part = partenaire_titre_signataire or "Le Représentant"
+    c.drawCentredString(sig2_cx, footer_y - 2, titre_part)
+    c.setFont("Helvetica", 8)
+    c.setFillColor(GREY)
+    nom_part = partenaire_nom or "Partenaire"
+    c.drawCentredString(sig2_cx, footer_y - 14, nom_part)
+
+    # ── QR code (bas gauche) ──────────────────────────────────────────────────
     if verification_url:
         import qrcode as _qrcode
         _qr = _qrcode.QRCode(version=2, box_size=4, border=2,
                               error_correction=_qrcode.constants.ERROR_CORRECT_H)
         _qr.add_data(verification_url)
         _qr.make(fit=True)
-        _pil = _qr.make_image(fill_color="#1a2340", back_color="white")
+        _pil = _qr.make_image(fill_color="#0d2461", back_color="white")
         _qr_buf = io.BytesIO()
         _pil.save(_qr_buf, format="PNG")
         _qr_buf.seek(0)
-        qr_x = W - inner - 90
-        qr_y = footer_y - 28
-        c.drawImage(ImageReader(_qr_buf), qr_x, qr_y, width=56, height=56, preserveAspectRatio=True)
+        qr_size = 56
+        qr_x = INNER + 8
+        qr_y = INNER + 8
+        c.drawImage(ImageReader(_qr_buf), qr_x, qr_y, width=qr_size, height=qr_size,
+                    preserveAspectRatio=True)
         c.setFillColor(LGREY)
-        c.setFont("Helvetica", 6.5)
-        c.drawCentredString(qr_x + 28, qr_y - 8, "Vérifier l'authenticité")
+        c.setFont("Helvetica", 6)
+        c.drawString(qr_x, qr_y - 9, "N.B. : Scannez le code QR pour vérifier l'authenticité de cette attestation.")
 
-    # ── Numéro de certificat ──────────────────────────────────────────────────
-    ref = f"CERT-{inscription.pk:06d}"
+    # ── Numéro de référence (bas centre) ─────────────────────────────────────
+    ref = f"Réf. ATT-{inscription.pk:06d}"
     c.setFillColor(LGREY)
     c.setFont("Helvetica", 7)
-    c.drawCentredString(W / 2, inner + 6, f"Réf. : {ref}")
+    c.drawCentredString(W / 2, INNER + 10, ref)
 
     c.save()
     return buffer.getvalue()
@@ -1570,7 +1619,18 @@ def certifier_action(request, pk):
 
         numero = f"ATT-{certification.pk:04d}-{inscription.pk:06d}-{uuid.uuid4().hex[:6].upper()}"
         verification_url = request.build_absolute_uri(f"/attestations/{numero}/verifier/")
-        pdf_bytes = _generer_attestation_pdf(inscription, verification_url=verification_url)
+        part_logo = None
+        if certification.partenaire_logo:
+            import os
+            from django.conf import settings as _s
+            part_logo = os.path.join(_s.MEDIA_ROOT, certification.partenaire_logo.name)
+        pdf_bytes = _generer_attestation_pdf(
+            inscription,
+            verification_url=verification_url,
+            partenaire_logo_path=part_logo,
+            partenaire_nom=certification.partenaire_nom or None,
+            partenaire_titre_signataire=certification.partenaire_titre_signataire or None,
+        )
 
         att = Attestation.objects.create(
             inscription=inscription,

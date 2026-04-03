@@ -7,7 +7,10 @@ from .models import Certification, Cohorte, Inscrit, Inscription, Paiement
 class CertificationForm(forms.ModelForm):
     class Meta:
         model = Certification
-        fields = ["nom", "description", "duree", "tarif_etudiant", "tarif_professionnel", "actif"]
+        fields = [
+            "nom", "description", "duree", "tarif_etudiant", "tarif_professionnel", "actif",
+            "partenaire_nom", "partenaire_logo", "partenaire_titre_signataire",
+        ]
         widgets = {
             "nom": forms.TextInput(attrs={
                 "class": "form-control",
@@ -35,6 +38,15 @@ class CertificationForm(forms.ModelForm):
                 "step": "1",
             }),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "partenaire_nom": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Ex: Université Cheikh Anta Diop",
+            }),
+            "partenaire_logo": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "partenaire_titre_signataire": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Ex: Le Recteur, Le Directeur...",
+            }),
         }
         labels = {
             "nom": "Nom de la certification",
@@ -43,6 +55,9 @@ class CertificationForm(forms.ModelForm):
             "tarif_etudiant": "Tarif étudiant (FCFA)",
             "tarif_professionnel": "Tarif professionnel (FCFA)",
             "actif": "Certification active",
+            "partenaire_nom": "Nom du partenaire",
+            "partenaire_logo": "Logo du partenaire",
+            "partenaire_titre_signataire": "Titre du signataire partenaire",
         }
 
 
