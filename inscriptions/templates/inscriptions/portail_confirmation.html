@@ -172,7 +172,11 @@
 
     <h1 class="confirmation-title">Inscription enregistrée !</h1>
     <p class="confirmation-subtitle">
-        Votre dossier d'inscription a été créé avec succès.
+        {% if is_staff_reg %}
+            Le dossier d'inscription a été créé avec succès.
+        {% else %}
+            Votre dossier d'inscription a été créé avec succès.
+        {% endif %}
     </p>
 
     <!-- Payment status -->
@@ -183,9 +187,16 @@
 
     <!-- Account credentials -->
     <div class="confirmation-card">
-        <div class="confirm-section-title"><i class="bi bi-person-lock me-1"></i>Vos identifiants de connexion</div>
+        <div class="confirm-section-title">
+            <i class="bi bi-person-lock me-1"></i>
+            {% if is_staff_reg %}Identifiants de l'apprenant{% else %}Vos identifiants de connexion{% endif %}
+        </div>
         <p style="font-size:0.85rem;color:#718096;">
-            Un compte a été créé pour accéder à votre espace apprenant. Connectez-vous et changez votre mot de passe dès la première connexion.
+            {% if is_staff_reg %}
+                Un compte apprenant a été créé. Transmettez ces identifiants à l'apprenant.
+            {% else %}
+                Un compte a été créé pour accéder à votre espace apprenant. Connectez-vous et changez votre mot de passe dès la première connexion.
+            {% endif %}
         </p>
         <div class="credentials-box">
             <div class="cred-row">
@@ -199,43 +210,64 @@
         </div>
         <div class="alert alert-warning" style="font-size:0.82rem;padding:0.6rem 0.85rem;">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Vous devrez changer ce mot de passe lors de votre première connexion.
+            {% if is_staff_reg %}
+                L'apprenant devra changer ce mot de passe lors de sa première connexion.
+            {% else %}
+                Vous devrez changer ce mot de passe lors de votre première connexion.
+            {% endif %}
         </div>
     </div>
 
     <!-- Next steps -->
+    {% if is_staff_reg %}
+    <div class="confirmation-card">
+        <div class="confirm-section-title"><i class="bi bi-list-check me-1"></i>Récapitulatif</div>
+        <ul class="next-steps-list">
+            <li>
+                <div class="next-step-num">✓</div>
+                <div>Dossier créé pour <strong>{{ inscription.inscrit.nom_complet }}</strong></div>
+            </li>
+            <li>
+                <div class="next-step-num">✓</div>
+                <div>Certification : <strong>{{ inscription.cohorte.certification.nom }}</strong> — {{ inscription.cohorte.nom }}</div>
+            </li>
+            <li>
+                <div class="next-step-num">!</div>
+                <div>Transmettez les identifiants ci-dessus à l'apprenant pour qu'il puisse accéder à son espace.</div>
+            </li>
+        </ul>
+    </div>
+    {% else %}
     <div class="confirmation-card">
         <div class="confirm-section-title"><i class="bi bi-list-check me-1"></i>Prochaines étapes</div>
         <ul class="next-steps-list">
             <li>
                 <div class="next-step-num">1</div>
-                <div>
-                    <strong>Connectez-vous</strong> à votre espace apprenant avec les identifiants ci-dessus.
-                </div>
+                <div><strong>Connectez-vous</strong> à votre espace apprenant avec les identifiants ci-dessus.</div>
             </li>
             <li>
                 <div class="next-step-num">2</div>
-                <div>
-                    <strong>Changez votre mot de passe</strong> lors de la première connexion pour sécuriser votre compte.
-                </div>
+                <div><strong>Changez votre mot de passe</strong> lors de la première connexion pour sécuriser votre compte.</div>
             </li>
             <li>
                 <div class="next-step-num">3</div>
-                <div>
-                    <strong>Attendez la confirmation</strong> de votre paiement par l'équipe ENSMG sous 24-48h.
-                </div>
+                <div><strong>Attendez la confirmation</strong> de votre paiement par l'équipe ENSMG sous 24-48h.</div>
             </li>
             <li>
                 <div class="next-step-num">4</div>
-                <div>
-                    <strong>Suivez vos formations</strong> depuis votre tableau de bord et téléchargez vos attestations.
-                </div>
+                <div><strong>Suivez vos formations</strong> depuis votre tableau de bord et téléchargez vos attestations.</div>
             </li>
         </ul>
     </div>
+    {% endif %}
 
     <!-- CTA -->
-    {% if request.user.is_authenticated %}
+    {% if is_staff_reg %}
+    <a href="{% url 'dashboard' %}" class="btn-go">
+        <i class="bi bi-speedometer2"></i>
+        Retour au tableau de bord
+    </a>
+    {% elif request.user.is_authenticated %}
     <a href="{% url 'espace_apprenant' %}" class="btn-go">
         <i class="bi bi-speedometer2"></i>
         Accéder à mon espace
@@ -247,9 +279,11 @@
     </a>
     {% endif %}
     <br>
+    {% if not is_staff_reg %}
     <a href="{% url 'portail_accueil' %}" style="color:#718096;font-size:0.85rem;text-decoration:none;">
         <i class="bi bi-house me-1"></i>Retour à l'accueil
     </a>
+    {% endif %}
 
 </div>
 {% endblock %}

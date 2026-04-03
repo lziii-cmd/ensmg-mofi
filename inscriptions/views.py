@@ -2186,8 +2186,15 @@ def portail_wizard(request):
                 compte = inscrit.compte_apprenant
                 user = compte.user
 
-            # Auto-login : connecte l'utilisateur automatiquement après l'inscription
-            if not request.user.is_authenticated:
+            # Détecter si c'est un staff qui enregistre l'apprenant
+            is_staff_registrant = request.user.is_authenticated and (
+                request.user.is_staff or request.user.is_superuser
+            )
+            if is_staff_registrant:
+                # Staff : on note en session pour adapter la page finale
+                request.session['wizard_by_staff'] = True
+            else:
+                # Auto-login : connecte l'apprenant automatiquement
                 from django.contrib.auth import login as auth_login
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
                 auth_login(request, user)
@@ -2369,14 +2376,16 @@ def portail_paiement(request, pk):
     if request.method == 'POST':
         # Skip paiement — l'apprenant paiera plus tard
         if request.POST.get('skip_paiement'):
+            is_staff_reg = request.session.pop('wizard_by_staff', False)
             skip_redirect = request.session.pop('paiement_skip_redirect', None)
             request.session.pop('pending_inscription_id', None)
-            if skip_redirect == 'espace_apprenant':
+            if not is_staff_reg and skip_redirect == 'espace_apprenant':
                 return redirect('espace_apprenant')
             return render(request, 'inscriptions/portail_confirmation.html', {
                 'inscription': inscription,
                 'username': request.session.get('new_compte_username', ''),
                 'moyen': 'plus_tard',
+                'is_staff_reg': is_staff_reg,
             })
 
         moyen = request.POST.get('moyen_paiement', '')
@@ -2519,12 +2528,14 @@ def portail_paiement(request, pk):
             )
             messages.success(request, "Virement déclaré. L'administration le vérifiera et confirmera votre inscription.")
 
+        is_staff_reg = request.session.pop('wizard_by_staff', False)
         request.session.pop('pending_inscription_id', None)
 
         return render(request, 'inscriptions/portail_confirmation.html', {
             'inscription': inscription,
             'username': username,
             'moyen': moyen,
+            'is_staff_reg': is_staff_reg,
         })
 
     rib_info = {
@@ -2572,11 +2583,13 @@ def portail_wave_retour(request, pk):
         messages.error(request, "Le paiement Wave a échoué ou a été annulé.")
 
     username = request.session.get('new_compte_username', '')
+    is_staff_reg = request.session.pop('wizard_by_staff', False)
     return render(request, 'inscriptions/portail_confirmation.html', {
         'inscription': inscription,
         'username': username,
         'moyen': 'wave',
         'wave_succes': statut == 'succes',
+        'is_staff_reg': is_staff_reg,
     })
 
 
@@ -2604,11 +2617,13 @@ def portail_intouch_retour(request, pk):
         messages.error(request, "Le paiement a été annulé ou a échoué.")
 
     username = request.session.get('new_compte_username', '')
+    is_staff_reg = request.session.pop('wizard_by_staff', False)
     return render(request, 'inscriptions/portail_confirmation.html', {
         'inscription': inscription,
         'username': username,
         'moyen': 'intouch',
         'intouch_succes': statut == 'succes',
+        'is_staff_reg': is_staff_reg,
     })
 
 
