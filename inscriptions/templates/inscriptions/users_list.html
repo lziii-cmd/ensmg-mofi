@@ -1,4 +1,5 @@
 {% extends 'inscriptions/base.html' %}
+{% load dict_filters %}
 
 {% block title %}Utilisateurs — ENSMG Certification{% endblock %}
 
@@ -12,9 +13,20 @@
         <h1><i class="bi bi-people me-2 text-primary"></i>Utilisateurs</h1>
         <p>Gestion des comptes utilisateurs de l'application</p>
     </div>
-    <a href="{% url 'user_ajouter' %}" class="btn btn-primary">
-        <i class="bi bi-person-plus me-1"></i>Nouvel utilisateur
-    </a>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <!-- Indicateur sessions actives -->
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:#f0fdf4; border:1px solid #bbf7d0;">
+            <span style="width:10px;height:10px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>
+            <span style="font-size:0.84rem;font-weight:600;color:#15803d;">
+                {{ nb_en_ligne }} connecté{{ nb_en_ligne|pluralize }}
+            </span>
+            <span style="font-size:0.75rem;color:#6b7280;">en ce moment</span>
+        </div>
+        <a href="{% url 'user_ajouter' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i>Nouvel utilisateur
+        </a>
+    </div>
 </div>
 
 <div class="card mb-3">
@@ -54,6 +66,7 @@
                         <th>Email</th>
                         <th>Rôle</th>
                         <th>Statut</th>
+                        <th>Session</th>
                         <th>Dernière connexion</th>
                         <th class="pe-3">Actions</th>
                     </tr>
@@ -97,6 +110,22 @@
                                 <span class="badge bg-success-subtle text-success rounded-pill">Actif</span>
                             {% else %}
                                 <span class="badge bg-secondary-subtle text-secondary rounded-pill">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.pk in active_user_ids %}
+                            <span class="d-flex align-items-center gap-1" style="font-size:0.8rem;">
+                                <span style="width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;flex-shrink:0;animation:pulse 2s infinite;"></span>
+                                <span style="color:#15803d;font-weight:600;">En ligne</span>
+                            </span>
+                            <div style="font-size:0.71rem;color:#9ca3af;margin-top:1px;">
+                                exp. {{ active_expire_labels|dict_key:u.pk }}
+                            </div>
+                            {% else %}
+                            <span class="d-flex align-items-center gap-1" style="font-size:0.8rem;">
+                                <span style="width:8px;height:8px;background:#d1d5db;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+                                <span style="color:#9ca3af;">Hors ligne</span>
+                            </span>
                             {% endif %}
                         </td>
                         <td class="text-muted" style="font-size:0.83rem;">

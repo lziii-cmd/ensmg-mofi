@@ -1259,6 +1259,30 @@ def import_excel(request):
 # Users (admin only)
 # ---------------------------------------------------------------------------
 
+def _get_active_session_data():
+    """
+    Retourne un dict {user_id: session_info} pour toutes les sessions non expirées.
+    session_info = {'expire_date': datetime, 'session_key': str}
+    """
+    from django.contrib.sessions.models import Session
+    active = {}
+    for session in Session.objects.filter(expire_date__gte=timezone.now()):
+        try:
+            data = session.get_decoded()
+            uid = data.get('_auth_user_id')
+            if uid:
+                uid = int(uid)
+                # Garder la session la plus récente si plusieurs
+                if uid not in active or session.expire_date > active[uid]['expire_date']:
+                    active[uid] = {
+                        'expire_date': session.expire_date,
+                        'session_key': session.session_key,
+                    }
+        except Exception:
+            pass
+    return active
+
+
 @admin_required
 def users_list(request):
     query = request.GET.get("q", "").strip()
@@ -1274,10 +1298,23 @@ def users_list(request):
     paginator = Paginator(users, 25)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+
+    raw_sessions = _get_active_session_data()
+    # Build simple sets/dicts usable in template without custom filters
+    active_user_ids = set(raw_sessions.keys())
+    active_expire_labels = {
+        uid: info['expire_date'].strftime("%d/%m %H:%M")
+        for uid, info in raw_sessions.items()
+    }
+    nb_en_ligne = len(active_user_ids)
+
     context = {
         "users": page_obj,
         "page_obj": page_obj,
         "query": query,
+        "active_user_ids": active_user_ids,
+        "active_expire_labels": active_expire_labels,
+        "nb_en_ligne": nb_en_ligne,
         "active_page": "utilisateurs",
     }
     return render(request, "inscriptions/users_list.html", context)
