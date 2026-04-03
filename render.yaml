@@ -2,7 +2,7 @@ services:
   - type: web
     name: ensmg-mofi
     runtime: python
-    buildCommand: pip install -r requirements.txt && python manage.py migrate --no-input && python manage.py create_admin && python manage.py collectstatic --no-input
+    buildCommand: pip install -r requirements.txt && python manage.py migrate --no-input && python manage.py flush --no-input && python manage.py create_admin && python manage.py collectstatic --no-input
     startCommand: gunicorn ensmg_mofi.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
       - key: DEBUG
