@@ -3,22 +3,33 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.env
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/ensmg_mofi/staticfiles/
+/ensmg_mofi/media/
 
 # Virtual environment
 venv/
 env/
 .venv/
 
-# Django
-*.sqlite3
-/static/
-/media/
+# Environment variables
+.env
+.env.local
+.env.production
 
 # IDE
 .vscode/
 .idea/
-
-# OS
+*.swp
 .DS_Store
-Thumbs.db

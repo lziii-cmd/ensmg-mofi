@@ -33,7 +33,7 @@
             </thead>
             <tbody>
                 {% for item in paiements %}
-                <tr style="cursor:pointer;" onclick="window.location='{% url 'recu_download' item.paiement.pk %}'">
+                <tr {% if item.paiement.statut == 'confirme' %}style="cursor:pointer;" onclick="window.open('{% url 'recu_view' item.paiement.pk %}', '_blank')"{% endif %}>
                     <td style="font-weight:600;color:#1a2340;">
                         {{ item.inscription.cohorte.certification.nom }}
                     </td>
@@ -67,6 +67,9 @@
                         {% endif %}
                     </td>
                     <td>
+                        <a href="{% url 'recu_view' item.paiement.pk %}" class="btn btn-sm btn-outline-primary" title="Voir le reçu" target="_blank">
+                            <i class="bi bi-eye me-1"></i>Voir
+                        </a>
                         <a href="{% url 'recu_download' item.paiement.pk %}" class="btn btn-sm btn-outline-secondary" title="Télécharger le reçu">
                             <i class="bi bi-receipt me-1"></i>Reçu
                         </a>

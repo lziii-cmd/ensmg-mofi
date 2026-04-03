@@ -10,6 +10,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.utils import timezone
@@ -240,20 +241,26 @@ def dashboard(request):
 
 @login_required
 def certifications_list(request):
-    query = request.GET.get("q", "")
+    query = request.GET.get("q", "").strip()
     certifications = Certification.objects.prefetch_related(
         "cohortes__inscriptions__paiements"
     )
 
     if query:
-        certifications = certifications.filter(
-            Q(nom__icontains=query) | Q(description__icontains=query)
-        )
+        for mot in query.split():
+            certifications = certifications.filter(
+                Q(nom__icontains=mot) | Q(description__icontains=mot)
+            )
 
     certifications = certifications.order_by("-created_at")
 
+    paginator = Paginator(certifications, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        "certifications": certifications,
+        "certifications": page_obj,
+        "page_obj": page_obj,
         "query": query,
         "active_page": "certifications",
         "nb_certifications": Certification.objects.count(),
@@ -439,7 +446,7 @@ def cohorte_detail(request, pk):
 
 @login_required
 def inscrits_list(request):
-    query = request.GET.get("q", "")
+    query = request.GET.get("q", "").strip()
     activite_filter = request.GET.get("activite", "")
     certification_filter = request.GET.get("certification", "")
     statut_filter = request.GET.get("statut", "")
@@ -449,12 +456,13 @@ def inscrits_list(request):
     ).order_by("-date_inscription")
 
     if query:
-        inscrits = inscrits.filter(
-            Q(nom__icontains=query)
-            | Q(prenom__icontains=query)
-            | Q(email__icontains=query)
-            | Q(telephone__icontains=query)
-        )
+        for mot in query.split():
+            inscrits = inscrits.filter(
+                Q(nom__icontains=mot)
+                | Q(prenom__icontains=mot)
+                | Q(email__icontains=mot)
+                | Q(telephone__icontains=mot)
+            )
 
     if activite_filter:
         inscrits = inscrits.filter(activite=activite_filter)
@@ -546,8 +554,13 @@ def inscrits_list(request):
     nb_pre_inscrits = len(list_pre_inscrits)
     nb_avec_certif = len(list_inscrits_actifs)
 
+    paginator = Paginator(inscrits, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        "inscrits": inscrits,
+        "inscrits": page_obj,
+        "page_obj": page_obj,
         "query": query,
         "activite_filter": activite_filter,
         "certification_filter": certification_filter,
@@ -582,11 +595,17 @@ def inscrit_detail(request, pk):
     statut_forms = {insc.pk: ChangerStatutForm(instance=insc) for insc in inscriptions}
     paiement_forms = {insc.pk: PaiementInscriptionForm(initial={"date_paiement": timezone.now().date()}) for insc in inscriptions}
 
+    try:
+        compte = inscrit.compte_apprenant
+    except Exception:
+        compte = None
+
     context = {
         "inscrit": inscrit,
         "inscriptions": inscriptions,
         "statut_forms": statut_forms,
         "paiement_forms": paiement_forms,
+        "compte": compte,
         "active_page": "inscrits",
     }
     return render(request, "inscriptions/inscrit_detail.html", context)
@@ -665,7 +684,18 @@ def inscrit_ajouter(request):
             inscrit = form.save(commit=False)
             inscrit.source = "manuel"
             inscrit.save()
-            messages.success(request, f'Inscrit "{inscrit}" ajouté avec succès.')
+            # Auto-create portal account for every new inscrit
+            try:
+                if not hasattr(inscrit, 'compte_apprenant'):
+                    _, compte = _creer_compte_apprenant(inscrit)
+                    messages.success(
+                        request,
+                        f'Inscrit "{inscrit}" ajouté. Compte portail créé — identifiant : {compte.user.username} — mot de passe provisoire : passer01'
+                    )
+                else:
+                    messages.success(request, f'Inscrit "{inscrit}" ajouté avec succès.')
+            except Exception:
+                messages.success(request, f'Inscrit "{inscrit}" ajouté avec succès.')
             return redirect("inscrit_detail", pk=inscrit.pk)
     else:
         form = InscritForm()
@@ -677,6 +707,24 @@ def inscrit_ajouter(request):
         "active_page": "inscrits",
     }
     return render(request, "inscriptions/inscrit_form.html", context)
+
+
+@login_required
+def admin_creer_compte_inscrit(request, pk):
+    """Create a portal account (User + CompteApprenant) for an existing inscrit who doesn't have one."""
+    inscrit = get_object_or_404(Inscrit, pk=pk)
+    try:
+        _ = inscrit.compte_apprenant
+        messages.info(request, f"Un compte portail existe déjà pour {inscrit.nom_complet}.")
+        return redirect("inscrit_detail", pk=pk)
+    except Exception:
+        pass
+    _, compte = _creer_compte_apprenant(inscrit)
+    messages.success(
+        request,
+        f"Compte portail créé pour {inscrit.nom_complet} — identifiant : {compte.user.username} — mot de passe provisoire : passer01"
+    )
+    return redirect("inscrit_detail", pk=pk)
 
 
 @login_required
@@ -921,7 +969,7 @@ def paiement_ajouter_pour_inscription(request, pk):
 
 @login_required
 def paiements_list(request):
-    query = request.GET.get("q", "")
+    query = request.GET.get("q", "").strip()
     moyen_filter = request.GET.get("moyen", "")
 
     paiements = Paiement.objects.select_related(
@@ -929,14 +977,15 @@ def paiements_list(request):
     ).order_by("-date_paiement", "-created_at")
 
     if query:
-        paiements = paiements.filter(
-            Q(inscription__inscrit__nom__icontains=query)
-            | Q(inscription__inscrit__prenom__icontains=query)
-            | Q(inscription__inscrit__email__icontains=query)
-            | Q(inscription__cohorte__certification__nom__icontains=query)
-            | Q(inscription__cohorte__nom__icontains=query)
-            | Q(reference__icontains=query)
-        )
+        for mot in query.split():
+            paiements = paiements.filter(
+                Q(inscription__inscrit__nom__icontains=mot)
+                | Q(inscription__inscrit__prenom__icontains=mot)
+                | Q(inscription__inscrit__email__icontains=mot)
+                | Q(inscription__cohorte__certification__nom__icontains=mot)
+                | Q(inscription__cohorte__nom__icontains=mot)
+                | Q(reference__icontains=mot)
+            )
 
     if moyen_filter:
         paiements = paiements.filter(moyen_paiement=moyen_filter)
@@ -956,8 +1005,13 @@ def paiements_list(request):
         "inscription__inscrit", "inscription__cohorte__certification"
     ).order_by("-created_at")
 
+    paginator = Paginator(paiements, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        "paiements": paiements,
+        "paiements": page_obj,
+        "page_obj": page_obj,
         "paiements_en_attente": paiements_en_attente,
         "query": query,
         "moyen_filter": moyen_filter,
@@ -1145,6 +1199,12 @@ def import_excel(request):
 
                         if was_created:
                             created += 1
+                            # Auto-create portal account for newly imported inscrits
+                            try:
+                                if not hasattr(inscrit, 'compte_apprenant'):
+                                    _creer_compte_apprenant(inscrit)
+                            except Exception:
+                                pass
                         else:
                             updated += 1
 
@@ -1201,9 +1261,23 @@ def import_excel(request):
 
 @admin_required
 def users_list(request):
+    query = request.GET.get("q", "").strip()
     users = User.objects.prefetch_related("groups").order_by("username")
+    if query:
+        for mot in query.split():
+            users = users.filter(
+                Q(username__icontains=mot)
+                | Q(first_name__icontains=mot)
+                | Q(last_name__icontains=mot)
+                | Q(email__icontains=mot)
+            )
+    paginator = Paginator(users, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
     context = {
-        "users": users,
+        "users": page_obj,
+        "page_obj": page_obj,
+        "query": query,
         "active_page": "utilisateurs",
     }
     return render(request, "inscriptions/users_list.html", context)
@@ -2720,13 +2794,13 @@ def espace_apprenant(request):
         destinataire=compte, lu=False
     ).count()
 
-    # Available certifications (not already enrolled)
-    enrolled_certif_ids = set(
-        i.cohorte.certification_id for i in inscriptions
+    # Available certifications (exclude only those where already certified)
+    certif_ids_certifiees = set(
+        i.cohorte.certification_id for i in inscriptions if i.statut == 'certifie'
     )
     certifs_disponibles = Certification.objects.filter(
         actif=True
-    ).exclude(pk__in=enrolled_certif_ids).count()
+    ).exclude(pk__in=certif_ids_certifiees).count()
 
     # Inscriptions with balance due
     inscriptions_a_payer = [i for i in inscriptions if i.reste_a_payer > 0]
@@ -2873,8 +2947,17 @@ def apprenant_certifications(request):
         destinataire=compte, lu=False
     ).count()
 
-    certifs_actives = Certification.objects.filter(actif=True).order_by('nom')
-    certifs_inactives = Certification.objects.filter(actif=False).order_by('nom')
+    # Exclure les certifications pour lesquelles l'apprenant a déjà le statut certifie
+    certif_ids_obtenues = Inscription.objects.filter(
+        inscrit=inscrit, statut='certifie'
+    ).values_list('cohorte__certification_id', flat=True)
+
+    certifs_actives = Certification.objects.filter(actif=True).exclude(
+        pk__in=certif_ids_obtenues
+    ).order_by('nom')
+    certifs_inactives = Certification.objects.filter(actif=False).exclude(
+        pk__in=certif_ids_obtenues
+    ).order_by('nom')
 
     return render(request, 'inscriptions/apprenant_certifications.html', {
         'compte': compte,

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -449,10 +450,9 @@
 
 <!-- ── SIDEBAR ── -->
 <nav id="sidebar">
-    <div class="sidebar-brand">
-        <div class="brand-icon">
-            <i class="bi bi-award-fill"></i>
-        </div>
+    <div class="sidebar-brand" style="text-align:center;">
+        <img src="{% static 'inscriptions/img/logo_ensmg.jpeg' %}" alt="ENSMG"
+             style="width:84px; height:84px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,0.25); box-shadow:0 0 0 5px rgba(255,255,255,0.1); display:block; margin:0 auto 0.7rem;">
         <div class="brand-title">ENSMG</div>
         <div class="brand-subtitle" title="École Nationale Supérieure de Management et de Gouvernance">Gestion des certifications</div>
     </div>

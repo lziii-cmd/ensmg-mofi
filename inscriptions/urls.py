@@ -38,6 +38,7 @@ urlpatterns = [
     path("inscrits/<int:pk>/inscrire/<int:certif_pk>/", views.admin_inscription_directe, name="admin_inscription_directe"),
     path("inscrits/<int:pk>/", views.inscrit_detail, name="inscrit_detail"),
     path("inscrits/<int:pk>/modifier/", views.inscrit_modifier, name="inscrit_modifier"),
+    path("inscrits/<int:pk>/creer-compte/", views.admin_creer_compte_inscrit, name="admin_creer_compte_inscrit"),
     path("inscrits/<int:pk>/supprimer/", views.inscrit_supprimer, name="inscrit_supprimer"),
 
     # Inscription actions

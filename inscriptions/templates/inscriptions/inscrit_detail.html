@@ -81,6 +81,46 @@
             </div>
         </div>
 
+        <!-- Compte portail -->
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-person-lock me-2 text-primary"></i>Compte portail</h6>
+                {% if not compte %}
+                <a href="{% url 'admin_creer_compte_inscrit' inscrit.pk %}"
+                   class="btn btn-sm btn-success"
+                   onclick="return confirm('Créer un compte portail pour {{ inscrit.nom_complet }} ?')">
+                    <i class="bi bi-person-plus me-1"></i>Créer compte
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body" style="font-size:0.84rem;">
+                {% if compte %}
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted fw-normal">Identifiant</dt>
+                    <dd class="col-7" style="font-family:monospace;word-break:break-all;">{{ compte.user.username }}</dd>
+                    <dt class="col-5 text-muted fw-normal">Statut</dt>
+                    <dd class="col-7">
+                        {% if compte.user.is_active %}
+                        <span class="badge rounded-pill" style="background:#dcfce7;color:#15803d;">Actif</span>
+                        {% else %}
+                        <span class="badge rounded-pill" style="background:#fee2e2;color:#991b1b;">Inactif</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="col-5 text-muted fw-normal">MDP changé</dt>
+                    <dd class="col-7">
+                        {% if compte.mdp_change %}
+                        <span class="text-success"><i class="bi bi-check-circle me-1"></i>Oui</span>
+                        {% else %}
+                        <span class="text-warning"><i class="bi bi-exclamation-circle me-1"></i>Non</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+                {% else %}
+                <p class="text-muted mb-0"><i class="bi bi-info-circle me-1"></i>Aucun compte portail. Cliquez sur "Créer compte" pour en générer un.</p>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Attestations -->
         {% with all_attestations=inscrit.inscriptions.all %}
         {% if all_attestations %}
