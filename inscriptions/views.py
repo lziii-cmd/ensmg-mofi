@@ -3145,7 +3145,7 @@ def _generer_recu_pdf(paiement, request=None):
     moyen_label = moyen_map.get(paiement.moyen_paiement, paiement.moyen_paiement)
 
     story = []
-    story.append(Paragraph("ÉCOLE NATIONALE SUPÉRIEURE DE MANAGEMENT ET DE GOUVERNANCE", s_title))
+    story.append(Paragraph("ÉCOLE NATIONALE SUPÉRIEURE DES MINES ET DE LA GÉOLOGIE", s_title))
     story.append(Paragraph("ENSMG — Dakar, Sénégal", s_sub))
     story.append(Spacer(1, 0.3 * cm))
     story.append(HRFlowable(width="100%", thickness=3, color=accent, spaceAfter=3))
@@ -3180,8 +3180,8 @@ def _generer_recu_pdf(paiement, request=None):
     story.append(Spacer(1, 0.4 * cm))
     story.append(HRFlowable(width="100%", thickness=1, color=accent, spaceAfter=4))
     story.append(HRFlowable(width="100%", thickness=3, color=navy,   spaceAfter=6))
-    story.append(Paragraph("Ce document atteste du paiement effectué auprès de l'École Nationale Supérieure de Management et de Gouvernance.", s_footer))
-    story.append(Paragraph("ENSMG — École Nationale Supérieure de Management et de Gouvernance — Dakar, Sénégal — www.ensmg.sn", s_footer))
+    story.append(Paragraph("Ce document atteste du paiement effectué auprès de l'École Nationale Supérieure des Mines et de la Géologie.", s_footer))
+    story.append(Paragraph("ENSMG — École Nationale Supérieure des Mines et de la Géologie — Dakar, Sénégal — www.ensmg.sn", s_footer))
 
     doc.build(story)
     return buffer.getvalue()
