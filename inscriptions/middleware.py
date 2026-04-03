@@ -5,9 +5,10 @@ from django.shortcuts import redirect
 # Uniquement la page d'accueil, le flux d'inscription portail, et les services
 # ──────────────────────────────────────────────────────────────────────────────
 PUBLIC_PATHS = {
-    '/',          # Page d'accueil (liste des certifications)
-    '/login/',    # Connexion
-    '/logout/',   # Déconnexion
+    '/',            # Page d'accueil (liste des certifications)
+    '/login/',      # Connexion
+    '/logout/',     # Déconnexion
+    '/register/',   # Création de compte admin
 }
 
 PUBLIC_PREFIXES = (
