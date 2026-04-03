@@ -6,6 +6,61 @@
 <li class="breadcrumb-item active">Inscrits</li>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* Certifier-style tab cards */
+.inscrit-tab-card {
+    border-radius: 18px;
+    padding: 1.4rem 1.6rem;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all .25s;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.inscrit-tab-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+.inscrit-tab-card .tab-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    transition: all .25s;
+    flex-shrink: 0;
+}
+.inscrit-tab-card .tab-badge {
+    position: absolute; top: 1rem; right: 1rem;
+    font-size: .7rem; font-weight: 700;
+    padding: .2rem .55rem; border-radius: 20px;
+}
+.inscrit-tab-card .tab-count { font-size: 2rem; font-weight: 800; color: #1a2340; line-height: 1; }
+.inscrit-tab-card .tab-label { font-size: .8rem; color: #718096; margin-top: .2rem; text-transform: uppercase; letter-spacing: .4px; }
+.inscrit-tab-card .tab-sub { font-size: .73rem; color: #a0aec0; margin-top: .1rem; }
+.inscrit-tab-card .tab-bar { height: 4px; background: #e8edf5; border-radius: 20px; margin-top: .85rem; }
+.inscrit-tab-card .tab-bar-fill { height: 4px; border-radius: 20px; }
+
+/* Warning (pre-inscrits) */
+.tab-warning .tab-icon { background: #fef3c7; color: #d97706; }
+.tab-warning.active-tab { border-color: #d97706; background: linear-gradient(135deg, #fffbeb, #fef3c7); box-shadow: 0 4px 20px rgba(217,119,6,.18) !important; }
+.tab-warning.active-tab .tab-icon { background: #d97706; color: #fff; }
+.tab-warning .tab-badge { background: #fef3c7; color: #92400e; }
+.tab-warning.active-tab .tab-badge { background: #d97706; color: #fff; }
+
+/* Success (inscrits actifs) */
+.tab-success .tab-icon { background: #d1fae5; color: #059669; }
+.tab-success.active-tab { border-color: #059669; background: linear-gradient(135deg, #f0fdf4, #d1fae5); box-shadow: 0 4px 20px rgba(5,150,105,.18) !important; }
+.tab-success.active-tab .tab-icon { background: #059669; color: #fff; }
+.tab-success .tab-badge { background: #d1fae5; color: #065f46; }
+.tab-success.active-tab .tab-badge { background: #059669; color: #fff; }
+
+/* Panels */
+.inscrit-panel { display: none; }
+.inscrit-panel.show { display: block; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
@@ -19,6 +74,46 @@
         <a href="{% url 'import_excel' %}" class="btn btn-outline-secondary">
             <i class="bi bi-file-earmark-excel me-1"></i>Importer Excel
         </a>
+    </div>
+</div>
+
+<!-- Stats cards (clickable) — certifier-style -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="inscrit-tab-card tab-warning" id="tab-pre-inscrits" onclick="showInscritPanel('pre-inscrits')">
+            <span class="tab-badge"><i class="bi bi-clock me-1"></i>Sans certification active</span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="tab-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="tab-count">{{ nb_pre_inscrits }}</div>
+                    <div class="tab-label">Apprenants non actifs</div>
+                    <div class="tab-sub">Compte portail — pas encore inscrits et soldés</div>
+                </div>
+            </div>
+            {% if nb_inscrits > 0 %}
+            <div class="tab-bar mt-3">
+                <div class="tab-bar-fill" style="background:#d97706;width:{% widthratio nb_pre_inscrits nb_inscrits 100 %}%;"></div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="inscrit-tab-card tab-success" id="tab-avec-certif" onclick="showInscritPanel('avec-certif')">
+            <span class="tab-badge"><i class="bi bi-patch-check me-1"></i>Actifs &amp; soldés</span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="tab-icon"><i class="bi bi-award-fill"></i></div>
+                <div>
+                    <div class="tab-count">{{ nb_avec_certif }}</div>
+                    <div class="tab-label">Inscrits actifs</div>
+                    <div class="tab-sub">Certification active + paiement soldé</div>
+                </div>
+            </div>
+            {% if nb_inscrits > 0 %}
+            <div class="tab-bar mt-3">
+                <div class="tab-bar-fill" style="background:#059669;width:{% widthratio nb_avec_certif nb_inscrits 100 %}%;"></div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -80,7 +175,7 @@
 </div>
 
 <!-- Table -->
-<div class="card">
+<div id="results-container" class="card">
     <div class="card-body p-0">
         {% if inscrits %}
         <div class="table-responsive">
@@ -209,21 +304,307 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Panel: Pré-inscrits (comptes portail sans certification active soldée) -->
+<div class="inscrit-panel" id="panel-pre-inscrits">
+    <div class="card mb-3" style="border-top:3px solid #d97706;">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-hourglass-split text-warning"></i>
+                <h6 class="mb-0">Apprenants non actifs</h6>
+                <span class="badge bg-warning text-dark ms-1">{{ nb_pre_inscrits }}</span>
+            </div>
+            <div class="d-flex gap-2" style="font-size:0.75rem;">
+                {% if list_sans_inscription %}
+                <span style="background:#fee2e2;color:#991b1b;padding:.2rem .6rem;border-radius:20px;font-weight:600;">
+                    <i class="bi bi-person-dash me-1"></i>{{ list_sans_inscription|length }} sans inscription
+                </span>
+                {% endif %}
+                {% if list_non_paye %}
+                <span style="background:#fef3c7;color:#92400e;padding:.2rem .6rem;border-radius:20px;font-weight:600;">
+                    <i class="bi bi-cash-coin me-1"></i>{{ list_non_paye|length }} non payé{{ list_non_paye|length|pluralize }}
+                </span>
+                {% endif %}
+                {% if list_paiement_attente %}
+                <span style="background:#dbeafe;color:#1d4ed8;padding:.2rem .6rem;border-radius:20px;font-weight:600;">
+                    <i class="bi bi-clock me-1"></i>{{ list_paiement_attente|length }} en attente
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sub-category: Sans inscription -->
+        {% if list_sans_inscription %}
+        <div style="padding:.6rem 1.25rem;background:#fff5f5;border-bottom:1px solid #fee2e2;">
+            <div style="font-size:.72rem;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.5px;">
+                <i class="bi bi-person-x me-1"></i>Pas encore inscrits à une certification
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.83rem;">
+                <thead style="background:#fff5f5;"><tr>
+                    <th class="ps-3">Apprenant</th>
+                    <th>Contact</th>
+                    <th>Inscription portail</th>
+                    <th class="pe-3 text-end">Action</th>
+                </tr></thead>
+                <tbody>
+                {% for inscrit in list_sans_inscription %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-placeholder" style="width:32px;height:32px;font-size:.74rem;background:#fee2e2;color:#991b1b;">
+                                {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                <span class="badge bg-secondary" style="font-size:.65rem;">Pas de certification</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-muted" style="font-size:.8rem;">
+                        {{ inscrit.email|default:"—" }}<br>{{ inscrit.telephone|default:"" }}
+                    </td>
+                    <td style="font-size:.8rem;color:#94a3b8;">{{ inscrit.date_inscription|date:"d/m/Y" }}</td>
+                    <td class="pe-3 text-end">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Voir">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'admin_certifications_pour_inscrit' inscrit.pk %}" class="btn btn-sm btn-danger py-0 px-2" title="Inscrire à une certification">
+                            <i class="bi bi-plus-circle me-1"></i>Inscrire
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Sub-category: Inscription non payée -->
+        {% if list_non_paye %}
+        <div style="padding:.6rem 1.25rem;background:#fffbeb;border-bottom:1px solid #fde68a;{% if list_sans_inscription %}border-top:2px solid #e5e7eb;{% endif %}">
+            <div style="font-size:.72rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.5px;">
+                <i class="bi bi-cash-coin me-1"></i>Inscrits — paiement non effectué
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.83rem;">
+                <thead style="background:#fffbeb;"><tr>
+                    <th class="ps-3">Apprenant</th>
+                    <th>Certification</th>
+                    <th>Montant dû</th>
+                    <th>Inscrit le</th>
+                    <th class="pe-3 text-end">Action</th>
+                </tr></thead>
+                <tbody>
+                {% for inscrit in list_non_paye %}
+                {% with ic=inscrit.inscriptions.first %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-placeholder" style="width:32px;height:32px;font-size:.74rem;background:#fef3c7;color:#92400e;">
+                                {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                <div class="text-muted" style="font-size:.72rem;">{{ inscrit.email|default:"—" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:.8rem;">
+                        {% if ic %}{{ ic.cohorte.certification.nom|truncatechars:30 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="fw-bold" style="color:#d97706;white-space:nowrap;">
+                        {% if ic %}{{ ic.montant_du|floatformat:0 }} FCFA{% else %}—{% endif %}
+                    </td>
+                    <td style="font-size:.8rem;color:#94a3b8;">{{ inscrit.date_inscription|date:"d/m/Y" }}</td>
+                    <td class="pe-3 text-end">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Voir">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if ic %}
+                        <a href="{% url 'paiement_ajouter_pour_inscription' ic.pk %}" class="btn btn-sm btn-warning py-0 px-2" title="Enregistrer paiement">
+                            <i class="bi bi-cash me-1"></i>Payer
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Sub-category: Paiement en attente -->
+        {% if list_paiement_attente %}
+        <div style="padding:.6rem 1.25rem;background:#eff6ff;border-bottom:1px solid #bfdbfe;{% if list_sans_inscription or list_non_paye %}border-top:2px solid #e5e7eb;{% endif %}">
+            <div style="font-size:.72rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.5px;">
+                <i class="bi bi-clock me-1"></i>Paiement déclaré — en attente de confirmation
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.83rem;">
+                <thead style="background:#eff6ff;"><tr>
+                    <th class="ps-3">Apprenant</th>
+                    <th>Certification</th>
+                    <th>Montant</th>
+                    <th>Moyen</th>
+                    <th class="pe-3 text-end">Action</th>
+                </tr></thead>
+                <tbody>
+                {% for inscrit in list_paiement_attente %}
+                {% with ic=inscrit.inscriptions.first %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-placeholder" style="width:32px;height:32px;font-size:.74rem;background:#dbeafe;color:#1d4ed8;">
+                                {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                <div class="text-muted" style="font-size:.72rem;">{{ inscrit.email|default:"—" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:.8rem;">{% if ic %}{{ ic.cohorte.certification.nom|truncatechars:28 }}{% else %}—{% endif %}</td>
+                    <td class="fw-bold" style="white-space:nowrap;">
+                        {% if ic %}{% for p in ic.paiements.all %}{% if p.statut == 'en_attente' %}{{ p.montant|floatformat:0 }} FCFA{% endif %}{% endfor %}{% else %}—{% endif %}
+                    </td>
+                    <td style="font-size:.8rem;">
+                        {% if ic %}{% for p in ic.paiements.all %}{% if p.statut == 'en_attente' %}<span class="badge bg-secondary" style="font-size:.7rem;">{{ p.get_moyen_paiement_display }}</span>{% endif %}{% endfor %}{% else %}—{% endif %}
+                    </td>
+                    <td class="pe-3 text-end">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Voir">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if ic %}{% for p in ic.paiements.all %}{% if p.statut == 'en_attente' %}
+                        <a href="{% url 'admin_confirmer_paiement' p.pk %}" class="btn btn-sm btn-primary py-0 px-2" title="Confirmer le paiement">
+                            <i class="bi bi-check-circle me-1"></i>Confirmer
+                        </a>
+                        {% endif %}{% endfor %}{% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if not list_sans_inscription and not list_non_paye and not list_paiement_attente %}
+        <div class="card-body text-center text-muted py-3" style="font-size:.85rem;">
+            Tous les apprenants ont une certification active. ✅
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Panel: Inscrits actifs (certification active + soldé) -->
+<div class="inscrit-panel" id="panel-avec-certif">
+    <div class="card mb-3" style="border-top:3px solid #059669;">
+        <div class="card-header d-flex align-items-center gap-2">
+            <i class="bi bi-award-fill text-success"></i>
+            <h6 class="mb-0">Inscrits actifs &amp; soldés</h6>
+            <span class="badge bg-success ms-1">{{ nb_avec_certif }}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.84rem;">
+                <thead><tr>
+                    <th class="ps-3">Inscrit</th>
+                    <th>Certification(s)</th>
+                    <th>Statut</th>
+                    <th>Payé</th>
+                    <th class="pe-3 text-end">Action</th>
+                </tr></thead>
+                <tbody>
+                {% for inscrit in list_inscrits_actifs %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-placeholder" style="width:32px;height:32px;font-size:.74rem;background:#d1fae5;color:#065f46;">
+                                {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ inscrit.prenom }} {{ inscrit.nom }}</div>
+                                <div class="text-muted" style="font-size:.72rem;">{{ inscrit.email|default:"—" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% for ic in inscrit.inscriptions.all %}
+                        <span class="badge" style="background:#f0fdf4;color:#065f46;border:1px solid #86efac;font-size:.7rem;margin:.1rem;">
+                            {{ ic.cohorte.certification.nom|truncatechars:22 }}
+                        </span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% with ic=inscrit.inscriptions.first %}
+                        {% if ic %}
+                        <span class="badge badge-statut-{{ ic.statut }} rounded-pill" style="font-size:.7rem;">{{ ic.get_statut_display }}</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="fw-bold text-success">
+                        {% for ic in inscrit.inscriptions.all %}{{ ic.total_paye|floatformat:0 }}{% if not forloop.last %} + {% endif %}{% endfor %} FCFA
+                    </td>
+                    <td class="pe-3 text-end">
+                        <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-sm btn-outline-secondary py-0 px-2">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3" style="font-size:.85rem;">Aucun inscrit dans cette catégorie.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function showInscritPanel(which) {
+    var panels = ['pre-inscrits', 'avec-certif'];
+    panels.forEach(function(p) {
+        var panel = document.getElementById('panel-' + p);
+        var tab   = document.getElementById('tab-' + p);
+        var isTarget = (p === which);
+        if (panel) panel.classList.toggle('show', isTarget);
+        if (tab) tab.classList.toggle('active-tab', isTarget);
+    });
+}
+
 (function() {
-    const searchInput = document.getElementById('search-input') || document.querySelector('input[name="q"]') || document.querySelector('input[name="search"]') || document.querySelector('input[type="search"]');
-    if (!searchInput) return;
-    searchInput.id = 'search-input';
+    const form = document.querySelector('.card form[method="get"]');
+    const searchInput = form ? form.querySelector('input[name="q"]') : null;
+    const container = document.getElementById('results-container');
+    if (!form || !searchInput || !container) return;
+
     let timer;
-    searchInput.addEventListener('input', function() {
+    function liveSearch() {
         clearTimeout(timer);
         timer = setTimeout(function() {
-            searchInput.form.submit();
-        }, 400);
-    });
+            const data = new URLSearchParams();
+            form.querySelectorAll('input, select').forEach(function(el) {
+                if (el.name && el.value !== undefined) data.set(el.name, el.value);
+            });
+            fetch('?' + data.toString(), {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.text())
+                .then(html => {
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const fresh = doc.getElementById('results-container');
+                    if (fresh) container.innerHTML = fresh.innerHTML;
+                })
+                .catch(() => {});
+        }, 180);
+    }
+
+    searchInput.addEventListener('input', liveSearch);
+    form.querySelectorAll('select').forEach(s => s.addEventListener('change', liveSearch));
 })();
 </script>
 {% endblock %}

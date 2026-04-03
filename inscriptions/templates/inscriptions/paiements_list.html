@@ -58,8 +58,66 @@
     </div>
 </div>
 
+<!-- Paiements en attente de confirmation -->
+{% if paiements_en_attente %}
+<div class="card mb-4" style="border-left:4px solid #f59e0b;">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">
+            <i class="bi bi-hourglass-split me-2 text-warning"></i>
+            Paiements en attente de confirmation
+            <span class="badge bg-warning text-dark ms-1">{{ paiements_en_attente.count }}</span>
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:0.86rem;">
+            <thead style="background:#fffbeb;">
+                <tr>
+                    <th class="ps-3">Date</th>
+                    <th>Inscrit</th>
+                    <th>Certification</th>
+                    <th>Montant</th>
+                    <th>Moyen</th>
+                    <th>Référence</th>
+                    <th class="pe-3 text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in paiements_en_attente %}
+                <tr style="background:#fffdf0;">
+                    <td class="ps-3" style="white-space:nowrap;">{{ p.date_paiement|date:"d/m/Y" }}</td>
+                    <td>
+                        <a href="{% url 'inscrit_detail' p.inscription.inscrit.pk %}" class="text-decoration-none text-dark fw-500">
+                            {{ p.inscription.inscrit.nom_complet }}
+                        </a>
+                    </td>
+                    <td class="text-muted">{{ p.inscription.cohorte.certification.nom|truncatechars:28 }}</td>
+                    <td class="fw-bold" style="white-space:nowrap;">{{ p.montant|fr_money }} FCFA</td>
+                    <td>
+                        <span class="badge bg-secondary rounded-pill">{{ p.get_moyen_paiement_display }}</span>
+                    </td>
+                    <td class="text-muted">{{ p.reference|default:"—"|truncatechars:18 }}</td>
+                    <td class="pe-3 text-end" style="white-space:nowrap;">
+                        <a href="{% url 'admin_confirmer_paiement' p.pk %}"
+                           class="btn btn-success btn-sm"
+                           title="Confirmer ce paiement">
+                            <i class="bi bi-check-circle me-1"></i>Confirmer
+                        </a>
+                        <a href="{% url 'admin_annuler_paiement' p.pk %}"
+                           class="btn btn-outline-danger btn-sm ms-1"
+                           title="Annuler ce paiement">
+                            <i class="bi bi-x-circle me-1"></i>Annuler
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Table -->
-<div class="card">
+<div id="results-container" class="card">
     <div class="card-body p-0">
         {% if paiements %}
         <div class="table-responsive">
@@ -71,6 +129,7 @@
                         <th>Certification</th>
                         <th>Montant</th>
                         <th>Moyen</th>
+                        <th>Statut</th>
                         <th>Référence</th>
                         <th class="pe-3 text-end">Actions</th>
                     </tr>
@@ -116,10 +175,32 @@
                                 <span class="badge bg-secondary rounded-pill">{{ p.get_moyen_paiement_display }}</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if p.statut == 'confirme' %}
+                                <span class="badge rounded-pill" style="background:#d4edda;color:#155724;font-size:0.72rem;"><i class="bi bi-check-circle me-1"></i>Confirmé</span>
+                            {% elif p.statut == 'en_attente' %}
+                                <span class="badge rounded-pill" style="background:#fff3cd;color:#856404;font-size:0.72rem;"><i class="bi bi-hourglass-split me-1"></i>En attente</span>
+                            {% elif p.statut == 'annule' %}
+                                <span class="badge rounded-pill" style="background:#f8d7da;color:#721c24;font-size:0.72rem;"><i class="bi bi-x-circle me-1"></i>Annulé</span>
+                            {% else %}
+                                <span class="badge bg-secondary rounded-pill" style="font-size:0.72rem;">{{ p.statut }}</span>
+                            {% endif %}
+                        </td>
                         <td class="text-muted" style="font-size:0.82rem;">
                             {{ p.reference|default:"—"|truncatechars:20 }}
                         </td>
                         <td class="pe-3 text-end" style="white-space:nowrap;">
+                            {% if p.statut == 'confirme' %}
+                            <a href="{% url 'recu_view' p.pk %}"
+                               target="_blank"
+                               class="btn btn-sm btn-outline-secondary" title="Visualiser le reçu">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'recu_download' p.pk %}"
+                               class="btn btn-sm btn-outline-success" title="Télécharger le reçu">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            {% endif %}
                             <a href="{% url 'paiement_modifier' p.pk %}"
                                class="btn btn-sm btn-outline-primary" title="Modifier">
                                 <i class="bi bi-pencil"></i>
@@ -167,7 +248,7 @@
                     <tr style="background:#f8fafc; font-weight:600;">
                         <td class="ps-3" colspan="3">Total</td>
                         <td class="text-success" style="white-space:nowrap;">{{ total_filtre|fr_money }} FCFA</td>
-                        <td colspan="3"></td>
+                        <td colspan="4"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -195,16 +276,34 @@
 {% block extra_js %}
 <script>
 (function() {
-    const searchInput = document.getElementById('search-input') || document.querySelector('input[name="q"]') || document.querySelector('input[name="search"]') || document.querySelector('input[type="search"]');
-    if (!searchInput) return;
-    searchInput.id = 'search-input';
+    const form = document.querySelector('.card form[method="get"]');
+    const searchInput = form ? form.querySelector('input[name="q"]') : null;
+    const container = document.getElementById('results-container');
+    if (!form || !searchInput || !container) return;
+
     let timer;
-    searchInput.addEventListener('input', function() {
+    function liveSearch() {
         clearTimeout(timer);
         timer = setTimeout(function() {
-            searchInput.form.submit();
-        }, 400);
-    });
+            const params = new URLSearchParams(new FormData(form));
+            // FormData doesn't capture selects reliably, use querySelectorAll
+            const data = new URLSearchParams();
+            form.querySelectorAll('input, select').forEach(function(el) {
+                if (el.name && el.value !== undefined) data.set(el.name, el.value);
+            });
+            fetch('?' + data.toString(), {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.text())
+                .then(html => {
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const fresh = doc.getElementById('results-container');
+                    if (fresh) container.innerHTML = fresh.innerHTML;
+                })
+                .catch(() => {});
+        }, 180);
+    }
+
+    searchInput.addEventListener('input', liveSearch);
+    form.querySelectorAll('select').forEach(s => s.addEventListener('change', liveSearch));
 })();
 </script>
 {% endblock %}

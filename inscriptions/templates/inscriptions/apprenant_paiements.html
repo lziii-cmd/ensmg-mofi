@@ -33,7 +33,7 @@
             </thead>
             <tbody>
                 {% for item in paiements %}
-                <tr>
+                <tr style="cursor:pointer;" onclick="window.location='{% url 'recu_download' item.paiement.pk %}'">
                     <td style="font-weight:600;color:#1a2340;">
                         {{ item.inscription.cohorte.certification.nom }}
                     </td>
@@ -56,9 +56,13 @@
                             <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.72rem;">
                                 <i class="bi bi-check-circle-fill me-1"></i>Confirmé
                             </span>
+                        {% elif item.paiement.statut == 'annule' %}
+                            <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:0.72rem;">
+                                <i class="bi bi-x-circle me-1"></i>Annulé
+                            </span>
                         {% else %}
                             <span class="badge" style="background:#fef9c3;color:#854d0e;font-size:0.72rem;">
-                                <i class="bi bi-clock me-1"></i>En attente
+                                <i class="bi bi-hourglass-split me-1"></i>En attente de confirmation
                             </span>
                         {% endif %}
                     </td>

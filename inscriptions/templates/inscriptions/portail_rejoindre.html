@@ -1,208 +1,574 @@
 {% extends "inscriptions/portail_base.html" %}
+{% load humanize %}
 
-{% block title %}Rejoindre {{ certification.nom }} — ENSMG{% endblock %}
+{% block title %}
+  {% if wizard_step and wizard_step > 0 %}
+    Inscription — Étape {{ wizard_step }}/4 — {{ certification.nom }}
+  {% else %}
+    Rejoindre {{ certification.nom }} — ENSMG
+  {% endif %}
+{% endblock %}
 
 {% block extra_css %}
 <style>
-    .rejoindre-container {
-        max-width: 760px;
-        margin: 3rem auto;
-        padding: 0 1rem;
-    }
-    .certif-banner {
-        background: linear-gradient(135deg, #1a2340, #243056);
-        color: #fff;
-        border-radius: 16px;
-        padding: 1.75rem 2rem;
-        margin-bottom: 2rem;
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
-    }
-    .certif-banner .certif-icon {
-        width: 56px; height: 56px;
-        background: rgba(79,110,247,0.25);
-        border-radius: 14px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.6rem;
-        color: #a5b4fc;
-        flex-shrink: 0;
-    }
-    .certif-banner .certif-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-    }
-    .certif-banner .certif-sub {
-        font-size: 0.82rem;
-        color: rgba(255,255,255,0.6);
-        margin-top: 0.2rem;
-    }
-    .choice-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    @media (max-width: 576px) { .choice-grid { grid-template-columns: 1fr; } }
-    .choice-card {
-        background: #fff;
-        border: 2px solid #e8edf5;
-        border-radius: 14px;
-        padding: 1.5rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: center;
-    }
-    .choice-card:hover, .choice-card.selected {
-        border-color: var(--accent);
-        box-shadow: 0 4px 16px rgba(79,110,247,0.15);
-    }
-    .choice-card .choice-icon {
-        font-size: 2rem;
-        margin-bottom: 0.75rem;
-        display: block;
-    }
-    .choice-card .choice-title {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--navy);
-        margin-bottom: 0.25rem;
-    }
-    .choice-card .choice-desc {
-        font-size: 0.8rem;
-        color: #718096;
-    }
-    .panel-section {
-        background: #fff;
-        border: 1px solid #e8edf5;
-        border-radius: 14px;
-        padding: 1.75rem 2rem;
-        display: none;
-    }
-    .panel-section.show { display: block; }
-    .panel-title {
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: var(--navy);
-        margin-bottom: 1.25rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid #e8edf5;
-    }
-    .btn-submit-main {
-        width: 100%;
-        background: var(--accent);
-        color: #fff;
-        border: none;
-        padding: 0.85rem;
-        border-radius: 10px;
-        font-size: 1rem;
-        font-weight: 600;
-        margin-top: 1rem;
-        transition: all 0.2s;
-    }
-    .btn-submit-main:hover {
-        background: var(--accent-hover);
-        transform: translateY(-1px);
-    }
+/* ─── Layout ──────────────────────────────────────────── */
+.rejoindre-wrap {
+    max-width: 780px;
+    margin: 2.5rem auto;
+    padding: 0 1rem;
+}
+
+/* ─── Certification banner ────────────────────────────── */
+.certif-banner {
+    background: linear-gradient(135deg, #1a2340, #243056);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+.certif-banner .cb-icon {
+    width: 52px; height: 52px;
+    background: rgba(79,110,247,0.25);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: #a5b4fc; flex-shrink: 0;
+}
+.certif-banner .cb-title { font-size: 1.1rem; font-weight: 700; }
+.certif-banner .cb-sub   { font-size: 0.8rem; color: rgba(255,255,255,0.55); margin-top: 0.15rem; }
+
+/* ─── Choice cards ────────────────────────────────────── */
+.choice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 520px) { .choice-grid { grid-template-columns: 1fr; } }
+
+.choice-card {
+    background: #fff;
+    border: 2px solid #e8edf5;
+    border-radius: 14px;
+    padding: 1.5rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+    user-select: none;
+}
+.choice-card:hover   { border-color: #b4c0f8; box-shadow: 0 4px 16px rgba(79,110,247,0.1); }
+.choice-card.active  { border-color: var(--accent); box-shadow: 0 4px 20px rgba(79,110,247,0.18); background: #fafbff; }
+.choice-card .cc-icon { font-size: 2.2rem; display: block; margin-bottom: 0.6rem; }
+.choice-card .cc-title{ font-size: 0.98rem; font-weight: 700; color: var(--navy); margin-bottom: 0.2rem; }
+.choice-card .cc-desc { font-size: 0.78rem; color: #718096; }
+
+/* ─── Panels ──────────────────────────────────────────── */
+.panel-box {
+    background: #fff;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
+    padding: 2rem;
+    display: none;
+    animation: fadeInUp 0.25s ease;
+}
+.panel-box.show { display: block; }
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Wizard progress bar ─────────────────────────────── */
+.wiz-progress {
+    margin-bottom: 2rem;
+}
+.wiz-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+.wiz-step-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+.wiz-step-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 17px; left: 50%;
+    width: 100%; height: 2px;
+    background: #e2e8f0; z-index: 0;
+}
+.wiz-step-item.done:not(:last-child)::after,
+.wiz-step-item.active:not(:last-child)::after { background: var(--accent); }
+
+.step-circle {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82rem; font-weight: 700;
+    z-index: 1; position: relative;
+    transition: all 0.2s;
+    background: #e2e8f0; color: #718096;
+}
+.wiz-step-item.done .step-circle   { background: var(--accent); color: #fff; }
+.wiz-step-item.active .step-circle { background: var(--accent); color: #fff; box-shadow: 0 0 0 4px rgba(79,110,247,0.2); }
+
+.step-label {
+    font-size: 0.7rem; color: #a0aec0; margin-top: 0.35rem; text-align: center; font-weight: 500;
+}
+.wiz-step-item.done .step-label,
+.wiz-step-item.active .step-label { color: var(--accent); }
+
+/* ─── Form shared styles ──────────────────────────────── */
+.wiz-section-title {
+    font-size: 1.15rem; font-weight: 700; color: var(--navy);
+    margin-bottom: 0.25rem;
+}
+.wiz-section-sub { font-size: 0.83rem; color: #718096; margin-bottom: 1.5rem; }
+
+.profile-options {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;
+}
+.profile-option { position: relative; }
+.profile-option input[type="radio"] { position: absolute; opacity: 0; width: 0; }
+.profile-option label {
+    display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+    padding: 1.1rem 0.75rem;
+    border: 2px solid #e2e8f0; border-radius: 12px;
+    cursor: pointer; transition: all 0.15s; background: #fff; text-align: center;
+}
+.profile-option label i    { font-size: 1.65rem; color: #718096; }
+.profile-option label span { font-size: 0.88rem; font-weight: 600; color: #4a5568; }
+.profile-option label small{ font-size: 0.73rem; color: #a0aec0; }
+.profile-option input:checked + label { border-color: var(--accent); background: var(--accent-light); }
+.profile-option input:checked + label i,
+.profile-option input:checked + label span { color: var(--accent); }
+
+/* ─── Cohorte cards ───────────────────────────────────── */
+.cohorte-card-label { display: block; cursor: pointer; }
+.cohorte-card-label input[type="radio"] { display: none; }
+.cohorte-card-inner {
+    border: 2px solid #e8edf5; border-radius: 12px;
+    padding: 0.9rem 1rem; transition: all 0.15s;
+}
+.cohorte-card-label input:checked + .cohorte-card-inner {
+    border-color: var(--accent); background: var(--accent-light);
+}
+.cohorte-card-inner:hover { border-color: #b4c0f8; }
+
+/* ─── Recap ───────────────────────────────────────────── */
+.recap-item {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 0.6rem 0; border-bottom: 1px solid #f0f2f8; font-size: 0.88rem;
+}
+.recap-item:last-child { border-bottom: none; }
+.recap-label { color: #718096; }
+.recap-value { font-weight: 600; color: var(--navy); text-align: right; }
+.tarif-box {
+    background: linear-gradient(135deg, #1a2340, #2d3a6e);
+    color: #fff; border-radius: 12px; padding: 1.25rem;
+    text-align: center; margin: 1.25rem 0;
+}
+.tarif-box .amount { font-size: 2rem; font-weight: 800; color: #a5b4fc; }
+.tarif-box .amount-label { font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ─── Buttons ─────────────────────────────────────────── */
+.btn-main {
+    width: 100%; background: var(--accent); color: #fff; border: none;
+    padding: 0.82rem; border-radius: 10px; font-size: 0.97rem; font-weight: 600;
+    transition: all 0.18s; cursor: pointer;
+}
+.btn-main:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-back {
+    color: #718096; text-decoration: none; font-size: 0.83rem;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+}
+.btn-back:hover { color: #4a5568; }
+
+.errorlist {
+    list-style: none; padding: 0; margin: 0.25rem 0 0;
+    color: #e53e3e; font-size: 0.79rem;
+}
+.field-error .form-control, .field-error .form-select { border-color: #e53e3e; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rejoindre-container">
+<div class="rejoindre-wrap">
 
     <!-- Certification banner -->
     <div class="certif-banner">
-        <div class="certif-icon"><i class="bi bi-award-fill"></i></div>
+        <div class="cb-icon"><i class="bi bi-award-fill"></i></div>
         <div>
-            <div class="certif-title">{{ certification.nom }}</div>
-            <div class="certif-sub">
+            <div class="cb-title">{{ certification.nom }}</div>
+            <div class="cb-sub">
                 {% if certification.duree %}<i class="bi bi-clock me-1"></i>{{ certification.duree }} &nbsp;&mdash;&nbsp;{% endif %}
                 Inscrivez-vous maintenant pour démarrer votre parcours
             </div>
         </div>
     </div>
 
+    {# ================================================================= #}
+    {# ÉTAPES 2-4 : wizard full-page (no choice cards)                   #}
+    {# ================================================================= #}
+    {% if wizard_step and wizard_step >= 2 %}
+
+    <!-- Progress bar -->
+    <div class="wiz-progress">
+        <div class="wiz-steps">
+            <div class="wiz-step-item {% if wizard_step > 1 %}done{% endif %} {% if wizard_step == 1 %}active{% endif %}">
+                <div class="step-circle">{% if wizard_step > 1 %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}</div>
+                <div class="step-label">Identité</div>
+            </div>
+            <div class="wiz-step-item {% if wizard_step > 2 %}done{% endif %} {% if wizard_step == 2 %}active{% endif %}">
+                <div class="step-circle">{% if wizard_step > 2 %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}</div>
+                <div class="step-label">Profil</div>
+            </div>
+            <div class="wiz-step-item {% if wizard_step > 3 %}done{% endif %} {% if wizard_step == 3 %}active{% endif %}">
+                <div class="step-circle">{% if wizard_step > 3 %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}</div>
+                <div class="step-label">Session</div>
+            </div>
+            <div class="wiz-step-item {% if wizard_step == 4 %}active{% endif %}">
+                <div class="step-circle">4</div>
+                <div class="step-label">Confirmation</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-box show">
+
+        {% if wizard_step == 2 %}
+        <!-- ─── Step 2: Profil ─── -->
+        <div class="wiz-section-title"><i class="bi bi-person-badge me-2" style="color:var(--accent);"></i>Votre profil</div>
+        <div class="wiz-section-sub">Ces informations permettent d'adapter le tarif de la certification.</div>
+
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="wizard_step2">
+
+            {% if form_step2.non_field_errors %}
+            <div class="alert alert-danger">{{ form_step2.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label d-block mb-2 fw-semibold">Vous êtes <span class="text-danger">*</span></label>
+                <div class="profile-options">
+                    <div class="profile-option">
+                        <input type="radio" id="p_etudiant" name="activite" value="etudiant"
+                               {% if not form_step2 or form_step2.activite.value == 'etudiant' or not form_step2.activite.value %}checked{% endif %}>
+                        <label for="p_etudiant">
+                            <i class="bi bi-mortarboard-fill"></i>
+                            <span>Étudiant(e)</span><small>En cours d'études</small>
+                        </label>
+                    </div>
+                    <div class="profile-option">
+                        <input type="radio" id="p_pro" name="activite" value="professionnel"
+                               {% if form_step2 and form_step2.activite.value == 'professionnel' %}checked{% endif %}>
+                        <label for="p_pro">
+                            <i class="bi bi-briefcase-fill"></i>
+                            <span>Professionnel(le)</span><small>En activité</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bloc_universite" class="mb-3">
+                <label class="form-label">Université / École</label>
+                {% if form_step2 %}{{ form_step2.universite }}{% else %}<input type="text" name="universite" class="form-control" placeholder="Nom de votre université">{% endif %}
+            </div>
+            <div id="bloc_entreprise" class="mb-3" style="display:none;">
+                <label class="form-label">Entreprise</label>
+                {% if form_step2 %}{{ form_step2.entreprise }}{% else %}<input type="text" name="entreprise" class="form-control" placeholder="Nom de votre entreprise">{% endif %}
+            </div>
+
+            <!-- Tarif indicatif -->
+            <div style="background:#f0f4ff;border-radius:10px;padding:0.85rem 1rem;font-size:0.83rem;color:#4a5568;margin-bottom:1.25rem;">
+                <i class="bi bi-info-circle me-1 text-primary"></i>
+                Tarif étudiant : <strong>{{ certification.tarif_etudiant|floatformat:0|intcomma }} FCFA</strong>
+                &nbsp;|&nbsp;
+                Tarif pro : <strong>{{ certification.tarif_professionnel|floatformat:0|intcomma }} FCFA</strong>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <a href="/portail/rejoindre/{{ certification.pk }}/?step=1" class="btn-back">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
+                <button type="submit" class="btn btn-primary px-4">
+                    Étape suivante <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </form>
+
+        {% elif wizard_step == 3 %}
+        <!-- ─── Step 3: Cohorte ─── -->
+        <div class="wiz-section-title"><i class="bi bi-calendar3 me-2" style="color:var(--accent);"></i>Choisir votre session</div>
+        <div class="wiz-section-sub">Sélectionnez la session disponible pour <strong>{{ certification.nom }}</strong>.</div>
+
+        {% if cohorte_error %}
+        <div class="alert alert-danger" style="font-size:0.84rem;">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ cohorte_error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="wizard_step3">
+
+            {% if cohortes %}
+            <div class="row g-3 mb-4">
+                {% for c in cohortes %}
+                <div class="col-md-6">
+                    <label class="cohorte-card-label">
+                        <input type="radio" name="cohorte_id" value="{{ c.pk }}"
+                               {% if forloop.first %}checked{% endif %}>
+                        <div class="cohorte-card-inner">
+                            <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">{{ c.nom }}</div>
+                            {% if c.date_debut %}
+                            <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
+                                <i class="bi bi-calendar3 me-1"></i>{{ c.date_debut|date:"d/m/Y" }}
+                                {% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
+                            </div>
+                            {% endif %}
+                            <div style="font-size:0.74rem;color:#a0aec0;margin-top:0.15rem;">
+                                <i class="bi bi-people me-1"></i>{{ c.nb_inscrits }} inscrit{{ c.nb_inscrits|pluralize }}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-calendar-x me-2"></i>
+                Aucune session disponible pour cette certification pour le moment.
+            </div>
+            {% endif %}
+
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <a href="/portail/rejoindre/{{ certification.pk }}/?step=2" class="btn-back">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
+                {% if cohortes %}
+                <button type="submit" class="btn btn-primary px-4">
+                    Continuer <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+                {% endif %}
+            </div>
+        </form>
+
+        {% elif wizard_step == 4 %}
+        <!-- ─── Step 4: Récapitulatif ─── -->
+        <div class="wiz-section-title"><i class="bi bi-clipboard-check me-2" style="color:var(--accent);"></i>Récapitulatif</div>
+        <div class="wiz-section-sub">Vérifiez vos informations avant de finaliser votre inscription.</div>
+
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-person me-2"></i>Nom complet</span>
+            <span class="recap-value">{{ step1.prenom }} {{ step1.nom }}</span>
+        </div>
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-envelope me-2"></i>Email</span>
+            <span class="recap-value">{{ step1.email }}</span>
+        </div>
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-telephone me-2"></i>Téléphone</span>
+            <span class="recap-value">{{ step1.telephone }}</span>
+        </div>
+        {% if step1.adresse %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-geo-alt me-2"></i>Adresse</span>
+            <span class="recap-value">{{ step1.adresse }}</span>
+        </div>
+        {% endif %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-person-badge me-2"></i>Profil</span>
+            <span class="recap-value">{% if step2.activite == 'etudiant' %}Étudiant(e){% else %}Professionnel(le){% endif %}</span>
+        </div>
+        {% if step2.universite %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-building me-2"></i>Université</span>
+            <span class="recap-value">{{ step2.universite }}</span>
+        </div>
+        {% endif %}
+        {% if step2.entreprise %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-briefcase me-2"></i>Entreprise</span>
+            <span class="recap-value">{{ step2.entreprise }}</span>
+        </div>
+        {% endif %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-award me-2"></i>Certification</span>
+            <span class="recap-value">{{ certification.nom }}</span>
+        </div>
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-calendar3 me-2"></i>Session</span>
+            <span class="recap-value">{{ cohorte }}</span>
+        </div>
+
+        <div class="tarif-box">
+            <div class="amount-label">Montant à régler</div>
+            <div class="amount">{{ tarif|floatformat:0|intcomma }}</div>
+            <div style="color:rgba(255,255,255,0.45);font-size:0.73rem;margin-top:0.2rem;">FCFA</div>
+        </div>
+
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="wizard_step4">
+            <button type="submit" class="btn-main">
+                <i class="bi bi-check2-circle me-1"></i>Confirmer et créer mon compte
+            </button>
+        </form>
+        <div class="text-center mt-2">
+            <a href="/portail/rejoindre/{{ certification.pk }}/?step=3" class="btn-back">
+                <i class="bi bi-arrow-left"></i> Modifier
+            </a>
+        </div>
+
+        {% endif %}
+    </div><!-- /panel-box step 2-4 -->
+
+    {# ================================================================= #}
+    {# ÉTAPE 0 / 1 : page de choix + panels login & wizard              #}
+    {# ================================================================= #}
+    {% else %}
+
     <!-- Choice cards -->
     <div class="choice-grid">
-        <div class="choice-card {% if show_login %}selected{% endif %}" onclick="showPanel('login', this)">
-            <span class="choice-icon">🔑</span>
-            <div class="choice-title">J'ai déjà un compte</div>
-            <div class="choice-desc">Connectez-vous avec vos identifiants ENSMG</div>
+        <div class="choice-card {% if panel == 'login' %}active{% endif %}" id="card-login"
+             onclick="openPanel('login')">
+            <span class="cc-icon">🔑</span>
+            <div class="cc-title">J'ai déjà un compte</div>
+            <div class="cc-desc">Se connecter avec mes identifiants ENSMG</div>
         </div>
-        <div class="choice-card {% if show_wizard %}selected{% endif %}" onclick="showPanel('wizard', this)">
-            <span class="choice-icon">✨</span>
-            <div class="choice-title">Je suis nouveau</div>
-            <div class="choice-desc">Créer mon compte et m'inscrire à cette certification</div>
+        <div class="choice-card {% if panel == 'wizard' or wizard_step == 1 %}active{% endif %}" id="card-wizard"
+             onclick="openPanel('wizard')">
+            <span class="cc-icon">✨</span>
+            <div class="cc-title">Je suis nouveau</div>
+            <div class="cc-desc">Créer mon compte et m'inscrire à cette certification</div>
         </div>
     </div>
 
     <!-- Login panel -->
-    <div class="panel-section {% if show_login %}show{% endif %}" id="panel-login">
-        <div class="panel-title"><i class="bi bi-box-arrow-in-right me-2 text-primary"></i>Connexion à votre espace</div>
+    <div class="panel-box {% if panel == 'login' %}show{% endif %}" id="panel-login">
+        <div class="wiz-section-title"><i class="bi bi-box-arrow-in-right me-2 text-primary"></i>Connexion à votre espace</div>
+        <div class="wiz-section-sub">Entrez vos identifiants pour accéder à votre espace apprenant.</div>
+
         {% if error_login %}
         <div class="alert alert-danger" style="font-size:0.84rem;">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>Identifiants incorrects. Vérifiez votre nom d'utilisateur et mot de passe.
         </div>
         {% endif %}
-        <form method="post">
+
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
             {% csrf_token %}
             <input type="hidden" name="action" value="login">
             <div class="mb-3">
-                <label class="form-label">Nom d'utilisateur</label>
-                <input type="text" name="username" class="form-control" placeholder="Votre identifiant" autofocus required>
+                <label class="form-label fw-semibold">Email ou nom d'utilisateur</label>
+                <input type="text" name="username" class="form-control" placeholder="votre@email.com ou prenom.nom@ensmg.sn" autofocus>
             </div>
             <div class="mb-3">
-                <label class="form-label">Mot de passe</label>
-                <input type="password" name="password" class="form-control" placeholder="Votre mot de passe" required>
+                <label class="form-label fw-semibold">Mot de passe</label>
+                <div class="input-group">
+                    <input type="password" name="password" id="pw-login" class="form-control" placeholder="Votre mot de passe">
+                    <button type="button" class="btn btn-outline-secondary" onclick="togglePw('pw-login',this)">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
             </div>
-            <button type="submit" class="btn-submit-main">
+            <button type="submit" class="btn-main">
                 <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter et accéder à mon espace
             </button>
-            <div class="text-center mt-3" style="font-size:0.82rem;color:#718096;">
-                <a href="{% url 'password_reset' %}" class="text-decoration-none">Mot de passe oublié ?</a>
-            </div>
         </form>
+        <div class="text-center mt-3" style="font-size:0.81rem;color:#718096;">
+            <a href="{% url 'password_reset' %}" class="text-decoration-none" style="color:var(--accent);">Mot de passe oublié ?</a>
+        </div>
     </div>
 
     <!-- Wizard step 1 panel -->
-    <div class="panel-section {% if show_wizard %}show{% endif %}" id="panel-wizard">
-        <div class="panel-title"><i class="bi bi-person-plus me-2 text-success"></i>Créer mon compte — Étape 1 sur 4</div>
-        <form method="post" action="{% url 'portail_rejoindre' certification.pk %}">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="inscription">
-            <div class="row g-3">
-                <div class="col-sm-6">
-                    <label class="form-label">Nom <span class="text-danger">*</span></label>
-                    <input type="text" name="nom" class="form-control" value="{{ form.nom.value|default:'' }}" required placeholder="Votre nom de famille">
-                    {% if form.nom.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.nom.errors|join:", " }}</div>{% endif %}
+    <div class="panel-box {% if panel == 'wizard' or wizard_step == 1 %}show{% endif %}" id="panel-wizard">
+
+        <!-- Mini progress (step 1 active) -->
+        <div class="wiz-progress" style="margin-bottom:1.5rem;">
+            <div class="wiz-steps">
+                <div class="wiz-step-item active">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Identité</div>
                 </div>
-                <div class="col-sm-6">
-                    <label class="form-label">Prénom <span class="text-danger">*</span></label>
-                    <input type="text" name="prenom" class="form-control" value="{{ form.prenom.value|default:'' }}" required placeholder="Votre prénom">
-                    {% if form.prenom.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.prenom.errors|join:", " }}</div>{% endif %}
+                <div class="wiz-step-item">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Profil</div>
                 </div>
-                <div class="col-sm-6">
-                    <label class="form-label">Email <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" required placeholder="votre@email.com">
-                    {% if form.email.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.email.errors|join:", " }}</div>{% endif %}
+                <div class="wiz-step-item">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Session</div>
                 </div>
-                <div class="col-sm-6">
-                    <label class="form-label">Téléphone <span class="text-danger">*</span></label>
-                    <input type="tel" name="telephone" class="form-control" value="{{ form.telephone.value|default:'' }}" required placeholder="+221 77 000 00 00">
-                    {% if form.telephone.errors %}<div class="text-danger" style="font-size:0.8rem;">{{ form.telephone.errors|join:", " }}</div>{% endif %}
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Adresse</label>
-                    <input type="text" name="adresse" class="form-control" value="{{ form.adresse.value|default:'' }}" placeholder="Votre adresse (optionnel)">
+                <div class="wiz-step-item">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Confirmation</div>
                 </div>
             </div>
-            <button type="submit" class="btn-submit-main">
-                <i class="bi bi-arrow-right me-2"></i>Continuer — Étape suivante
-            </button>
+        </div>
+
+        <div class="wiz-section-title"><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations personnelles</div>
+        <div class="wiz-section-sub">Renseignez vos coordonnées pour créer votre dossier d'inscription.</div>
+
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="wizard_step1">
+
+            {% if form_step1.non_field_errors %}
+            <div class="alert alert-danger">{{ form_step1.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-sm-6 {% if form_step1.nom.errors %}field-error{% endif %}">
+                    <label class="form-label">Nom <span class="text-danger">*</span></label>
+                    {{ form_step1.nom }}
+                    {% if form_step1.nom.errors %}<ul class="errorlist">{% for e in form_step1.nom.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="col-sm-6 {% if form_step1.prenom.errors %}field-error{% endif %}">
+                    <label class="form-label">Prénom <span class="text-danger">*</span></label>
+                    {{ form_step1.prenom }}
+                    {% if form_step1.prenom.errors %}<ul class="errorlist">{% for e in form_step1.prenom.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="col-12 {% if form_step1.email.errors %}field-error{% endif %}">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    {{ form_step1.email }}
+                    {% if form_step1.email.errors %}<ul class="errorlist">{% for e in form_step1.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    <small class="text-muted" style="font-size:0.76rem;">Votre identifiant de connexion sera lié à cet email.</small>
+                </div>
+                <div class="col-sm-6 {% if form_step1.telephone.errors %}field-error{% endif %}">
+                    <label class="form-label">Téléphone <span class="text-danger">*</span></label>
+                    {{ form_step1.telephone }}
+                    {% if form_step1.telephone.errors %}<ul class="errorlist">{% for e in form_step1.telephone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Adresse</label>
+                    {{ form_step1.adresse }}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn-main">
+                    Étape suivante <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
         </form>
-        <p style="font-size:0.8rem;color:#718096;text-align:center;margin-top:1rem;">
+        <p style="font-size:0.78rem;color:#a0aec0;text-align:center;margin-top:0.75rem;">
             Vous recevrez vos identifiants de connexion par email après validation.
         </p>
+    </div>
+
+    {% endif %}
+
+    <!-- Back link -->
+    <div class="text-center mt-3" style="font-size:0.82rem;color:#a0aec0;">
+        <a href="{% url 'portail_accueil' %}" class="text-decoration-none" style="color:#a0aec0;">
+            <i class="bi bi-arrow-left me-1"></i>Retour au portail
+        </a>
     </div>
 
 </div>
@@ -210,23 +576,40 @@
 
 {% block extra_js %}
 <script>
-function showPanel(type, el) {
-    document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('panel-login').classList.remove('show');
-    document.getElementById('panel-wizard').classList.remove('show');
-    document.getElementById('panel-' + type).classList.add('show');
-    document.getElementById('panel-' + type).scrollIntoView({behavior: 'smooth', block: 'start'});
+function openPanel(type) {
+    ['login','wizard'].forEach(function(t) {
+        document.getElementById('panel-' + t).classList.remove('show');
+        document.getElementById('card-' + t).classList.remove('active');
+    });
+    var panel = document.getElementById('panel-' + type);
+    panel.classList.add('show');
+    document.getElementById('card-' + type).classList.add('active');
+    setTimeout(function() {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 60);
 }
-{% if show_login or error_login %}
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.choice-card')[0].classList.add('selected');
-});
-{% endif %}
-{% if show_wizard %}
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.choice-card')[1].classList.add('selected');
-});
+
+function togglePw(id, btn) {
+    var el = document.getElementById(id);
+    if (el.type === 'password') {
+        el.type = 'text';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    } else {
+        el.type = 'password';
+        btn.innerHTML = '<i class="bi bi-eye"></i>';
+    }
+}
+
+// Step 2: toggle university/enterprise
+{% if wizard_step == 2 %}
+function toggleProfil() {
+    var isEtu = document.getElementById('p_etudiant').checked;
+    document.getElementById('bloc_universite').style.display = isEtu ? 'block' : 'none';
+    document.getElementById('bloc_entreprise').style.display = isEtu ? 'none' : 'block';
+}
+document.getElementById('p_etudiant').addEventListener('change', toggleProfil);
+document.getElementById('p_pro').addEventListener('change', toggleProfil);
+toggleProfil();
 {% endif %}
 </script>
 {% endblock %}

@@ -9,60 +9,162 @@
 <li class="breadcrumb-item active">{{ certification.nom }}</li>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Stat selector cards ── */
+.cert-tab-card {
+    border-radius: 18px;
+    padding: 1.4rem 1.6rem;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all .25s;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+}
+.cert-tab-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .25s;
+}
+.cert-tab-card.active-tab { border-color: currentColor; }
+.cert-tab-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+
+/* non-certified (warning) */
+.cert-tab-warning { color: #d97706; }
+.cert-tab-warning.active-tab { background: linear-gradient(135deg, #fffbeb, #fef3c7); box-shadow: 0 4px 20px rgba(217,119,6,.15); }
+.cert-tab-warning .tab-icon { background: #fef3c7; color: #d97706; }
+.cert-tab-warning.active-tab .tab-icon { background: #d97706; color: #fff; }
+
+/* certified (success) */
+.cert-tab-success { color: #059669; }
+.cert-tab-success.active-tab { background: linear-gradient(135deg, #f0fdf4, #d1fae5); box-shadow: 0 4px 20px rgba(5,150,105,.15); }
+.cert-tab-success .tab-icon { background: #d1fae5; color: #059669; }
+.cert-tab-success.active-tab .tab-icon { background: #059669; color: #fff; }
+
+.tab-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    transition: all .25s;
+    flex-shrink: 0;
+}
+.tab-count { font-size: 2rem; font-weight: 800; color: #1a2340; line-height: 1; }
+.tab-label { font-size: 0.78rem; color: #718096; text-transform: uppercase; letter-spacing: .5px; margin-top: .2rem; }
+.tab-badge {
+    position: absolute; top: 1rem; right: 1rem;
+    font-size: .7rem; font-weight: 700;
+    padding: .2rem .55rem;
+    border-radius: 20px;
+}
+.tab-progress { height: 4px; background: #e8edf5; border-radius: 20px; margin-top: .75rem; }
+.tab-progress-bar { height: 4px; border-radius: 20px; }
+
+/* ── Section panels ── */
+.cert-panel { display: none; }
+.cert-panel.show { display: block; }
+
+/* Avatar disabled */
+.avatar-disabled { opacity: 0.45; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
         <h1><i class="bi bi-patch-check-fill me-2 text-primary"></i>{{ certification.nom }}</h1>
-        <p class="text-muted">
-            {{ inscriptions.count }} inscrit{{ inscriptions.count|pluralize }} à certifier &mdash;
-            {{ certifies.count }} déjà certifié{{ certifies.count|pluralize }}
-        </p>
+        <p class="text-muted mb-0">Gérez les certifications et générez les attestations.</p>
     </div>
     <a href="{% url 'certifier_home' %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Retour
     </a>
 </div>
 
-<!-- Summary cards at top -->
+<!-- ── Two selector cards ── -->
+{% with total=inscriptions.count nb_certif=certifies.count %}
 <div class="row g-3 mb-4">
+
+    <!-- Non certifiés -->
     <div class="col-md-6">
-        <div class="card" style="border-left:4px solid #f59e0b;cursor:pointer;"
-             onclick="toggleSection('section-a-certifier')"
-             data-bs-toggle="collapse" data-bs-target="#section-a-certifier">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div style="width:48px;height:48px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#d97706;">
+        <div class="cert-tab-card cert-tab-warning active-tab"
+             id="tab-non-certif"
+             onclick="showPanel('non-certif')">
+            {% if inscriptions.count > 0 %}
+            <span class="tab-badge" style="background:#fef3c7;color:#92400e;">
+                <i class="bi bi-clock me-1"></i>En attente
+            </span>
+            {% endif %}
+            <div class="d-flex align-items-center gap-3">
+                <div class="tab-icon">
                     <i class="bi bi-hourglass-split"></i>
                 </div>
-                <div>
-                    <div style="font-size:1.6rem;font-weight:800;color:#1a2340;line-height:1;">{{ inscriptions.count }}</div>
-                    <div style="font-size:0.8rem;color:#718096;">Non certifié{{ inscriptions.count|pluralize }}</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="tab-count">{{ inscriptions.count }}</div>
+                    <div class="tab-label">Non certifié{{ inscriptions.count|pluralize }}</div>
                 </div>
-                <i class="bi bi-chevron-down ms-auto text-muted" id="icon-a-certifier"></i>
             </div>
+            {% if inscriptions.count > 0 %}
+            {% with nb_bloque=inscriptions.count %}
+            <div class="mt-3 d-flex gap-3" style="font-size:.78rem;color:#718096;">
+                {% with nb_ok=0 %}
+                {% for ic in inscriptions %}{% if ic.reste_a_payer <= 0 %}{% with nb_ok=nb_ok|add:1 %}{% endwith %}{% endif %}{% endfor %}
+                <span><i class="bi bi-check-circle text-success me-1"></i>Éligibles à certifier</span>
+                <span><i class="bi bi-exclamation-circle text-danger me-1"></i>Solde requis</span>
+                {% endwith %}
+            </div>
+            {% endwith %}
+            {% endif %}
+            {% if total > 0 %}
+            <div class="tab-progress mt-2">
+                <div class="tab-progress-bar" style="background:#d97706;width:{% widthratio inscriptions.count total 100 %}%;"></div>
+            </div>
+            {% endif %}
         </div>
     </div>
+
+    <!-- Certifiés -->
     <div class="col-md-6">
-        <div class="card" style="border-left:4px solid #10b981;cursor:pointer;"
-             data-bs-toggle="collapse" data-bs-target="#section-certifies">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div style="width:48px;height:48px;background:#d1fae5;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#059669;">
+        <div class="cert-tab-card cert-tab-success"
+             id="tab-certif"
+             onclick="showPanel('certif')">
+            {% if certifies.count > 0 %}
+            <span class="tab-badge" style="background:#d1fae5;color:#065f46;">
+                <i class="bi bi-patch-check me-1"></i>Certifiés
+            </span>
+            {% endif %}
+            <div class="d-flex align-items-center gap-3">
+                <div class="tab-icon">
                     <i class="bi bi-patch-check-fill"></i>
                 </div>
-                <div>
-                    <div style="font-size:1.6rem;font-weight:800;color:#1a2340;line-height:1;">{{ certifies.count }}</div>
-                    <div style="font-size:0.8rem;color:#718096;">Certifié{{ certifies.count|pluralize }}</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="tab-count">{{ certifies.count }}</div>
+                    <div class="tab-label">Certifié{{ certifies.count|pluralize }}</div>
                 </div>
-                <i class="bi bi-chevron-down ms-auto text-muted"></i>
             </div>
+            {% if total > 0 %}
+            <div class="mt-3 d-flex gap-3" style="font-size:.78rem;color:#718096;">
+                <span><i class="bi bi-bar-chart me-1"></i>
+                    Taux : <strong>{% widthratio certifies.count total 100 %}%</strong>
+                </span>
+            </div>
+            <div class="tab-progress mt-2">
+                <div class="tab-progress-bar" style="background:#059669;width:{% widthratio certifies.count total 100 %}%;"></div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+{% endwith %}
 
-<!-- Section : À certifier -->
-<div class="collapse show" id="section-a-certifier">
+<!-- ── Panel: À certifier ── -->
+<div class="cert-panel show" id="panel-non-certif">
 {% if inscriptions %}
-<div class="card mb-4">
-    <div class="card-header d-flex align-items-center justify-content-between">
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h6 class="mb-0">
             <i class="bi bi-hourglass-split me-2 text-warning"></i>
             Inscrits à certifier
@@ -80,7 +182,6 @@
 
     <form method="post" action="{% url 'certifier_action' certification.pk %}" id="formCertifier">
         {% csrf_token %}
-
         <div class="table-responsive">
             <table class="table table-hover mb-0" style="font-size:0.86rem;">
                 <thead style="background:#f8f9fe;">
@@ -90,60 +191,66 @@
                         </th>
                         <th>Nom</th>
                         <th>Cohorte</th>
-                        <th>Statut actuel</th>
+                        <th>Statut</th>
                         <th>Paiement</th>
-                        <th class="text-end">Actions</th>
+                        <th class="text-end pe-3">Fiche</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for ic in inscriptions %}
-                    <tr>
-                        <td>
+                    <tr{% if ic.reste_a_payer > 0 %} style="opacity:.7;"{% endif %}>
+                        <td class="ps-3">
+                            {% if ic.reste_a_payer > 0 %}
+                            <input type="checkbox" class="form-check-input inscrit-check"
+                                   name="inscription_ids" value="{{ ic.pk }}"
+                                   disabled
+                                   title="Solde incomplet — {{ ic.reste_a_payer|floatformat:0 }} FCFA requis">
+                            {% else %}
                             <input type="checkbox" class="form-check-input inscrit-check"
                                    name="inscription_ids" value="{{ ic.pk }}">
+                            {% endif %}
                         </td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;">
+                                <div class="avatar-placeholder {% if ic.reste_a_payer > 0 %}avatar-disabled{% endif %}"
+                                     style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;">
                                     {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
                                 </div>
                                 <div>
                                     <div class="fw-600">{{ ic.inscrit.nom_complet }}</div>
-                                    <div class="text-muted" style="font-size:0.76rem;">
+                                    <div class="text-muted" style="font-size:0.74rem;">
                                         {% if ic.inscrit.activite == 'etudiant' %}
-                                            <span class="badge badge-etudiant" style="font-size:0.68rem;">Étudiant</span>
+                                            <span class="badge badge-etudiant" style="font-size:.65rem;">Étudiant</span>
                                         {% else %}
-                                            <span class="badge badge-professionnel" style="font-size:0.68rem;">Professionnel</span>
+                                            <span class="badge badge-professionnel" style="font-size:.65rem;">Prof.</span>
                                         {% endif %}
                                         {% if ic.inscrit.email %}
-                                            &nbsp;{{ ic.inscrit.email }}
+                                            <span class="ms-1 text-muted">{{ ic.inscrit.email }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </td>
+                        <td style="font-size:.82rem;color:#718096;">{{ ic.cohorte.nom }}</td>
                         <td>
-                            <span class="text-muted" style="font-size:0.82rem;">{{ ic.cohorte.nom }}</span>
-                        </td>
-                        <td>
-                            <span class="badge badge-statut-{{ ic.statut }} rounded-pill">
+                            <span class="badge badge-statut-{{ ic.statut }} rounded-pill" style="font-size:.72rem;">
                                 {{ ic.get_statut_display }}
                             </span>
                         </td>
                         <td>
                             {% if ic.reste_a_payer > 0 %}
-                                <span class="badge bg-danger-subtle text-danger" style="font-size:0.74rem;">
+                                <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:.72rem;">
                                     <i class="bi bi-exclamation-circle me-1"></i>Reste {{ ic.reste_a_payer|floatformat:0 }} FCFA
                                 </span>
                             {% else %}
-                                <span class="badge bg-success-subtle text-success" style="font-size:0.74rem;">
+                                <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.72rem;">
                                     <i class="bi bi-check-circle me-1"></i>Soldé
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="text-end">
+                        <td class="text-end pe-3">
                             <a href="{% url 'inscrit_detail' ic.inscrit.pk %}"
-                               class="btn btn-outline-secondary btn-sm py-0 px-2" title="Fiche inscrit">
+                               class="btn btn-outline-secondary btn-sm py-0 px-2" title="Voir fiche">
                                 <i class="bi bi-person"></i>
                             </a>
                         </td>
@@ -153,11 +260,11 @@
             </table>
         </div>
 
-        <div class="card-footer d-flex align-items-center justify-content-between gap-2">
+        <div class="card-footer d-flex align-items-center justify-content-between gap-2 flex-wrap">
             <span class="text-muted" style="font-size:0.83rem;" id="selectionCount">
                 0 inscrit(s) sélectionné(s)
             </span>
-            <button type="submit" class="btn btn-success" id="btnCertifier" disabled>
+            <button type="button" class="btn btn-success" id="btnCertifier" disabled>
                 <i class="bi bi-patch-check-fill me-1"></i>
                 Certifier et générer les attestations
             </button>
@@ -179,7 +286,7 @@
                 <p>Vous êtes sur le point de certifier <strong id="confirmNb">0</strong> inscrit(s).</p>
                 <div class="alert alert-info" style="font-size:0.84rem;">
                     <i class="bi bi-info-circle me-1"></i>
-                    Un PDF d'attestation sera généré automatiquement pour chaque inscrit sélectionné.
+                    Une attestation PDF sera générée pour chaque inscrit sélectionné.
                     Le statut passera à <strong>Certifié</strong>.
                 </div>
             </div>
@@ -194,22 +301,25 @@
 </div>
 
 {% else %}
-<div class="card mb-4">
+<div class="card">
     <div class="card-body">
         <div class="empty-state">
             <i class="bi bi-hourglass"></i>
-            <p>Tous les inscrits de cette certification ont déjà été certifiés ou il n'y a aucun inscrit.</p>
+            <p>Tous les inscrits de cette certification ont déjà été certifiés.</p>
+            <button onclick="showPanel('certif')" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-patch-check me-1"></i>Voir les certifiés
+            </button>
         </div>
     </div>
 </div>
 {% endif %}
 </div>
 
-<!-- Section : Déjà certifiés -->
-<div class="collapse" id="section-certifies">
+<!-- ── Panel: Déjà certifiés ── -->
+<div class="cert-panel" id="panel-certif">
 {% if certifies %}
 <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex align-items-center justify-content-between">
         <h6 class="mb-0">
             <i class="bi bi-patch-check-fill me-2 text-success"></i>
             Inscrits certifiés
@@ -218,29 +328,36 @@
     </div>
     <div class="table-responsive">
         <table class="table table-hover mb-0" style="font-size:0.86rem;">
-            <thead style="background:#f8f9fe;">
+            <thead style="background:#f0fdf4;">
                 <tr>
-                    <th>Nom</th>
+                    <th class="ps-3">Nom</th>
                     <th>Cohorte</th>
-                    <th>Attestations</th>
+                    <th>Contact</th>
+                    <th class="pe-3">Attestation(s)</th>
                 </tr>
             </thead>
             <tbody>
                 {% for ic in certifies %}
                 <tr>
-                    <td>
+                    <td class="ps-3">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="avatar-placeholder" style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;background:#d4edda;color:#155724;">
+                            <div class="avatar-placeholder"
+                                 style="width:34px;height:34px;font-size:0.76rem;flex-shrink:0;background:#d1fae5;color:#065f46;">
                                 {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
                             </div>
                             <div>
                                 <div class="fw-600">{{ ic.inscrit.nom_complet }}</div>
-                                <span class="badge badge-statut-certifie rounded-pill" style="font-size:0.68rem;">Certifié</span>
+                                <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.65rem;">
+                                    <i class="bi bi-patch-check me-1"></i>Certifié
+                                </span>
                             </div>
                         </div>
                     </td>
-                    <td class="text-muted" style="font-size:0.82rem;">{{ ic.cohorte.nom }}</td>
-                    <td>
+                    <td style="font-size:.82rem;color:#718096;">{{ ic.cohorte.nom }}</td>
+                    <td style="font-size:.8rem;color:#718096;">
+                        {% if ic.inscrit.email %}{{ ic.inscrit.email }}{% else %}—{% endif %}
+                    </td>
+                    <td class="pe-3">
                         {% for att in ic.attestations.all %}
                         <div class="d-inline-flex gap-1 me-1 mb-1">
                             <a href="{% url 'attestation_view' att.pk %}"
@@ -255,7 +372,7 @@
                             </a>
                         </div>
                         {% empty %}
-                        <span class="text-muted" style="font-size:0.8rem;">—</span>
+                        <span class="text-muted" style="font-size:.8rem;">—</span>
                         {% endfor %}
                     </td>
                 </tr>
@@ -264,53 +381,80 @@
         </table>
     </div>
 </div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-patch-check"></i>
+            <p>Aucun inscrit n'a encore été certifié.</p>
+        </div>
+    </div>
+</div>
 {% endif %}
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
-{% if inscriptions %}
 <script>
+/* ── Tab / panel switching (mutual exclusion) ── */
+function showPanel(which) {
+    var panels = ['non-certif', 'certif'];
+    panels.forEach(function(p) {
+        document.getElementById('panel-' + p).classList.toggle('show', p === which);
+        var tab = document.getElementById('tab-' + p);
+        if (tab) tab.classList.toggle('active-tab', p === which);
+    });
+}
+
+{% if inscriptions %}
+/* ── Certification logic ── */
 (function () {
-    const checkAll   = document.getElementById('checkAll');
-    const checks     = document.querySelectorAll('.inscrit-check');
-    const btnCert    = document.getElementById('btnCertifier');
-    const countLabel = document.getElementById('selectionCount');
-    const confirmNb  = document.getElementById('confirmNb');
-    const btnOk      = document.getElementById('btnConfirmOk');
-    const form       = document.getElementById('formCertifier');
-    const modal      = new bootstrap.Modal(document.getElementById('confirmModal'));
+    var checkAll   = document.getElementById('checkAll');
+    var eligibles  = document.querySelectorAll('.inscrit-check:not([disabled])');
+    var btnCert    = document.getElementById('btnCertifier');
+    var countLabel = document.getElementById('selectionCount');
+    var confirmNb  = document.getElementById('confirmNb');
+    var btnOk      = document.getElementById('btnConfirmOk');
+    var form       = document.getElementById('formCertifier');
+    var modal      = new bootstrap.Modal(document.getElementById('confirmModal'));
 
     function updateCount() {
-        const n = document.querySelectorAll('.inscrit-check:checked').length;
+        var n = document.querySelectorAll('.inscrit-check:not([disabled]):checked').length;
         countLabel.textContent = n + ' inscrit' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '');
         btnCert.disabled = n === 0;
-        checkAll.indeterminate = n > 0 && n < checks.length;
-        checkAll.checked = n === checks.length;
+        if (eligibles.length > 0) {
+            checkAll.indeterminate = n > 0 && n < eligibles.length;
+            checkAll.checked = n === eligibles.length;
+        }
     }
 
-    checks.forEach(c => c.addEventListener('change', updateCount));
+    eligibles.forEach(function(c) { c.addEventListener('change', updateCount); });
 
-    checkAll.addEventListener('change', function () {
-        checks.forEach(c => { c.checked = this.checked; });
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            eligibles.forEach(function(c) { c.checked = checkAll.checked; });
+            updateCount();
+        });
+    }
+
+    var btnSelectAll   = document.getElementById('btnSelectAll');
+    var btnDeselectAll = document.getElementById('btnDeselectAll');
+
+    if (btnSelectAll) btnSelectAll.addEventListener('click', function() {
+        eligibles.forEach(function(c) { c.checked = true; });
         updateCount();
     });
 
-    document.getElementById('btnSelectAll').addEventListener('click', function () {
-        checks.forEach(c => { c.checked = true; });
-        checkAll.checked = true;
-        updateCount();
-    });
-
-    document.getElementById('btnDeselectAll').addEventListener('click', function () {
-        checks.forEach(c => { c.checked = false; });
-        checkAll.checked = false;
+    if (btnDeselectAll) btnDeselectAll.addEventListener('click', function() {
+        eligibles.forEach(function(c) { c.checked = false; });
+        if (checkAll) checkAll.checked = false;
         updateCount();
     });
 
     btnCert.addEventListener('click', function (e) {
         e.preventDefault();
-        const n = document.querySelectorAll('.inscrit-check:checked').length;
+        var n = document.querySelectorAll('.inscrit-check:not([disabled]):checked').length;
         confirmNb.textContent = n;
         modal.show();
     });
@@ -320,6 +464,6 @@
         form.submit();
     });
 })();
-</script>
 {% endif %}
+</script>
 {% endblock %}

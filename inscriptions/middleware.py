@@ -11,15 +11,15 @@ PUBLIC_PATHS = {
 }
 
 PUBLIC_PREFIXES = (
-    '/portail/inscrire/',   # Formulaire d'auto-inscription
-    '/portail/paiement/',   # Paiement après inscription
-    '/portail/inscription/',# Wizard d'inscription (ancien)
+    '/portail/',            # Tout le portail public (inscription, paiement, rejoindre…)
     '/static/',
     '/media/',
     '/admin/',
     '/apprenant/changer-mdp/',
     '/attestations/',       # Vérification QR code
     '/api/',
+    '/password-reset/',
+    '/accounts/',
 )
 
 

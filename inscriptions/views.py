@@ -114,18 +114,25 @@ def _auto_transition_statuts():
     """
     Parcourt les inscriptions et met à jour automatiquement le statut selon
     les dates de la cohorte :
-      - statut = 'inscrit' + cohorte.date_debut <= today  → 'en_formation'
+      - statut = 'inscrit' + cohorte.date_debut <= today + reste_a_payer == 0 → 'en_formation'
       - statut = 'en_formation' + cohorte.date_fin <= today → 'formation_terminee'
     Les pré-inscrits (sans paiement confirmé) ne sont PAS promus.
     """
     today = timezone.now().date()
 
-    # inscrit (paiement confirmé) + formation démarrée → en formation
-    Inscription.objects.filter(
+    # inscrit (paiement soldé) + formation démarrée → en formation
+    candidates = Inscription.objects.filter(
         statut='inscrit',
         cohorte__date_debut__lte=today,
-        cohorte__date_fin__gte=today,   # encore en cours
-    ).update(statut='en_formation')
+        cohorte__date_fin__gte=today,
+    ).prefetch_related('paiements')
+
+    to_promote = [
+        ic.pk for ic in candidates
+        if sum(p.montant for p in ic.paiements.all() if p.statut == 'confirme') >= ic.montant_du
+    ]
+    if to_promote:
+        Inscription.objects.filter(pk__in=to_promote).update(statut='en_formation')
 
     # en_formation + formation terminée → formation_terminee
     Inscription.objects.filter(
@@ -199,13 +206,27 @@ def dashboard(request):
         .order_by("-date_paiement", "-created_at")[:8]
     )
 
+    # Répartition par statut
+    from django.db.models import Count
+    stats_statut_qs = inscriptions_qs.values('statut').annotate(nb=Count('id'))
+    stats_statut_dict = {s['statut']: s['nb'] for s in stats_statut_qs}
+
+    # Inscrits récents
+    inscrits_recents = (
+        Inscrit.objects.prefetch_related('inscriptions')
+        .order_by('-date_inscription')[:8]
+    )
+
     context = {
+        "nb_certifications": Certification.objects.count(),
         "nb_inscrits": nb_inscrits,
         "nb_certifies": nb_certifies,
         "total_encaisse": total_encaisse,
         "taux_certification": taux_certification,
         "stats_certifications": stats_certifications,
+        "stats_statut_dict": stats_statut_dict,
         "paiements_recents": paiements_recents,
+        "inscrits_recents": inscrits_recents,
         "filter_certif_ids": filter_certif_ids,
         "filter_cohorte_ids": filter_cohorte_ids,
         "active_page": "dashboard",
@@ -462,6 +483,69 @@ def inscrits_list(request):
 
     certifications_all = Certification.objects.order_by("nom")
 
+    # Stats for cards
+    nb_total = Inscrit.objects.count()
+
+    # All inscrits who have a CompteApprenant (registered via portail)
+    from django.db.models import Prefetch
+    inscrits_avec_compte = list(
+        Inscrit.objects.filter(
+            compte_apprenant__isnull=False
+        ).prefetch_related(
+            Prefetch(
+                'inscriptions',
+                queryset=Inscription.objects.select_related('cohorte__certification').prefetch_related(
+                    'paiements'
+                )
+            )
+        ).order_by('nom', 'prenom')
+    )
+
+    # Classify each inscrit with a compte
+    list_inscrits_actifs = []      # inscription active + paiement soldé
+    list_sans_inscription = []     # compte mais aucune inscription
+    list_non_paye = []             # inscription pre_inscrit (pas encore payé)
+    list_paiement_attente = []     # paiement en attente de confirmation
+    inscrits_actifs_pks = set()
+
+    for ins in inscrits_avec_compte:
+        inscriptions = list(ins.inscriptions.all())
+        if not inscriptions:
+            list_sans_inscription.append(ins)
+            continue
+
+        is_actif = False
+        has_attente = False
+        has_non_paye = False
+
+        for ic in inscriptions:
+            paiements = list(ic.paiements.all())
+            total_confirme = sum(p.montant for p in paiements if p.statut == 'confirme')
+            has_attente_paiement = any(p.statut == 'en_attente' for p in paiements)
+
+            if ic.statut in ('inscrit', 'en_formation', 'formation_terminee', 'certifie') and total_confirme >= ic.montant_du:
+                is_actif = True
+                inscrits_actifs_pks.add(ins.pk)
+                break
+            if has_attente_paiement:
+                has_attente = True
+            elif ic.statut == 'pre_inscrit':
+                has_non_paye = True
+
+        if is_actif:
+            list_inscrits_actifs.append(ins)
+        elif has_attente:
+            list_paiement_attente.append(ins)
+        elif has_non_paye:
+            list_non_paye.append(ins)
+        else:
+            list_sans_inscription.append(ins)
+
+    # Pre-inscrits = sans inscription active soldée (toutes sous-catégories)
+    list_pre_inscrits = list_sans_inscription + list_non_paye + list_paiement_attente
+    nb_pre_inscrits = len(list_pre_inscrits)
+    nb_avec_certif = len(list_inscrits_actifs)
+
     context = {
         "inscrits": inscrits,
         "query": query,
@@ -472,7 +556,15 @@ def inscrits_list(request):
         "statut_choices": Inscription.STATUT_CHOICES,
         "activite_choices": Inscrit.ACTIVITE_CHOICES,
         "active_page": "inscrits",
-        "nb_inscrits": Inscrit.objects.count(),
+        "nb_inscrits": nb_total,
+        "nb_pre_inscrits": nb_pre_inscrits,
+        "nb_avec_certif": nb_avec_certif,
+        "list_pre_inscrits": list_pre_inscrits,
+        "list_inscrits_actifs": list_inscrits_actifs,
+        # Sub-categories for pre-inscrit panel
+        "list_sans_inscription": list_sans_inscription,
+        "list_non_paye": list_non_paye,
+        "list_paiement_attente": list_paiement_attente,
     }
     return render(request, "inscriptions/inscrits_list.html", context)
 
@@ -498,6 +590,71 @@ def inscrit_detail(request, pk):
         "active_page": "inscrits",
     }
     return render(request, "inscriptions/inscrit_detail.html", context)
+
+
+@login_required
+def admin_certifications_pour_inscrit(request, pk):
+    """Admin: choose which certification to enroll an inscrit in."""
+    inscrit = get_object_or_404(Inscrit, pk=pk)
+    certifs_actives = Certification.objects.filter(actif=True).order_by('nom')
+    certifs_inactives = Certification.objects.filter(actif=False).order_by('nom')
+    return render(request, 'inscriptions/admin_certifications_pour_inscrit.html', {
+        'inscrit': inscrit,
+        'certifs_actives': certifs_actives,
+        'certifs_inactives': certifs_inactives,
+        'active_page': 'inscrits',
+    })
+
+
+@login_required
+def admin_inscription_directe(request, pk, certif_pk):
+    """Admin: enroll an inscrit in a specific certification (choose cohorte)."""
+    inscrit = get_object_or_404(Inscrit, pk=pk)
+    certification = get_object_or_404(Certification, pk=certif_pk)
+    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by('nom')
+
+    errors = {}
+
+    if request.method == 'POST':
+        cohorte_id = request.POST.get('cohorte_id', '').strip()
+        action = request.POST.get('action', 'payer')
+        cohorte = None
+
+        if cohorte_id:
+            try:
+                cohorte = Cohorte.objects.get(pk=cohorte_id, certification=certification, actif=True)
+            except Cohorte.DoesNotExist:
+                errors['cohorte'] = "Cohorte invalide."
+        if not cohorte:
+            errors['cohorte'] = "Veuillez sélectionner une session valide."
+
+        if not errors:
+            montant_du = float(
+                certification.tarif_professionnel if inscrit.activite == 'professionnel'
+                else certification.tarif_etudiant
+            )
+            inscription, created = Inscription.objects.get_or_create(
+                inscrit=inscrit,
+                cohorte=cohorte,
+                defaults={'statut': 'pre_inscrit', 'montant_du': montant_du},
+            )
+            if created:
+                notifier_inscription(inscription)
+
+            if action == 'sans_payer':
+                messages.success(request, f"{inscrit.nom_complet} inscrit(e) à « {certification.nom} » (paiement différé).")
+                return redirect('inscrit_detail', pk=inscrit.pk)
+            else:
+                request.session['pending_inscription_id'] = inscription.pk
+                return redirect('portail_paiement', pk=inscription.pk)
+
+    return render(request, 'inscriptions/admin_inscription_directe.html', {
+        'inscrit': inscrit,
+        'certification': certification,
+        'cohortes': cohortes,
+        'errors': errors,
+        'active_page': 'inscrits',
+    })
 
 
 @login_required
@@ -794,8 +951,14 @@ def paiements_list(request):
 
     total_filtre = paiements.aggregate(total=Sum("montant"))["total"] or 0
 
+    # Pending payments (en_attente) — always shown regardless of filters
+    paiements_en_attente = Paiement.objects.filter(statut='en_attente').select_related(
+        "inscription__inscrit", "inscription__cohorte__certification"
+    ).order_by("-created_at")
+
     context = {
         "paiements": paiements,
+        "paiements_en_attente": paiements_en_attente,
         "query": query,
         "moyen_filter": moyen_filter,
         "moyen_choices": Paiement.MOYEN_CHOICES,
@@ -1319,7 +1482,7 @@ def _generer_attestation_pdf(inscription, verification_url=""):
     c.drawCentredString(sig_cx, footer_y - 14, "Le Directeur Général")
     c.setFont("Helvetica", 8)
     c.setFillColor(LGREY)
-    c.drawCentredString(sig_cx, footer_y - 24, "ENSMG")
+    c.drawCentredString(sig_cx, footer_y - 24, "École Nationale Supérieure de Management et de Gouvernance (ENSMG)")
 
     # QR code (droite)
     if verification_url:
@@ -1626,8 +1789,12 @@ def portail_accueil(request):
 
 
 def portail_rejoindre(request, certif_pk):
-    """Page d'accueil pour s'inscrire à une certification — choix login ou inscription."""
-    from .forms import WizardStep1Form
+    """
+    Page d'inscription à une certification spécifique.
+    Étape 0 : choix "J'ai un compte" / "Je suis nouveau"
+    Étapes 1-4 : wizard inline (4 étapes de création de compte + inscription)
+    """
+    from .forms import WizardStep1Form, WizardStep2Form
     certification = get_object_or_404(Certification, pk=certif_pk, actif=True)
 
     # If already authenticated apprenant, redirect directly to inscription directe
@@ -1638,46 +1805,218 @@ def portail_rejoindre(request, certif_pk):
         except Exception:
             return redirect('dashboard')
 
-    error_login = False
-    show_login = request.POST.get('action') == 'login' or request.GET.get('panel') == 'login'
-    show_wizard = request.POST.get('action') == 'inscription' or request.GET.get('panel') == 'inscription'
+    # Store certif in session for multi-step navigation
+    request.session['rejoindre_certif_id'] = certif_pk
+    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by('nom')
 
+    # ------------------------------------------------------------------
+    # POST handlers
+    # ------------------------------------------------------------------
     if request.method == 'POST':
         action = request.POST.get('action', '')
 
+        # ---- Login ----
         if action == 'login':
             from django.contrib.auth import authenticate, login as auth_login
             username = request.POST.get('username', '').strip()
             password = request.POST.get('password', '').strip()
+            # Support email OR username
+            if '@' in username:
+                try:
+                    username = User.objects.get(email__iexact=username).username
+                except User.DoesNotExist:
+                    pass
             user = authenticate(request, username=username, password=password)
-            if user:
+            if user and user.is_active:
                 auth_login(request, user)
-                return redirect('espace_apprenant')
-            else:
-                error_login = True
-                show_login = True
+                try:
+                    _ = user.compte_apprenant
+                    return redirect('apprenant_inscription_directe', certif_pk=certif_pk)
+                except Exception:
+                    return redirect('dashboard')
+            # Login failed
+            return render(request, 'inscriptions/portail_rejoindre.html', {
+                'certification': certification,
+                'cohortes': cohortes,
+                'panel': 'login',
+                'error_login': True,
+            })
 
-        elif action == 'inscription':
-            # Store certif in session then redirect to wizard step 1
-            request.session['rejoindre_certif_id'] = certif_pk
+        # ---- Wizard step 1 ----
+        elif action == 'wizard_step1':
             form = WizardStep1Form(request.POST)
             if form.is_valid():
                 request.session['wizard_step1'] = form.cleaned_data
-                return redirect('/portail/inscription/?step=2')
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=2')
             return render(request, 'inscriptions/portail_rejoindre.html', {
                 'certification': certification,
-                'form': form,
-                'show_wizard': True,
-                'error_login': False,
+                'cohortes': cohortes,
+                'panel': 'wizard',
+                'wizard_step': 1,
+                'form_step1': form,
             })
 
-    form = WizardStep1Form()
+        # ---- Wizard step 2 ----
+        elif action == 'wizard_step2':
+            if not request.session.get('wizard_step1'):
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+            form = WizardStep2Form(request.POST)
+            if form.is_valid():
+                request.session['wizard_step2'] = form.cleaned_data
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=3')
+            return render(request, 'inscriptions/portail_rejoindre.html', {
+                'certification': certification,
+                'cohortes': cohortes,
+                'panel': 'wizard',
+                'wizard_step': 2,
+                'form_step2': form,
+            })
+
+        # ---- Wizard step 3 ----
+        elif action == 'wizard_step3':
+            if not request.session.get('wizard_step2'):
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+            cohorte_id = request.POST.get('cohorte_id', '').strip()
+            cohorte_sel = None
+            if cohorte_id:
+                try:
+                    cohorte_sel = Cohorte.objects.get(pk=cohorte_id, certification=certification, actif=True)
+                except Cohorte.DoesNotExist:
+                    pass
+            if cohorte_sel:
+                request.session['wizard_step3'] = {'cohorte_id': cohorte_sel.pk}
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=4')
+            return render(request, 'inscriptions/portail_rejoindre.html', {
+                'certification': certification,
+                'cohortes': cohortes,
+                'panel': 'wizard',
+                'wizard_step': 3,
+                'cohorte_error': "Veuillez sélectionner une session disponible.",
+            })
+
+        # ---- Wizard step 4 (final) ----
+        elif action == 'wizard_step4':
+            step1 = request.session.get('wizard_step1')
+            step2 = request.session.get('wizard_step2')
+            step3_data = request.session.get('wizard_step3')
+            if not all([step1, step2, step3_data]):
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+            try:
+                cohorte_obj = Cohorte.objects.select_related('certification').get(pk=step3_data['cohorte_id'])
+            except Cohorte.DoesNotExist:
+                return redirect(f'/portail/rejoindre/{certif_pk}/?step=3')
+
+            email = step1['email'].lower()
+            activite = step2['activite']
+
+            if Inscrit.objects.filter(email=email).exists():
+                inscrit = Inscrit.objects.get(email=email)
+                inscrit.nom = step1['nom']
+                inscrit.prenom = step1['prenom']
+                inscrit.telephone = step1['telephone']
+                inscrit.adresse = step1.get('adresse', '')
+                inscrit.activite = activite
+                inscrit.universite = step2.get('universite', '')
+                inscrit.entreprise = step2.get('entreprise', '')
+                inscrit.save()
+            else:
+                inscrit = Inscrit.objects.create(
+                    nom=step1['nom'], prenom=step1['prenom'],
+                    email=email, telephone=step1['telephone'],
+                    adresse=step1.get('adresse', ''), activite=activite,
+                    source='portail', universite=step2.get('universite', ''),
+                    entreprise=step2.get('entreprise', ''),
+                )
+
+            montant_du = float(
+                cohorte_obj.certification.tarif_professionnel if activite == 'professionnel'
+                else cohorte_obj.certification.tarif_etudiant
+            )
+            inscription, created = Inscription.objects.get_or_create(
+                inscrit=inscrit, cohorte=cohorte_obj,
+                defaults={'statut': 'pre_inscrit', 'montant_du': montant_du},
+            )
+            if created:
+                notifier_inscription(inscription)
+
+            if not CompteApprenant.objects.filter(inscrit=inscrit).exists():
+                user, compte = _creer_compte_apprenant(inscrit)
+            else:
+                compte = inscrit.compte_apprenant
+                user = compte.user
+
+            from django.contrib.auth import login as auth_login
+            user.backend = 'django.contrib.auth.backends.ModelBackend'
+            auth_login(request, user)
+
+            for k in ['wizard_step1', 'wizard_step2', 'wizard_step3', 'rejoindre_certif_id']:
+                request.session.pop(k, None)
+
+            request.session['pending_inscription_id'] = inscription.pk
+            request.session['new_compte_username'] = user.username
+            return redirect('portail_paiement', pk=inscription.pk)
+
+    # ------------------------------------------------------------------
+    # GET handlers
+    # ------------------------------------------------------------------
+    step = int(request.GET.get('step', 0))
+    panel = request.GET.get('panel', '')  # 'login' | 'wizard' | ''
+
+    if step == 1 or panel == 'wizard':
+        from .forms import WizardStep1Form
+        initial = request.session.get('wizard_step1', {})
+        return render(request, 'inscriptions/portail_rejoindre.html', {
+            'certification': certification, 'cohortes': cohortes,
+            'panel': 'wizard', 'wizard_step': 1,
+            'form_step1': WizardStep1Form(initial=initial),
+        })
+    elif step == 2:
+        if not request.session.get('wizard_step1'):
+            return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+        from .forms import WizardStep2Form
+        initial = request.session.get('wizard_step2', {})
+        return render(request, 'inscriptions/portail_rejoindre.html', {
+            'certification': certification, 'cohortes': cohortes,
+            'panel': 'wizard', 'wizard_step': 2,
+            'form_step2': WizardStep2Form(initial=initial),
+        })
+    elif step == 3:
+        if not request.session.get('wizard_step2'):
+            return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+        return render(request, 'inscriptions/portail_rejoindre.html', {
+            'certification': certification, 'cohortes': cohortes,
+            'panel': 'wizard', 'wizard_step': 3,
+        })
+    elif step == 4:
+        step1 = request.session.get('wizard_step1', {})
+        step2 = request.session.get('wizard_step2', {})
+        step3_data = request.session.get('wizard_step3', {})
+        if not all([step1, step2, step3_data]):
+            return redirect(f'/portail/rejoindre/{certif_pk}/?step=1')
+        try:
+            cohorte_obj = Cohorte.objects.select_related('certification').get(pk=step3_data['cohorte_id'])
+        except Cohorte.DoesNotExist:
+            return redirect(f'/portail/rejoindre/{certif_pk}/?step=3')
+        activite = step2.get('activite', 'etudiant')
+        tarif = float(
+            cohorte_obj.certification.tarif_professionnel if activite == 'professionnel'
+            else cohorte_obj.certification.tarif_etudiant
+        )
+        return render(request, 'inscriptions/portail_rejoindre.html', {
+            'certification': certification, 'cohortes': cohortes,
+            'panel': 'wizard', 'wizard_step': 4,
+            'step1': step1, 'step2': step2, 'cohorte': cohorte_obj, 'tarif': tarif,
+        })
+
+    # Default: choice page
+    from .forms import WizardStep1Form
     return render(request, 'inscriptions/portail_rejoindre.html', {
         'certification': certification,
-        'form': form,
-        'show_login': show_login,
-        'show_wizard': show_wizard,
-        'error_login': error_login,
+        'cohortes': cohortes,
+        'panel': 'login' if panel == 'login' else '',
+        'wizard_step': 0,
+        'form_step1': WizardStep1Form(),
+        'error_login': False,
     })
 
 
@@ -2275,7 +2614,7 @@ def espace_apprenant(request):
     compte = request.user.compte_apprenant
     inscrit = compte.inscrit
 
-    inscriptions = (
+    inscriptions = list(
         inscrit.inscriptions
         .select_related('cohorte__certification')
         .prefetch_related('paiements', 'attestations')
@@ -2285,11 +2624,37 @@ def espace_apprenant(request):
     total_du = sum(i.montant_du for i in inscriptions)
     total_paye = sum(i.total_paye for i in inscriptions)
     total_restant = max(total_du - total_paye, 0)
+    nb_certifies = sum(1 for i in inscriptions if i.statut == 'certifie')
+
+    # Collect all payments sorted by date desc
+    all_paiements = []
+    for ins in inscriptions:
+        for p in ins.paiements.all():
+            all_paiements.append(p)
+    all_paiements.sort(key=lambda p: p.date_paiement, reverse=True)
+    recent_paiements = all_paiements[:5]
+
+    # Pending payments
+    paiements_en_attente = [p for p in all_paiements if p.statut == 'en_attente']
 
     from .models import Notification
+    notifications_recentes = Notification.objects.filter(
+        destinataire=compte
+    ).order_by('-date_creation')[:5]
     nb_notifs_non_lues = Notification.objects.filter(
         destinataire=compte, lu=False
     ).count()
+
+    # Available certifications (not already enrolled)
+    enrolled_certif_ids = set(
+        i.cohorte.certification_id for i in inscriptions
+    )
+    certifs_disponibles = Certification.objects.filter(
+        actif=True
+    ).exclude(pk__in=enrolled_certif_ids).count()
+
+    # Inscriptions with balance due
+    inscriptions_a_payer = [i for i in inscriptions if i.reste_a_payer > 0]
 
     context = {
         'compte': compte,
@@ -2298,8 +2663,14 @@ def espace_apprenant(request):
         'total_du': total_du,
         'total_paye': total_paye,
         'total_restant': total_restant,
-        'active_page': 'espace',
+        'nb_certifies': nb_certifies,
+        'recent_paiements': recent_paiements,
+        'paiements_en_attente': paiements_en_attente,
+        'notifications_recentes': notifications_recentes,
         'nb_notifs_non_lues': nb_notifs_non_lues,
+        'certifs_disponibles': certifs_disponibles,
+        'inscriptions_a_payer': inscriptions_a_payer,
+        'active_page': 'espace',
     }
     return render(request, 'inscriptions/apprenant_dashboard.html', context)
 
@@ -2486,6 +2857,11 @@ def apprenant_inscription_directe(request, certif_pk):
             if created:
                 notifier_inscription(inscription)
 
+            action = request.POST.get('action', 'payer')
+            if action == 'sans_payer':
+                messages.success(request, f"Inscription à « {certification.nom} » confirmée. Vous pourrez payer plus tard depuis votre espace.")
+                return redirect('espace_apprenant')
+
             request.session['pending_inscription_id'] = inscription.pk
             request.session['paiement_skip_redirect'] = 'espace_apprenant'
             request.session.pop('new_compte_username', None)
@@ -2563,7 +2939,7 @@ def admin_confirmer_paiement(request, pk):
                     destinataire=inscription.inscrit.compte_apprenant,
                     type_notif='paiement_confirme',
                     message=f"Votre paiement de {paiement.montant} FCFA pour « {inscription.cohorte.certification.nom} » a été confirmé. Votre inscription est validée.",
-                    lien='/apprenant/',
+                    lien='/apprenant/paiements/',
                 )
         except Exception:
             pass
@@ -2580,8 +2956,74 @@ def admin_confirmer_paiement(request, pk):
             ),
         )
         messages.success(request, f"Paiement de {paiement.montant} FCFA confirmé. Statut mis à jour : Inscrit.")
-        return redirect('inscrit_detail', pk=paiement.inscription.inscrit.pk)
+        return redirect('paiements_list')
     return render(request, 'inscriptions/confirmer_paiement.html', {'paiement': paiement})
+
+
+@login_required
+def admin_annuler_paiement(request, pk):
+    """Admin cancels/rejects a pending payment."""
+    paiement = get_object_or_404(Paiement, pk=pk)
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Accès refusé.")
+        return redirect('dashboard')
+    if request.method == 'POST':
+        motif = request.POST.get('motif', '').strip()
+        paiement.statut = 'annule'
+        paiement.notes = (paiement.notes or '') + f"\n[Annulé par admin: {motif}]"
+        paiement.save()
+        inscription = paiement.inscription
+        # Send notification + email
+        try:
+            from .models import Notification
+            if hasattr(inscription.inscrit, 'compte_apprenant'):
+                Notification.objects.create(
+                    destinataire=inscription.inscrit.compte_apprenant,
+                    type_notif='paiement_annule',
+                    message=f"Votre paiement de {paiement.montant} FCFA pour « {inscription.cohorte.certification.nom} » a été annulé.{' Motif : ' + motif if motif else ''}",
+                    lien='/apprenant/paiements/',
+                )
+        except Exception:
+            pass
+        _send_email_apprenant(
+            inscription.inscrit,
+            subject=f"[ENSMG] Paiement annulé — {inscription.cohorte.certification.nom}",
+            body=(
+                f"Bonjour {inscription.inscrit.prenom},\n\n"
+                f"Votre paiement de {paiement.montant} FCFA pour la certification "
+                f"« {inscription.cohorte.certification.nom} » a été annulé par l'administration.\n\n"
+                f"{'Motif : ' + motif + chr(10) + chr(10) if motif else ''}"
+                f"Pour toute question, contactez-nous à admin@ensmg.sn\n\n"
+                f"Cordialement,\nL'équipe ENSMG"
+            ),
+        )
+        messages.warning(request, f"Paiement de {paiement.montant} FCFA annulé.")
+        return redirect('paiements_list')
+    return render(request, 'inscriptions/annuler_paiement.html', {'paiement': paiement})
+
+
+@login_required
+def api_inscription_solde(request):
+    """Returns reste_a_payer for a given inscription pk (used in paiement form)."""
+    pk = request.GET.get('pk')
+    if not pk:
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'missing pk'}, status=400)
+    try:
+        ic = Inscription.objects.select_related(
+            'cohorte__certification', 'inscrit'
+        ).prefetch_related('paiements').get(pk=pk)
+        from django.http import JsonResponse
+        return JsonResponse({
+            'reste_a_payer': float(ic.reste_a_payer),
+            'montant_du': float(ic.montant_du),
+            'total_paye': float(ic.total_paye),
+            'nom_inscrit': ic.inscrit.nom_complet,
+            'activite': ic.inscrit.activite,
+        })
+    except Inscription.DoesNotExist:
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'not found'}, status=404)
 
 
 # ---------------------------------------------------------------------------
@@ -2663,8 +3105,8 @@ def _generer_recu_pdf(paiement, request=None):
     story.append(Spacer(1, 0.4 * cm))
     story.append(HRFlowable(width="100%", thickness=1, color=accent, spaceAfter=4))
     story.append(HRFlowable(width="100%", thickness=3, color=navy,   spaceAfter=6))
-    story.append(Paragraph("Ce document atteste du paiement effectué auprès de l'ENSMG.", s_footer))
-    story.append(Paragraph("ENSMG — Dakar, Sénégal — www.ensmg.sn", s_footer))
+    story.append(Paragraph("Ce document atteste du paiement effectué auprès de l'École Nationale Supérieure de Management et de Gouvernance.", s_footer))
+    story.append(Paragraph("ENSMG — École Nationale Supérieure de Management et de Gouvernance — Dakar, Sénégal — www.ensmg.sn", s_footer))
 
     doc.build(story)
     return buffer.getvalue()
@@ -2695,6 +3137,33 @@ def recu_download(request, pk):
     nom = paiement.inscription.inscrit.nom_complet.replace(" ", "_")
     response = HttpResponse(bytes(paiement.recu_pdf), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="recu_{nom}_{paiement.pk}.pdf"'
+    return response
+
+
+@login_required
+def recu_view(request, pk):
+    """View payment receipt PDF inline in the browser."""
+    paiement = get_object_or_404(Paiement, pk=pk)
+    is_owner = False
+    try:
+        compte = request.user.compte_apprenant
+        if paiement.inscription.inscrit == compte.inscrit:
+            is_owner = True
+    except Exception:
+        pass
+
+    if not is_owner and not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Accès refusé.")
+        return redirect('dashboard')
+
+    if not paiement.recu_pdf:
+        pdf_bytes = _generer_recu_pdf(paiement, request)
+        paiement.recu_pdf = pdf_bytes
+        paiement.save(update_fields=['recu_pdf'])
+
+    nom = paiement.inscription.inscrit.nom_complet.replace(" ", "_")
+    response = HttpResponse(bytes(paiement.recu_pdf), content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="recu_{nom}_{paiement.pk}.pdf"'
     return response
 
 
@@ -2732,9 +3201,30 @@ def dashboard_financier(request):
 
     total_encaisse = Paiement.objects.filter(statut='confirme').aggregate(t=Sum('montant'))['t'] or 0
     total_en_attente = Paiement.objects.filter(statut='en_attente').aggregate(t=Sum('montant'))['t'] or 0
+    total_du = Inscription.objects.aggregate(t=Sum('montant_du'))['t'] or 0
     total_inscrits = Inscription.objects.count()
     total_certifies = Inscription.objects.filter(statut='certifie').count()
     taux_certif = int((total_certifies / total_inscrits * 100)) if total_inscrits else 0
+    taux_recouvrement = int((float(total_encaisse) / float(total_du) * 100)) if total_du else 0
+    nb_paiements_confirmes = Paiement.objects.filter(statut='confirme').count()
+    montant_moyen = int(float(total_encaisse) / nb_paiements_confirmes) if nb_paiements_confirmes else 0
+
+    # Current month vs last month
+    from datetime import date
+    first_day_this_month = today.replace(day=1)
+    last_month_end = first_day_this_month - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+    revenue_this_month = Paiement.objects.filter(
+        statut='confirme', date_paiement__gte=first_day_this_month
+    ).aggregate(t=Sum('montant'))['t'] or 0
+    revenue_last_month = Paiement.objects.filter(
+        statut='confirme',
+        date_paiement__gte=last_month_start,
+        date_paiement__lte=last_month_end,
+    ).aggregate(t=Sum('montant'))['t'] or 0
+    growth_pct = 0
+    if revenue_last_month:
+        growth_pct = int(((float(revenue_this_month) - float(revenue_last_month)) / float(revenue_last_month)) * 100)
 
     moyen_data = (
         Paiement.objects.filter(statut='confirme')
@@ -2771,9 +3261,16 @@ def dashboard_financier(request):
     context = {
         'total_encaisse': total_encaisse,
         'total_en_attente': total_en_attente,
+        'total_du': total_du,
         'total_inscrits': total_inscrits,
         'total_certifies': total_certifies,
         'taux_certif': taux_certif,
+        'taux_recouvrement': taux_recouvrement,
+        'nb_paiements_confirmes': nb_paiements_confirmes,
+        'montant_moyen': montant_moyen,
+        'revenue_this_month': revenue_this_month,
+        'revenue_last_month': revenue_last_month,
+        'growth_pct': growth_pct,
         'months_labels_json': json.dumps(months_labels),
         'months_values_json': json.dumps(months_values),
         'moyen_labels_json': json.dumps(moyen_labels),

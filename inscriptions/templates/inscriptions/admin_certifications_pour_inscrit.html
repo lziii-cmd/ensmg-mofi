@@ -1,0 +1,124 @@
+{% extends 'inscriptions/base.html' %}
+{% load humanize %}
+
+{% block title %}Inscrire {{ inscrit }} — ENSMG{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a>
+</li>
+<li class="breadcrumb-item active">Inscrire à une certification</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-award me-2 text-primary"></i>Inscrire à une certification</h1>
+        <p>Choisissez une certification pour <strong>{{ inscrit.prenom }} {{ inscrit.nom }}</strong></p>
+    </div>
+    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour à la fiche
+    </a>
+</div>
+
+<!-- Apprenant info strip -->
+<div class="card mb-4" style="border-left:4px solid var(--primary);">
+    <div class="card-body d-flex align-items-center gap-3 py-3">
+        <div class="avatar-placeholder" style="width:48px;height:48px;font-size:1rem;flex-shrink:0;">
+            {{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}
+        </div>
+        <div>
+            <div class="fw-bold" style="color:var(--navy);">{{ inscrit.nom_complet }}</div>
+            <div style="font-size:0.83rem;color:#718096;">
+                {% if inscrit.activite == 'etudiant' %}
+                    <span class="badge badge-etudiant">Étudiant</span>
+                {% else %}
+                    <span class="badge badge-professionnel">Professionnel</span>
+                {% endif %}
+                {% if inscrit.email %}&nbsp;{{ inscrit.email }}{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if certifs_actives %}
+<h6 class="text-muted mb-3" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+    <i class="bi bi-circle-fill text-success me-2" style="font-size:0.5rem;"></i>Certifications actives
+</h6>
+<div class="row g-3 mb-4">
+    {% for cert in certifs_actives %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100" style="border-left:4px solid var(--accent);transition:box-shadow 0.2s,transform 0.2s;"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
+            <div class="card-body d-flex flex-column">
+                <div style="width:44px;height:44px;background:var(--accent-light);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;color:var(--accent);margin-bottom:1rem;">
+                    <i class="bi bi-award-fill"></i>
+                </div>
+                <h6 style="font-weight:700;color:var(--navy);margin-bottom:0.5rem;">{{ cert.nom }}</h6>
+                {% if cert.description %}
+                <p style="font-size:0.82rem;color:#718096;flex:1;line-height:1.5;margin-bottom:1rem;">{{ cert.description|truncatewords:20 }}</p>
+                {% else %}
+                <p style="font-size:0.82rem;color:#718096;flex:1;margin-bottom:1rem;">Certification professionnelle dispensée par l'ENSMG.</p>
+                {% endif %}
+                {% if cert.duree %}
+                <div style="display:inline-flex;align-items:center;gap:0.4rem;background:#f0f2f8;color:#4a5568;border-radius:6px;padding:0.2rem 0.6rem;font-size:0.75rem;font-weight:500;margin-bottom:1rem;">
+                    <i class="bi bi-clock"></i> {{ cert.duree }}
+                </div>
+                {% endif %}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;">
+                    <div style="background:#f8f9ff;border:1px solid #e8edf5;border-radius:8px;padding:0.5rem;text-align:center;">
+                        <div style="font-size:0.68rem;color:#718096;text-transform:uppercase;">Étudiant</div>
+                        <div style="font-size:0.9rem;font-weight:700;color:var(--navy);">{{ cert.tarif_etudiant|floatformat:0|intcomma }} <span style="font-size:0.68rem;font-weight:400;color:#718096;">FCFA</span></div>
+                    </div>
+                    <div style="background:#f8f9ff;border:1px solid #e8edf5;border-radius:8px;padding:0.5rem;text-align:center;">
+                        <div style="font-size:0.68rem;color:#718096;text-transform:uppercase;">Pro</div>
+                        <div style="font-size:0.9rem;font-weight:700;color:var(--navy);">{{ cert.tarif_professionnel|floatformat:0|intcomma }} <span style="font-size:0.68rem;font-weight:400;color:#718096;">FCFA</span></div>
+                    </div>
+                </div>
+                <a href="{% url 'admin_inscription_directe' inscrit.pk cert.pk %}" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-plus-circle me-1"></i>Inscrire à cette certification
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if certifs_inactives %}
+<h6 class="text-muted mb-3" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+    <i class="bi bi-circle-fill text-secondary me-2" style="font-size:0.5rem;"></i>Certifications fermées
+</h6>
+<div class="row g-3">
+    {% for cert in certifs_inactives %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100" style="opacity:0.55;border-left:4px solid #cbd5e0;">
+            <div class="card-body d-flex flex-column">
+                <div style="width:44px;height:44px;background:#f0f2f8;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;color:#a0aec0;margin-bottom:1rem;">
+                    <i class="bi bi-award"></i>
+                </div>
+                <h6 style="font-weight:700;color:#718096;margin-bottom:0.5rem;">{{ cert.nom }}</h6>
+                <div style="flex:1;"></div>
+                <div class="btn btn-outline-secondary btn-sm w-100 disabled" style="pointer-events:none;">
+                    <i class="bi bi-lock me-1"></i>Inscriptions fermées
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if not certifs_actives and not certifs_inactives %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-award" style="font-size:3rem;color:#cbd5e0;display:block;margin-bottom:1rem;"></i>
+        <p class="text-muted">Aucune certification disponible pour le moment.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

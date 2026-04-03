@@ -14,6 +14,7 @@ urlpatterns = [
     # AJAX API
     path("api/cohortes/", views.api_cohortes, name="api_cohortes"),
     path("api/inscrits/recherche/", views.api_search_inscrits, name="api_search_inscrits"),
+    path("api/inscriptions/solde/", views.api_inscription_solde, name="api_inscription_solde"),
 
     # Certifications
     path("certifications/", views.certifications_list, name="certifications_list"),
@@ -33,6 +34,8 @@ urlpatterns = [
     path("inscrits/ajouter/", views.inscrit_ajouter, name="inscrit_ajouter"),
     path("inscrits/import/", views.import_excel, name="import_excel"),
     path("inscrits/inscrire/", views.inscription_wizard, name="inscription_wizard"),
+    path("inscrits/<int:pk>/inscrire/", views.admin_certifications_pour_inscrit, name="admin_certifications_pour_inscrit"),
+    path("inscrits/<int:pk>/inscrire/<int:certif_pk>/", views.admin_inscription_directe, name="admin_inscription_directe"),
     path("inscrits/<int:pk>/", views.inscrit_detail, name="inscrit_detail"),
     path("inscrits/<int:pk>/modifier/", views.inscrit_modifier, name="inscrit_modifier"),
     path("inscrits/<int:pk>/supprimer/", views.inscrit_supprimer, name="inscrit_supprimer"),
@@ -48,7 +51,9 @@ urlpatterns = [
     path("paiements/<int:pk>/modifier/", views.paiement_modifier, name="paiement_modifier"),
     path("paiements/<int:pk>/supprimer/", views.paiement_supprimer, name="paiement_supprimer"),
     path("paiements/<int:pk>/confirmer/", views.admin_confirmer_paiement, name="admin_confirmer_paiement"),
+    path("paiements/<int:pk>/annuler/", views.admin_annuler_paiement, name="admin_annuler_paiement"),
     path("paiements/<int:pk>/recu/", views.recu_download, name="recu_download"),
+    path("paiements/<int:pk>/recu/voir/", views.recu_view, name="recu_view"),
 
     # Utilisateurs (admin only)
     path("utilisateurs/", views.users_list, name="users_list"),

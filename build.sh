@@ -26,17 +26,21 @@ except Exception:
 python manage.py migrate
 python manage.py shell -c "
 from django.contrib.auth.models import User
-# Migrate old admin account if exists
-if User.objects.filter(username='admin').exists():
-    u = User.objects.get(username='admin')
-    u.username = 'admin@ensmg.com'
+# Nettoyer les anciens comptes admin (username différent)
+for old in ['admin', 'admin@ensmg.com']:
+    if User.objects.filter(username=old).exists():
+        User.objects.filter(username=old).delete()
+        print(f'Ancien compte {old} supprimé.')
+
+if not User.objects.filter(username='admin@ensmg.sn').exists():
+    User.objects.create_superuser('admin@ensmg.sn', 'admin@ensmg.sn', 'passer01')
+    print('Superuser admin@ensmg.sn créé.')
+else:
+    u = User.objects.get(username='admin@ensmg.sn')
     u.email = 'admin@ensmg.sn'
     u.set_password('passer01')
+    u.is_superuser = True
+    u.is_staff = True
     u.save()
-    print('Ancien compte admin migré vers admin@ensmg.com')
-elif not User.objects.filter(username='admin@ensmg.com').exists():
-    User.objects.create_superuser('admin@ensmg.com', 'admin@ensmg.sn', 'passer01')
-    print('Superuser admin@ensmg.com créé.')
-else:
-    print('Superuser admin@ensmg.com existe déjà.')
+    print('Superuser admin@ensmg.sn mis à jour.')
 "

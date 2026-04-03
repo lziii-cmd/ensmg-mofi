@@ -1,23 +1,30 @@
-{% extends "inscriptions/apprenant_base.html" %}
+{% extends 'inscriptions/base.html' %}
 {% load humanize %}
 
-{% block title %}S'inscrire — {{ certification.nom }} — ENSMG{% endblock %}
+{% block title %}Inscrire {{ inscrit }} — {{ certification.nom }} — ENSMG{% endblock %}
+
 {% block breadcrumb %}
 <li class="breadcrumb-item">
-    <a href="{% url 'apprenant_certifications' %}" class="text-decoration-none text-muted">Certifications</a>
+    <a href="{% url 'inscrits_list' %}" class="text-decoration-none text-muted">Inscrits</a>
 </li>
-<li class="breadcrumb-item active">S'inscrire</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'inscrit_detail' inscrit.pk %}" class="text-decoration-none text-muted">{{ inscrit }}</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'admin_certifications_pour_inscrit' inscrit.pk %}" class="text-decoration-none text-muted">Inscrire</a>
+</li>
+<li class="breadcrumb-item active">{{ certification.nom }}</li>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h4 style="font-weight:700;color:var(--navy);margin-bottom:0.25rem;">
-            <i class="bi bi-award me-2 text-primary"></i>S'inscrire à une certification
+            <i class="bi bi-award me-2 text-primary"></i>Inscrire à une certification
         </h4>
-        <p class="text-muted mb-0" style="font-size:0.85rem;">Complétez votre inscription directement depuis votre espace.</p>
+        <p class="text-muted mb-0" style="font-size:0.85rem;">Choisissez une session pour <strong>{{ inscrit.nom_complet }}</strong></p>
     </div>
-    <a href="{% url 'apprenant_certifications' %}" class="btn btn-outline-secondary btn-sm">
+    <a href="{% url 'admin_certifications_pour_inscrit' inscrit.pk %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Retour aux certifications
     </a>
 </div>
@@ -53,8 +60,8 @@
                 </div>
                 <div style="background:#dcfce7;border-radius:8px;padding:0.6rem 0.75rem;font-size:0.82rem;color:#15803d;">
                     <i class="bi bi-person-check-fill me-1"></i>
-                    Votre profil : <strong>{% if inscrit.activite == 'professionnel' %}Professionnel{% else %}Étudiant{% endif %}</strong>
-                    &mdash; Tarif applicable :
+                    Profil : <strong>{% if inscrit.activite == 'professionnel' %}Professionnel{% else %}Étudiant{% endif %}</strong>
+                    &mdash; Tarif :
                     <strong>
                         {% if inscrit.activite == 'professionnel' %}
                             {{ certification.tarif_professionnel|floatformat:0|intcomma }} FCFA
@@ -67,7 +74,7 @@
         </div>
     </div>
 
-    <!-- Registration form -->
+    <!-- Form -->
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
@@ -113,12 +120,12 @@
 
                     <div style="background:#f8f9ff;border:1px solid #e8edf5;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
                         <div style="font-size:0.82rem;color:#4a5568;margin-bottom:0.5rem;font-weight:600;">
-                            <i class="bi bi-info-circle me-1 text-primary"></i>Récapitulatif de votre inscription
+                            <i class="bi bi-info-circle me-1 text-primary"></i>Récapitulatif
                         </div>
                         <div style="font-size:0.85rem;color:#4a5568;">
                             <div><span style="color:#718096;">Apprenant :</span> <strong>{{ inscrit.nom_complet }}</strong></div>
                             <div><span style="color:#718096;">Certification :</span> <strong>{{ certification.nom }}</strong></div>
-                            <div><span style="color:#718096;">Montant à régler :</span>
+                            <div><span style="color:#718096;">Montant dû :</span>
                                 <strong style="color:var(--accent);">
                                     {% if inscrit.activite == 'professionnel' %}
                                         {{ certification.tarif_professionnel|floatformat:0|intcomma }}
@@ -138,7 +145,7 @@
                         <button type="submit" name="action" value="sans_payer" class="btn btn-outline-secondary">
                             <i class="bi bi-check2-circle me-1"></i>Confirmer sans payer maintenant
                         </button>
-                        <a href="{% url 'apprenant_certifications' %}" class="btn btn-outline-danger btn-sm ms-auto align-self-center">
+                        <a href="{% url 'admin_certifications_pour_inscrit' inscrit.pk %}" class="btn btn-outline-danger btn-sm ms-auto align-self-center">
                             Annuler
                         </a>
                     </div>
@@ -146,9 +153,9 @@
                 {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-calendar-x" style="font-size:2.5rem;color:#cbd5e0;display:block;margin-bottom:0.75rem;"></i>
-                    <p class="text-muted" style="font-size:0.9rem;">Aucune session disponible pour cette certification pour le moment.</p>
-                    <a href="{% url 'apprenant_certifications' %}" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-arrow-left me-1"></i>Voir d'autres certifications
+                    <p class="text-muted" style="font-size:0.9rem;">Aucune session disponible pour cette certification.</p>
+                    <a href="{% url 'admin_certifications_pour_inscrit' inscrit.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>Choisir une autre certification
                     </a>
                 </div>
                 {% endif %}
@@ -172,7 +179,6 @@ document.querySelectorAll('.cohorte-radio').forEach(function(radio) {
             card.style.background = 'var(--accent-light)';
         }
     });
-    // Highlight first selected on load
     if (radio.checked) {
         var card = radio.nextElementSibling;
         card.style.borderColor = 'var(--accent)';

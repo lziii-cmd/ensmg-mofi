@@ -171,11 +171,89 @@
 
 {% block extra_js %}
 <script>
-// Fix montant input inside input-group
-const montantInput = document.querySelector('#id_montant');
-if (montantInput) {
-    montantInput.style.borderRight = '0';
-    montantInput.style.borderRadius = '8px 0 0 8px';
-}
+(function () {
+    var selInscription = document.getElementById('id_inscription');
+    var inputMontant   = document.getElementById('id_montant');
+    var selMoyen       = document.getElementById('id_moyen_paiement');
+    var inputRef       = document.getElementById('id_reference');
+
+    // Dynamic reference field hints
+    var hintMobile  = '<small class="text-muted" id="ref-hint"><i class="bi bi-phone me-1"></i>Numéro de transaction mobile (ex: TXN1234567)</small>';
+    var hintVirement= '<small class="text-muted" id="ref-hint"><i class="bi bi-bank me-1"></i>Référence virement / IBAN</small>';
+    var hintCarte   = '<small class="text-muted" id="ref-hint"><i class="bi bi-credit-card me-1"></i>Numéro de transaction carte</small>';
+    var hintDefault = '<small class="text-muted" id="ref-hint">Numéro de transaction ou référence</small>';
+
+    // Solde info element
+    var soldeInfo = document.createElement('div');
+    soldeInfo.id = 'solde-info';
+    soldeInfo.style.cssText = 'font-size:0.82rem;margin-top:0.35rem;';
+    if (inputMontant) inputMontant.closest('.col-sm-6').appendChild(soldeInfo);
+
+    function updateRefHint() {
+        if (!selMoyen || !inputRef) return;
+        var existing = document.getElementById('ref-hint');
+        if (existing) existing.remove();
+        var hint;
+        switch (selMoyen.value) {
+            case 'wave': case 'orange_money': case 'intouch': hint = hintMobile; break;
+            case 'virement': hint = hintVirement; break;
+            case 'carte': hint = hintCarte; break;
+            default: hint = hintDefault;
+        }
+        inputRef.closest('.col-sm-6').insertAdjacentHTML('beforeend', hint);
+
+        // Show/hide phone vs IBAN vs card extra note
+        inputRef.placeholder = {
+            'wave': 'Ex: TXN1234567890',
+            'orange_money': 'Ex: OM1234567890',
+            'intouch': 'Ex: ITX1234567890',
+            'virement': 'Ex: SN12 XXXX XXXX XXXX',
+            'carte': 'Ex: 4 derniers chiffres carte',
+            'especes': 'Reçu caisse (optionnel)',
+        }[selMoyen.value] || 'Numéro de transaction ou référence';
+    }
+
+    function loadSolde(inscriptionPk) {
+        if (!inscriptionPk || !inputMontant) return;
+        fetch('/api/inscriptions/solde/?pk=' + inscriptionPk)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.reste_a_payer !== undefined) {
+                    if (data.reste_a_payer > 0) {
+                        inputMontant.value = Math.round(data.reste_a_payer);
+                        soldeInfo.innerHTML =
+                            '<i class="bi bi-info-circle text-primary me-1"></i>' +
+                            'Reste à payer : <strong>' + data.reste_a_payer.toLocaleString('fr-FR') + ' FCFA</strong>' +
+                            ' (sur ' + data.montant_du.toLocaleString('fr-FR') + ' FCFA)';
+                        soldeInfo.style.color = '#0369a1';
+                    } else {
+                        inputMontant.value = 0;
+                        soldeInfo.innerHTML = '<i class="bi bi-check-circle text-success me-1"></i>Inscription déjà soldée.';
+                        soldeInfo.style.color = '#059669';
+                    }
+                }
+            })
+            .catch(function() {});
+    }
+
+    if (selInscription) {
+        selInscription.addEventListener('change', function () {
+            loadSolde(this.value);
+        });
+        // Auto-load on page open if inscription already selected (edit mode)
+        if (selInscription.value) loadSolde(selInscription.value);
+    }
+
+    if (selMoyen) {
+        selMoyen.addEventListener('change', updateRefHint);
+        updateRefHint();
+    }
+
+    // Fix montant input styling inside input-group
+    if (inputMontant) {
+        inputMontant.style.borderRight = '0';
+        inputMontant.style.borderRadius = '8px 0 0 8px';
+    }
+})();
 </script>
 {% endblock %}

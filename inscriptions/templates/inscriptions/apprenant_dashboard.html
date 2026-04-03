@@ -1,5 +1,6 @@
 {% extends "inscriptions/apprenant_base.html" %}
 {% load humanize %}
+{% load money_filters %}
 
 {% block title %}Mon tableau de bord — ENSMG{% endblock %}
 
@@ -9,258 +10,410 @@
 
 {% block extra_css %}
 <style>
-    .welcome-banner {
-        background: linear-gradient(135deg, #1a2340 0%, #2e3d6b 100%);
-        border-radius: 16px;
-        padding: 1.75rem 2rem;
-        color: #fff;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
+/* ── Welcome banner ── */
+.welcome-banner {
+    background: linear-gradient(135deg, #1a2340 0%, #2e4a8e 60%, #3d5a9e 100%);
+    border-radius: 20px;
+    padding: 2rem 2.25rem;
+    color: #fff;
+    margin-bottom: 1.75rem;
+    position: relative;
+    overflow: hidden;
+}
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+}
+.welcome-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: 80px;
+    width: 240px; height: 240px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 50%;
+}
+.welcome-banner h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 0.35rem; }
+.welcome-banner p { color: rgba(255,255,255,0.7); font-size: 0.875rem; margin: 0; }
+.welcome-avatar {
+    width: 56px; height: 56px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 800; color: #fff;
+    flex-shrink: 0;
+}
 
-    .welcome-banner .welcome-text h2 {
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin: 0 0 0.25rem;
-    }
+/* ── KPI cards ── */
+.kpi-card {
+    background: #fff;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
+    padding: 1.25rem 1.4rem;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+}
+.kpi-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.07); transform: translateY(-2px); }
+.kpi-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    margin-bottom: .75rem;
+}
+.kpi-value { font-size: 1.75rem; font-weight: 800; color: #1a2340; line-height: 1; }
+.kpi-label { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-top: .25rem; }
+.kpi-sub { font-size: 0.75rem; color: #64748b; margin-top: .3rem; }
 
-    .welcome-banner .welcome-text p {
-        color: rgba(255,255,255,0.65);
-        font-size: 0.87rem;
-        margin: 0;
-    }
+/* ── Alert paiements en attente ── */
+.alert-attente {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border: 1px solid #fcd34d;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
 
-    .welcome-banner .welcome-actions {
-        display: flex;
-        gap: 0.75rem;
-    }
+/* ── Section cards ── */
+.section-card {
+    background: #fff;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
+    height: 100%;
+}
+.section-card .section-header {
+    padding: .9rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.section-card .section-header h6 {
+    font-size: .875rem; font-weight: 700; color: #1a2340; margin: 0;
+}
 
-    .inscription-card {
-        background: #fff;
-        border: 1px solid #e8edf5;
-        border-radius: 14px;
-        padding: 1.25rem 1.5rem;
-        margin-bottom: 1rem;
-        transition: box-shadow 0.2s;
-    }
+/* ── Inscription row ── */
+.inscr-row {
+    padding: .9rem 1.25rem;
+    border-bottom: 1px solid #f8fafc;
+    transition: background .15s;
+}
+.inscr-row:last-child { border-bottom: none; }
+.inscr-row:hover { background: #f8fafc; }
+.inscr-cert-name { font-size: .88rem; font-weight: 700; color: #1a2340; }
+.inscr-cohorte { font-size: .75rem; color: #94a3b8; margin-top: .1rem; }
+.inscr-progress { height: 5px; background: #e8edf5; border-radius: 20px; margin: .55rem 0 .35rem; }
+.inscr-progress-bar { height: 5px; border-radius: 20px; background: linear-gradient(90deg,#4f6ef7,#7c3aed); }
 
-    .inscription-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.07);
-    }
+/* ── Statut badges ── */
+.badge-statut { display: inline-block; padding: .2rem .6rem; border-radius: 20px; font-size: .7rem; font-weight: 700; }
+.badge-statut-pre_inscrit { background:#e0f2fe; color:#0369a1; }
+.badge-statut-en_formation { background:#fef3c7; color:#92400e; }
+.badge-statut-certifie { background:#d1fae5; color:#065f46; }
+.badge-statut-abandonne { background:#fee2e2; color:#991b1b; }
 
-    .inscription-card .cert-name {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #1a2340;
-    }
+/* ── Payment row ── */
+.pay-row {
+    padding: .7rem 1.25rem;
+    border-bottom: 1px solid #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    font-size: .82rem;
+}
+.pay-row:last-child { border-bottom: none; }
+.pay-label { color: #4a5568; }
+.pay-amount { font-weight: 700; color: #1a2340; white-space: nowrap; }
 
-    .inscription-card .cohorte-name {
-        font-size: 0.82rem;
-        color: #718096;
-        margin-top: 0.15rem;
-    }
+/* ── Notif row ── */
+.notif-row {
+    padding: .7rem 1.25rem;
+    border-bottom: 1px solid #f8fafc;
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    font-size: .82rem;
+}
+.notif-row:last-child { border-bottom: none; }
+.notif-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4f6ef7;
+    flex-shrink: 0;
+    margin-top: .35rem;
+}
+.notif-dot.lu { background: #e2e8f0; }
 
-    .progress-wrap {
-        margin: 0.75rem 0;
-    }
-
-    .progress-wrap .progress-info {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.75rem;
-        color: #718096;
-        margin-bottom: 0.3rem;
-    }
-
-    .progress {
-        height: 7px;
-        border-radius: 20px;
-        background: #e8edf5;
-    }
-
-    .progress-bar {
-        border-radius: 20px;
-    }
-
-    .stat-mini-row {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        margin-top: 0.5rem;
-    }
-
-    .stat-mini {
-        font-size: 0.78rem;
-        color: #718096;
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-    }
-
-    .stat-mini strong { color: #1a2340; }
-
-    .badge-statut {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 20px;
-        font-size: 0.72rem;
-        font-weight: 600;
-    }
-
-    .paiement-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.65rem 0;
-        border-bottom: 1px solid #f0f2f8;
-        font-size: 0.83rem;
-    }
-
-    .paiement-item:last-child { border-bottom: none; }
-
-    .paiement-item .paiement-info { color: #4a5568; }
-    .paiement-item .paiement-amount {
-        font-weight: 700;
-        color: #1a2340;
-        white-space: nowrap;
-    }
+/* ── Quick access ── */
+.quick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: 1rem .5rem;
+    border-radius: 14px;
+    border: 1.5px solid #e8edf5;
+    background: #fff;
+    color: #1a2340;
+    font-size: .75rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all .2s;
+}
+.quick-btn:hover {
+    background: #4f6ef7;
+    border-color: #4f6ef7;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(79,110,247,.3);
+    transform: translateY(-2px);
+}
+.quick-btn .qi { font-size: 1.4rem; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Welcome banner -->
+<!-- Welcome Banner -->
 <div class="welcome-banner">
-    <div class="welcome-text">
-        <h2>Bonjour, {{ inscrit.prenom }} !</h2>
-        <p>Bienvenue dans votre espace apprenant ENSMG. Suivez votre progression.</p>
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="welcome-avatar">{{ inscrit.prenom.0|upper }}{{ inscrit.nom.0|upper }}</div>
+        <div>
+            <h2>Bonjour, {{ inscrit.prenom }} !</h2>
+            <p>Votre espace apprenant ENSMG — {% now "l d F Y" %}</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2" style="position:relative;z-index:1;">
+        <a href="{% url 'portail_accueil' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);">
+            <i class="bi bi-plus-circle me-1"></i>Nouvelle certification
+        </a>
+        <a href="{% url 'apprenant_profil' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);">
+            <i class="bi bi-person me-1"></i>Mon profil
+        </a>
+        {% if nb_notifs_non_lues > 0 %}
+        <a href="{% url 'apprenant_notifications' %}" class="btn btn-sm" style="background:rgba(245,158,11,0.3);color:#fff;border:1px solid rgba(245,158,11,0.5);">
+            <i class="bi bi-bell-fill me-1"></i>{{ nb_notifs_non_lues }} notification{{ nb_notifs_non_lues|pluralize }}
+        </a>
+        {% endif %}
     </div>
 </div>
 
-<!-- Stats cards -->
+<!-- KPI Row -->
 <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <div style="width:36px;height:36px;background:#eef1ff;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#4f6ef7;font-size:1rem;">
-                    <i class="bi bi-award"></i>
-                </div>
+    <div class="col-6 col-sm-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#eef1ff;">
+                <i class="bi bi-journal-bookmark-fill" style="color:#4f6ef7;"></i>
             </div>
-            <div style="font-size:1.6rem;font-weight:700;color:#1a2340;line-height:1;">{{ inscriptions|length }}</div>
-            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">Inscriptions</div>
+            <div class="kpi-value">{{ inscriptions|length }}</div>
+            <div class="kpi-label">Inscription{{ inscriptions|length|pluralize }}</div>
+            {% if inscriptions_a_payer %}
+            <div class="kpi-sub"><i class="bi bi-exclamation-circle text-warning me-1"></i>{{ inscriptions_a_payer|length }} solde{{ inscriptions_a_payer|length|pluralize }} dû{{ inscriptions_a_payer|length|pluralize }}</div>
+            {% endif %}
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <div style="width:36px;height:36px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#15803d;font-size:1rem;">
-                    <i class="bi bi-patch-check-fill"></i>
-                </div>
+    <div class="col-6 col-sm-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#d1fae5;">
+                <i class="bi bi-patch-check-fill" style="color:#059669;"></i>
             </div>
-            <div style="font-size:1.6rem;font-weight:700;color:#1a2340;line-height:1;">
-                {% with nb=0 %}
-                {% for i in inscriptions %}{% if i.statut == 'certifie' %}{% with nb=nb|add:1 %}{% endwith %}{% endif %}{% endfor %}
-                {{ inscriptions|length }}
-                {% endwith %}
-                —
-            </div>
-            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">Certifiés</div>
+            <div class="kpi-value">{{ nb_certifies }}</div>
+            <div class="kpi-label">Certifié{{ nb_certifies|pluralize }}</div>
+            {% if certifs_disponibles > 0 %}
+            <div class="kpi-sub"><i class="bi bi-arrow-right-circle text-primary me-1"></i>{{ certifs_disponibles }} dispo.</div>
+            {% endif %}
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <div style="width:36px;height:36px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#15803d;font-size:1rem;">
-                    <i class="bi bi-cash-stack"></i>
-                </div>
+    <div class="col-6 col-sm-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#dcfce7;">
+                <i class="bi bi-cash-stack" style="color:#16a34a;"></i>
             </div>
-            <div style="font-size:1.3rem;font-weight:700;color:#1a2340;line-height:1;">{{ total_paye|floatformat:0|intcomma }}</div>
-            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">FCFA payés</div>
+            <div class="kpi-value" style="font-size:1.2rem;">{{ total_paye|floatformat:0|intcomma }}</div>
+            <div class="kpi-label">FCFA payés</div>
+            <div class="kpi-sub">sur {{ total_du|floatformat:0|intcomma }} FCFA</div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <div style="width:36px;height:36px;background:#fef9c3;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#854d0e;font-size:1rem;">
-                    <i class="bi bi-hourglass-split"></i>
-                </div>
+    <div class="col-6 col-sm-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#fef9c3;">
+                <i class="bi bi-hourglass-split" style="color:#ca8a04;"></i>
             </div>
-            <div style="font-size:1.3rem;font-weight:700;color:#1a2340;line-height:1;">{{ total_restant|floatformat:0|intcomma }}</div>
-            <div style="font-size:0.75rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">FCFA restants</div>
+            <div class="kpi-value" style="font-size:1.2rem;">{{ total_restant|floatformat:0|intcomma }}</div>
+            <div class="kpi-label">FCFA restants</div>
+            {% if paiements_en_attente %}
+            <div class="kpi-sub"><i class="bi bi-clock text-warning me-1"></i>{{ paiements_en_attente|length }} en attente</div>
+            {% endif %}
         </div>
     </div>
 </div>
 
+<!-- Alert paiements en attente -->
+{% if paiements_en_attente %}
+<div class="alert-attente mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <i class="bi bi-hourglass-split text-warning" style="font-size:1.1rem;"></i>
+        <strong style="color:#92400e;">{{ paiements_en_attente|length }} paiement{{ paiements_en_attente|length|pluralize }} en attente de confirmation</strong>
+    </div>
+    {% for p in paiements_en_attente %}
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size:0.83rem; {% if not forloop.last %}margin-bottom:.5rem;{% endif %}">
+        <span class="text-muted">{{ p.inscription.cohorte.certification.nom|truncatechars:40 }} — <strong>{{ p.montant|fr_money }} FCFA</strong> via {{ p.get_moyen_paiement_display }}</span>
+        <span class="badge" style="background:#fcd34d;color:#78350f;">En attente de confirmation</span>
+    </div>
+    {% endfor %}
+    <div class="mt-2" style="font-size:0.78rem;color:#92400e;">
+        <i class="bi bi-info-circle me-1"></i>L'administration confirmera votre paiement sous 24–48h. Un e-mail vous sera envoyé.
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick access row -->
+<div class="row g-2 mb-4">
+    <div class="col-3">
+        <a href="{% url 'portail_accueil' %}" class="quick-btn w-100">
+            <span class="qi"><i class="bi bi-plus-circle"></i></span>
+            <span>S'inscrire</span>
+        </a>
+    </div>
+    <div class="col-3">
+        <a href="{% url 'apprenant_paiements' %}" class="quick-btn w-100">
+            <span class="qi"><i class="bi bi-cash-coin"></i></span>
+            <span>Paiements</span>
+        </a>
+    </div>
+    <div class="col-3">
+        <a href="{% url 'apprenant_attestations' %}" class="quick-btn w-100">
+            <span class="qi"><i class="bi bi-file-earmark-text"></i></span>
+            <span>Attestations</span>
+        </a>
+    </div>
+    <div class="col-3">
+        <a href="{% url 'apprenant_notifications' %}" class="quick-btn w-100 position-relative">
+            <span class="qi"><i class="bi bi-bell{% if nb_notifs_non_lues > 0 %}-fill text-warning{% endif %}"></i></span>
+            <span>Notifs{% if nb_notifs_non_lues %} ({{ nb_notifs_non_lues }}){% endif %}</span>
+        </a>
+    </div>
+</div>
+
+<!-- Main content: 2-column layout -->
 <div class="row g-4">
-    <!-- Inscriptions -->
-    <div class="col-12">
-        <div class="card" id="inscriptions">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-journal-text me-2 text-primary"></i>Mes inscriptions</h6>
-                <a href="{% url 'portail_accueil' %}" class="btn btn-sm btn-primary">
-                    <i class="bi bi-plus me-1"></i>Nouvelle certification
+
+    <!-- Left: Inscriptions -->
+    <div class="col-lg-7">
+        <div class="section-card">
+            <div class="section-header">
+                <h6><i class="bi bi-journal-bookmark me-2 text-primary"></i>Mes inscriptions</h6>
+                <a href="{% url 'portail_accueil' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus me-1"></i>Nouvelle
                 </a>
             </div>
-            <div class="card-body p-0">
-                {% if inscriptions %}
+
+            {% if inscriptions %}
                 {% for inscription in inscriptions %}
-                <div class="inscription-card" style="border-radius:0;border-left:none;border-right:none;border-top:none;{% if forloop.last %}border-bottom:none;{% endif %}">
+                <div class="inscr-row">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="cert-name">{{ inscription.cohorte.certification.nom }}</div>
-                            <div class="cohorte-name"><i class="bi bi-people me-1"></i>{{ inscription.cohorte.nom }}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div class="inscr-cert-name text-truncate">{{ inscription.cohorte.certification.nom }}</div>
+                            <div class="inscr-cohorte"><i class="bi bi-people me-1"></i>{{ inscription.cohorte.nom }}</div>
                         </div>
-                        <span class="badge badge-statut badge-statut-{{ inscription.statut }}">
+                        <span class="badge-statut badge-statut-{{ inscription.statut }} ms-2 flex-shrink-0">
                             {{ inscription.get_statut_display }}
                         </span>
                     </div>
 
                     {% if inscription.montant_du > 0 %}
-                    <div class="progress-wrap">
-                        <div class="progress-info">
-                            <span>{{ inscription.total_paye|floatformat:0|intcomma }} / {{ inscription.montant_du|floatformat:0|intcomma }} FCFA</span>
-                            <span>{{ inscription.pourcentage_paye }}%</span>
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between mb-1" style="font-size:.72rem;color:#94a3b8;">
+                            <span>{{ inscription.total_paye|floatformat:0|intcomma }} FCFA payés</span>
+                            <span>{{ inscription.pourcentage_paye }}% / {{ inscription.montant_du|floatformat:0|intcomma }} FCFA</span>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-success" style="width:{{ inscription.pourcentage_paye }}%"></div>
+                        <div class="inscr-progress">
+                            <div class="inscr-progress-bar" style="width:{{ inscription.pourcentage_paye }}%;"></div>
                         </div>
                     </div>
                     {% endif %}
 
                     <div class="d-flex gap-2 mt-2 flex-wrap">
                         {% if inscription.reste_a_payer > 0 %}
-                        <a href="{% url 'apprenant_payer' inscription.pk %}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-credit-card me-1"></i>Payer ({{ inscription.reste_a_payer|floatformat:0|intcomma }} FCFA)
+                        <a href="{% url 'apprenant_payer' inscription.pk %}" class="btn btn-sm btn-primary" style="font-size:.75rem;">
+                            <i class="bi bi-credit-card me-1"></i>Payer {{ inscription.reste_a_payer|floatformat:0|intcomma }} FCFA
                         </a>
                         {% endif %}
                         {% for att in inscription.attestations.all %}
-                        <a href="{% url 'attestation_download' att.pk %}" class="btn btn-sm btn-outline-success">
+                        <a href="{% url 'attestation_download' att.pk %}" class="btn btn-sm btn-outline-success" style="font-size:.75rem;">
                             <i class="bi bi-download me-1"></i>Attestation
                         </a>
                         {% endfor %}
                         {% for p in inscription.paiements.all %}
-                        <a href="{% url 'recu_download' p.pk %}" class="btn btn-sm btn-outline-secondary">
+                        {% if p.statut == 'confirme' %}
+                        <a href="{% url 'recu_download' p.pk %}" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;">
                             <i class="bi bi-receipt me-1"></i>Reçu
                         </a>
+                        {% endif %}
                         {% endfor %}
                     </div>
                 </div>
                 {% endfor %}
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="bi bi-journal-x" style="font-size:2.5rem;opacity:0.4;display:block;margin-bottom:0.75rem;"></i>
-                    <p style="font-size:0.9rem;">Aucune inscription pour le moment.</p>
-                    <a href="{% url 'portail_accueil' %}" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus me-1"></i>Voir les certifications disponibles
-                    </a>
-                </div>
-                {% endif %}
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-journal-x" style="font-size:2.5rem;opacity:.35;display:block;margin-bottom:.75rem;"></i>
+                <p style="font-size:.875rem;">Aucune inscription pour le moment.</p>
+                <a href="{% url 'portail_accueil' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus me-1"></i>Voir les certifications
+                </a>
             </div>
+            {% endif %}
         </div>
     </div>
+
+    <!-- Right: Payments -->
+    <div class="col-lg-5">
+
+        <!-- Recent payments -->
+        <div class="section-card">
+            <div class="section-header">
+                <h6><i class="bi bi-cash-coin me-2 text-success"></i>Paiements récents</h6>
+                <a href="{% url 'apprenant_paiements' %}" class="btn btn-outline-secondary btn-sm" style="font-size:.75rem;">
+                    Voir tout
+                </a>
+            </div>
+            {% if recent_paiements %}
+                {% for p in recent_paiements %}
+                <a href="{% url 'recu_download' p.pk %}" class="text-decoration-none d-block">
+                <div class="pay-row" style="transition:background .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <div>
+                        <div class="pay-label">{{ p.inscription.cohorte.certification.nom|truncatechars:30 }}</div>
+                        <div style="font-size:.72rem;color:#94a3b8;">{{ p.date_paiement|date:"d/m/Y" }} · {{ p.get_moyen_paiement_display }}</div>
+                    </div>
+                    <div class="d-flex flex-column align-items-end gap-1">
+                        <span class="pay-amount">{{ p.montant|fr_money }} FCFA</span>
+                        {% if p.statut == 'confirme' %}
+                            <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.65rem;"><i class="bi bi-check-circle me-1"></i>Confirmé</span>
+                        {% elif p.statut == 'en_attente' %}
+                            <span class="badge" style="background:#fef3c7;color:#92400e;font-size:.65rem;"><i class="bi bi-hourglass-split me-1"></i>En attente</span>
+                        {% elif p.statut == 'annule' %}
+                            <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:.65rem;"><i class="bi bi-x-circle me-1"></i>Annulé</span>
+                        {% endif %}
+                    </div>
+                </div>
+                </a>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-4 text-muted" style="font-size:.85rem;">
+                <i class="bi bi-cash-coin" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.5rem;"></i>
+                Aucun paiement enregistré.
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
 </div>
+
 {% endblock %}

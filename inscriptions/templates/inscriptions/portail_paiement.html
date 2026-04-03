@@ -209,6 +209,34 @@
 {% block content %}
 <div class="paiement-container">
 
+    {% if username %}
+    <!-- Credentials banner for new accounts -->
+    <div style="background:linear-gradient(135deg,#065f46,#047857);color:#fff;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1rem;">
+        <div style="width:40px;height:40px;background:rgba(255,255,255,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">
+            🎉
+        </div>
+        <div style="flex:1;">
+            <div style="font-weight:700;font-size:1rem;margin-bottom:0.4rem;">Compte créé avec succès !</div>
+            <div style="font-size:0.83rem;color:rgba(255,255,255,0.85);margin-bottom:0.75rem;">
+                Notez vos identifiants de connexion — ils vous seront aussi envoyés par email.
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem 1rem;font-family:monospace;font-size:0.9rem;display:flex;flex-wrap:wrap;gap:1.5rem;">
+                <div>
+                    <span style="color:rgba(255,255,255,0.55);font-size:0.73rem;text-transform:uppercase;letter-spacing:0.5px;font-family:sans-serif;display:block;">Nom d'utilisateur</span>
+                    <strong style="color:#6ee7b7;font-size:0.95rem;">{{ username }}</strong>
+                </div>
+                <div>
+                    <span style="color:rgba(255,255,255,0.55);font-size:0.73rem;text-transform:uppercase;letter-spacing:0.5px;font-family:sans-serif;display:block;">Mot de passe provisoire</span>
+                    <strong style="color:#6ee7b7;font-size:0.95rem;">passer01</strong>
+                </div>
+            </div>
+            <div style="font-size:0.76rem;color:rgba(255,255,255,0.6);margin-top:0.6rem;">
+                <i class="bi bi-shield-lock me-1"></i>Vous serez invité(e) à changer ce mot de passe lors de votre première connexion.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="paiement-card">
         <!-- Header -->
         <div class="paiement-header">
