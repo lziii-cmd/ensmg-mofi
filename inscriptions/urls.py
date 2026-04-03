@@ -96,4 +96,7 @@ urlpatterns = [
 
     # Dashboard financier
     path("finances/", views.dashboard_financier, name="dashboard_financier"),
+
+    # Bootstrap (création admin à distance — protégé par BOOTSTRAP_KEY)
+    path("bootstrap/", views.bootstrap_admin, name="bootstrap_admin"),
 ]

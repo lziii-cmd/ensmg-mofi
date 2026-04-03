@@ -1906,6 +1906,34 @@ def _send_email_apprenant(inscrit, subject, body):
 # Portail public
 # ---------------------------------------------------------------------------
 
+def bootstrap_admin(request):
+    """
+    One-time bootstrap: creates admin account if it doesn't exist.
+    Protected by BOOTSTRAP_KEY env var.
+    Access: /bootstrap/?key=<BOOTSTRAP_KEY>
+    Remove BOOTSTRAP_KEY env var after first use.
+    """
+    import os
+    secret = os.environ.get('BOOTSTRAP_KEY', '')
+    provided = request.GET.get('key', '')
+    if not secret or provided != secret:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Accès refusé.")
+
+    username = 'admin@ensmg.sn'
+    password = 'password'
+    if User.objects.filter(username=username).exists():
+        msg = f"✅ Compte déjà existant : {username}"
+    else:
+        User.objects.create_superuser(
+            username=username, email=username, password=password,
+            first_name='Admin', last_name='ENSMG',
+        )
+        msg = f"✅ Compte créé : {username} / {password}"
+    from django.http import HttpResponse
+    return HttpResponse(msg)
+
+
 def portail_accueil(request):
     """Public landing page — redirect authenticated users to their space."""
     if request.user.is_authenticated:
