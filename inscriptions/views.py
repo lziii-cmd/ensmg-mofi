@@ -333,7 +333,7 @@ def certification_detail(request, pk):
 @login_required
 def certification_ajouter(request):
     if request.method == "POST":
-        form = CertificationForm(request.POST)
+        form = CertificationForm(request.POST, request.FILES)
         if form.is_valid():
             certification = form.save()
             messages.success(request, f'Certification "{certification.nom}" créée avec succès.')
@@ -363,7 +363,7 @@ def certification_ajouter(request):
 def certification_modifier(request, pk):
     certification = get_object_or_404(Certification, pk=pk)
     if request.method == "POST":
-        form = CertificationForm(request.POST, instance=certification)
+        form = CertificationForm(request.POST, request.FILES, instance=certification)
         if form.is_valid():
             form.save()
             messages.success(request, f'Certification "{certification.nom}" modifiée.')
