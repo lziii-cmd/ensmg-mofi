@@ -1692,18 +1692,18 @@ def certifier_action(request, pk):
         inscription.statut = "certifie"
         inscription.save()
 
-        # Numéro séquentiel : ENSMG/{CERT}/{ANNÉE}/{SEQ:04d}
+        # Numéro séquentiel : CERT/ENSMG/{CERT}/{ANNÉE}/{SEQ:03d}
         annee = timezone.now().year
         abbrev = "".join(c for c in certification.nom.upper() if c.isalpha())[:6]
         seq = Attestation.objects.filter(
             inscription__cohorte__certification=certification,
             date_delivrance__year=annee,
         ).count() + 1
-        numero = f"ENSMG/{abbrev}/{annee}/{seq:04d}"
+        numero = f"CERT/ENSMG/{abbrev}/{annee}/{seq:03d}"
         # Garantir l'unicité en cas de collision
         while Attestation.objects.filter(numero=numero).exists():
             seq += 1
-            numero = f"ENSMG/{abbrev}/{annee}/{seq:04d}"
+            numero = f"CERT/ENSMG/{abbrev}/{annee}/{seq:03d}"
 
         # Créer l'attestation sans PDF — le PDF sera chargé manuellement
         Attestation.objects.create(
