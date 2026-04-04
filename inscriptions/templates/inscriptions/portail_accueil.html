@@ -205,12 +205,56 @@
     }
 
     .cert-description {
-        font-size: 0.85rem;
-        color: #718096;
         flex: 1;
         margin-bottom: 1.25rem;
-        line-height: 1.5;
+        position: relative;
     }
+
+    .cert-description-inner {
+        font-size: 0.82rem;
+        color: #4a5568;
+        line-height: 1.65;
+        background: #f8f9ff;
+        border-left: 3px solid var(--accent, #4f6ef7);
+        border-radius: 0 8px 8px 0;
+        padding: 0.6rem 0.85rem;
+        max-height: 72px;
+        overflow: hidden;
+        position: relative;
+        transition: max-height 0.3s ease;
+    }
+
+    .cert-description-inner.expanded {
+        max-height: 400px;
+    }
+
+    .cert-description-inner::after {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 28px;
+        background: linear-gradient(transparent, #f8f9ff);
+        pointer-events: none;
+        transition: opacity 0.3s;
+    }
+
+    .cert-description-inner.expanded::after {
+        opacity: 0;
+    }
+
+    .cert-desc-toggle {
+        font-size: 0.72rem;
+        color: var(--accent, #4f6ef7);
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0.2rem 0;
+        display: block;
+        margin-top: 0.3rem;
+        font-weight: 500;
+    }
+
+    .cert-desc-toggle:hover { text-decoration: underline; }
 
     .cert-duree {
         display: inline-flex;
@@ -373,11 +417,16 @@
                         <i class="bi bi-award-fill"></i>
                     </div>
                     <div class="cert-name">{{ cert.nom }}</div>
-                    {% if cert.description %}
-                    <div class="cert-description">{{ cert.description|truncatewords:25 }}</div>
-                    {% else %}
-                    <div class="cert-description">Formation certifiante dispensée par l'ENSMG.</div>
-                    {% endif %}
+                    <div class="cert-description">
+                        <div class="cert-description-inner" id="desc-{{ cert.pk }}">
+                            {% if cert.description %}{{ cert.description }}{% else %}Formation certifiante dispensée par l'ENSMG.{% endif %}
+                        </div>
+                        {% if cert.description|length > 120 %}
+                        <button class="cert-desc-toggle" onclick="toggleDesc({{ cert.pk }}, this)">
+                            <i class="bi bi-chevron-down me-1"></i>Voir plus
+                        </button>
+                        {% endif %}
+                    </div>
                     {% if cert.duree %}
                     <div class="cert-duree">
                         <i class="bi bi-clock"></i> {{ cert.duree }}
@@ -455,4 +504,16 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleDesc(pk, btn) {
+    const inner = document.getElementById('desc-' + pk);
+    const expanded = inner.classList.toggle('expanded');
+    btn.innerHTML = expanded
+        ? '<i class="bi bi-chevron-up me-1"></i>Voir moins'
+        : '<i class="bi bi-chevron-down me-1"></i>Voir plus';
+}
+</script>
 {% endblock %}
