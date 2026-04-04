@@ -1699,11 +1699,11 @@ def certifier_action(request, pk):
             inscription__cohorte__certification=certification,
             date_delivrance__year=annee,
         ).count() + 1
-        numero = f"CERT/ENSMG/{abbrev}/{annee}/{seq:03d}"
+        numero = f"CERT-ENSMG-{abbrev}-{annee}-{seq:03d}"
         # Garantir l'unicité en cas de collision
         while Attestation.objects.filter(numero=numero).exists():
             seq += 1
-            numero = f"CERT/ENSMG/{abbrev}/{annee}/{seq:03d}"
+            numero = f"CERT-ENSMG-{abbrev}-{annee}-{seq:03d}"
 
         # Créer l'attestation sans PDF — le PDF sera chargé manuellement
         Attestation.objects.create(
