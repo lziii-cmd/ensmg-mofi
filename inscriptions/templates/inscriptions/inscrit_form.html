@@ -120,6 +120,32 @@
                             {% endif %}
                         </div>
 
+                        <!-- Université (étudiant) -->
+                        <div class="col-12" id="field-universite" style="display:none;">
+                            <label for="{{ form.universite.id_for_label }}" class="form-label">
+                                <i class="bi bi-mortarboard me-1 text-primary"></i>{{ form.universite.label }}
+                            </label>
+                            {{ form.universite }}
+                            {% if form.universite.errors %}
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.universite.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Entreprise (professionnel) -->
+                        <div class="col-12" id="field-entreprise" style="display:none;">
+                            <label for="{{ form.entreprise.id_for_label }}" class="form-label">
+                                <i class="bi bi-building me-1 text-primary"></i>{{ form.entreprise.label }}
+                            </label>
+                            {{ form.entreprise }}
+                            {% if form.entreprise.errors %}
+                            <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                <i class="bi bi-exclamation-circle me-1"></i>{{ form.entreprise.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
                         <!-- Notes -->
                         <div class="col-12">
                             <label for="{{ form.notes.id_for_label }}" class="form-label">
@@ -179,5 +205,23 @@ document.querySelectorAll('.input-group .form-control').forEach(function(el) {
     el.style.borderTopLeftRadius = '0';
     el.style.borderBottomLeftRadius = '0';
 });
+
+// Affichage conditionnel université / entreprise selon l'activité
+(function () {
+    var sel = document.getElementById('id_activite');
+    var divUniv = document.getElementById('field-universite');
+    var divEntr = document.getElementById('field-entreprise');
+
+    function update() {
+        var val = sel ? sel.value : '';
+        if (divUniv) divUniv.style.display = (val === 'etudiant')      ? '' : 'none';
+        if (divEntr) divEntr.style.display = (val === 'professionnel') ? '' : 'none';
+    }
+
+    if (sel) {
+        sel.addEventListener('change', update);
+        update(); // initialisation au chargement
+    }
+})();
 </script>
 {% endblock %}

@@ -1,8 +1,8 @@
 from django.shortcuts import redirect
+from django.contrib import messages
 
 # ──────────────────────────────────────────────────────────────────────────────
 # URLs PUBLIQUES — accessibles sans authentification
-# Uniquement la page d'accueil, le flux d'inscription portail, et les services
 # ──────────────────────────────────────────────────────────────────────────────
 PUBLIC_PATHS = {
     '/',            # Page d'accueil (liste des certifications)
@@ -11,7 +11,7 @@ PUBLIC_PATHS = {
 }
 
 PUBLIC_PREFIXES = (
-    '/portail/',            # Tout le portail public (inscription, paiement, rejoindre…)
+    '/portail/',            # Tout le portail public
     '/static/',
     '/media/',
     '/admin/',
@@ -20,16 +20,51 @@ PUBLIC_PREFIXES = (
     '/api/',
     '/password-reset/',
     '/accounts/',
-    '/register/',           # Création compte admin — accès conditionné à la clé dans l'URL
+    '/register/',           # Création compte admin — protégée par clé dans l'URL
 )
+
+# Sections accessibles uniquement aux rôles "scolarité"
+# (Responsable Scolarité, Super Utilisateur, Personnel Utilisateur)
+# → Le rôle "Admin" est redirigé vers /utilisateurs/
+SCOLARITE_PREFIXES = (
+    '/dashboard/',
+    '/certifications/',
+    '/cohortes/',
+    '/inscrits/',
+    '/paiements/',
+    '/certifier/',
+    '/finances/',
+    '/filtrer/',
+    '/import/',
+)
+
+# Sections accessibles uniquement aux rôles "gestion utilisateurs"
+# (Super Utilisateur + Admin)
+# → Les autres rôles sont redirigés vers /dashboard/
+USERS_PREFIXES = (
+    '/utilisateurs/',
+)
+
+
+def _get_staff_role(user):
+    """Retourne le rôle d'un utilisateur staff (non-apprenant)."""
+    if user.is_superuser:
+        return 'super_utilisateur'
+    groups = set(user.groups.values_list('name', flat=True))
+    if 'Responsable Scolarité' in groups:
+        return 'responsable_scolarite'
+    if 'Admin' in groups:
+        return 'admin'
+    if 'Personnel Utilisateur' in groups:
+        return 'personnel_utilisateur'
+    return 'super_utilisateur'
 
 
 class ApprenantPasswordMiddleware:
     """
-    1. Protège toutes les pages sauf les URLs publiques ci-dessus.
-       → Redirige vers /login/ si l'utilisateur n'est pas connecté.
-    2. Force les apprenants n'ayant jamais changé leur mot de passe
-       à le faire avant d'accéder à quoi que ce soit.
+    1. Protège toutes les pages sauf les URLs publiques.
+    2. Force les apprenants à changer leur mot de passe à la première connexion.
+    3. Applique les restrictions de rôle pour les utilisateurs staff.
     """
 
     def __init__(self, get_response):
@@ -44,7 +79,7 @@ class ApprenantPasswordMiddleware:
         if any(path.startswith(p) for p in PUBLIC_PREFIXES):
             return self.get_response(request)
 
-        # ── 2. Toutes les autres pages → authentification obligatoire ─────
+        # ── 2. Authentification obligatoire ───────────────────────────────
         if not request.user.is_authenticated:
             return redirect(f'/login/?next={path}')
 
@@ -53,7 +88,48 @@ class ApprenantPasswordMiddleware:
             compte = request.user.compte_apprenant
             if not compte.mdp_change:
                 return redirect('/apprenant/changer-mdp/')
+            return self.get_response(request)
         except Exception:
-            pass
+            pass  # Pas un apprenant → continuer avec les rôles staff
+
+        # ── 4. Restrictions par rôle staff ────────────────────────────────
+        role = _get_staff_role(request.user)
+
+        # Rôle "Admin" : accès limité aux utilisateurs + inscrits de base
+        if role == 'admin':
+            allowed = ('/utilisateurs/', '/inscrits/', '/static/', '/media/')
+            if not any(path.startswith(p) for p in allowed):
+                messages.warning(
+                    request,
+                    "Votre rôle (Admin) ne vous autorise pas à accéder à cette section."
+                )
+                return redirect('/utilisateurs/')
+
+        # Rôle "Responsable Scolarité" : pas accès à la gestion des utilisateurs
+        if role == 'responsable_scolarite':
+            if any(path.startswith(p) for p in USERS_PREFIXES):
+                messages.warning(
+                    request,
+                    "La gestion des utilisateurs est réservée aux Admins et Super Utilisateurs."
+                )
+                return redirect('/dashboard/')
+
+        # Rôle "Personnel Utilisateur" : lecture seule — bloquer les POSTs d'écriture
+        if role == 'personnel_utilisateur' and request.method == 'POST':
+            # Chemins d'écriture bloqués (ajouter, modifier, supprimer, certifier, importer)
+            write_paths = (
+                '/certifications/ajouter/', '/certifications/', '/cohortes/',
+                '/inscrits/ajouter/', '/inscrits/import/', '/inscrits/inscrire/',
+                '/paiements/ajouter/', '/paiements/',
+                '/certifier/',
+            )
+            is_write = any(
+                path.startswith(p) for p in write_paths
+            ) and any(
+                kw in path for kw in ['ajouter', 'modifier', 'supprimer', 'action', 'import', 'inscrire', 'confirmer', 'annuler']
+            )
+            if is_write:
+                messages.warning(request, "Vous avez un accès en lecture seule.")
+                return redirect(request.META.get('HTTP_REFERER', '/dashboard/'))
 
         return self.get_response(request)

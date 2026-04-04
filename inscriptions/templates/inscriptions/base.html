@@ -462,6 +462,29 @@
     </div>
 
     <div class="sidebar-nav">
+
+        {# ── Rôle affiché sous le logo ── #}
+        {% if user_role %}
+        <div style="text-align:center;margin-bottom:.6rem;">
+            {% if user_role == 'super_utilisateur' %}
+                <span style="font-size:.65rem;background:rgba(99,102,241,.25);color:#c7d2fe;padding:.15rem .55rem;border-radius:20px;letter-spacing:.3px;">Super Utilisateur</span>
+            {% elif user_role == 'responsable_scolarite' %}
+                <span style="font-size:.65rem;background:rgba(16,185,129,.2);color:#6ee7b7;padding:.15rem .55rem;border-radius:20px;letter-spacing:.3px;">Responsable Scolarité</span>
+            {% elif user_role == 'admin' %}
+                <span style="font-size:.65rem;background:rgba(245,158,11,.2);color:#fcd34d;padding:.15rem .55rem;border-radius:20px;letter-spacing:.3px;">Admin</span>
+            {% elif user_role == 'personnel_utilisateur' %}
+                <span style="font-size:.65rem;background:rgba(107,114,128,.25);color:#d1d5db;padding:.15rem .55rem;border-radius:20px;letter-spacing:.3px;">Lecture seule</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# ══════════════════════════════════════════════════════════
+           SECTION SCOLARITÉ
+           Visible : super_utilisateur, responsable_scolarite, personnel_utilisateur
+           Masqué  : admin
+        ══════════════════════════════════════════════════════════ #}
+        {% if user_role != 'admin' %}
+
         <div class="nav-section-title">Navigation</div>
 
         <a href="{% url 'dashboard' %}"
@@ -496,6 +519,9 @@
             Certifier
         </a>
 
+        {# Actions rapides + Analytique : seulement super_utilisateur et responsable_scolarite #}
+        {% if user_role == 'super_utilisateur' or user_role == 'responsable_scolarite' %}
+
         <div class="nav-section-title">Actions rapides</div>
 
         <a href="{% url 'certification_ajouter' %}" class="nav-link">
@@ -516,6 +542,17 @@
             Dashboard Financier
         </a>
 
+        {% endif %}{# fin super/responsable #}
+
+        {% endif %}{# fin not admin #}
+
+        {# ══════════════════════════════════════════════════════════
+           SECTION SYSTÈME
+           - Portail public : tout le monde
+           - Administration Django : super_utilisateur + admin
+           - Utilisateurs : super_utilisateur + admin
+           - Inscrits (admin) : admin seulement → accès basique
+        ══════════════════════════════════════════════════════════ #}
         <div class="nav-section-title">Système</div>
 
         <a href="{% url 'portail_accueil' %}" class="nav-link" target="_blank">
@@ -523,18 +560,28 @@
             Portail Public
         </a>
 
+        {% if user_role == 'super_utilisateur' or user_role == 'admin' %}
         <a href="/admin/" class="nav-link" target="_blank">
             <i class="bi bi-gear nav-icon"></i>
             Administration
         </a>
 
-        {% if request.user.is_authenticated %}
         <a href="{% url 'users_list' %}"
            class="nav-link {% if active_page == 'utilisateurs' %}active{% endif %}">
             <i class="bi bi-person-gear nav-icon"></i>
             Utilisateurs
         </a>
         {% endif %}
+
+        {# Admin : accès inscrits pour aider à la réinitialisation de mot de passe #}
+        {% if user_role == 'admin' %}
+        <a href="{% url 'inscrits_list' %}"
+           class="nav-link {% if active_page == 'inscrits' %}active{% endif %}">
+            <i class="bi bi-people nav-icon"></i>
+            Apprenants
+        </a>
+        {% endif %}
+
     </div>
 
     <div class="sidebar-footer">

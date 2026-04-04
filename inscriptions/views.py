@@ -36,16 +36,61 @@ from .forms import (
 
 
 # ---------------------------------------------------------------------------
+# Helpers de rôle
+# ---------------------------------------------------------------------------
+
+def _get_user_role(user):
+    """Retourne le rôle string d'un utilisateur staff authentifié."""
+    if user.is_superuser:
+        return 'super_utilisateur'
+    groups = set(user.groups.values_list('name', flat=True))
+    if 'Responsable Scolarité' in groups:
+        return 'responsable_scolarite'
+    if 'Admin' in groups:
+        return 'admin'
+    if 'Personnel Utilisateur' in groups:
+        return 'personnel_utilisateur'
+    return 'super_utilisateur'
+
+
+# ---------------------------------------------------------------------------
 # Decorators
 # ---------------------------------------------------------------------------
 
 def admin_required(view_func):
+    """Réservé aux Super Utilisateurs uniquement."""
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         if not request.user.is_superuser:
-            messages.error(request, "Accès réservé aux administrateurs.")
+            messages.error(request, "Accès réservé aux super utilisateurs.")
             return redirect("dashboard")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def users_required(view_func):
+    """Gestion des utilisateurs : Super Utilisateur + Admin."""
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        role = _get_user_role(request.user)
+        if role not in ('super_utilisateur', 'admin'):
+            messages.error(request, "Accès réservé aux administrateurs système.")
+            return redirect("dashboard")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def write_required(view_func):
+    """Opérations d'écriture : Super Utilisateur + Responsable Scolarité uniquement."""
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        role = _get_user_role(request.user)
+        if role in ('admin', 'personnel_utilisateur'):
+            messages.warning(request, "Vous avez un accès en lecture seule.")
+            return redirect(request.META.get("HTTP_REFERER", "dashboard"))
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -1283,7 +1328,7 @@ def _get_active_session_data():
     return active
 
 
-@admin_required
+@users_required
 def users_list(request):
     query = request.GET.get("q", "").strip()
     users = User.objects.prefetch_related("groups").order_by("username")
@@ -1320,7 +1365,7 @@ def users_list(request):
     return render(request, "inscriptions/users_list.html", context)
 
 
-@admin_required
+@users_required
 def user_ajouter(request):
     if request.method == "POST":
         form = UserForm(request.POST)
@@ -1346,7 +1391,7 @@ def user_ajouter(request):
     return render(request, "inscriptions/user_form.html", context)
 
 
-@admin_required
+@users_required
 def user_modifier(request, pk):
     user = get_object_or_404(User, pk=pk)
     if request.method == "POST":
@@ -1368,7 +1413,7 @@ def user_modifier(request, pk):
     return render(request, "inscriptions/user_form.html", context)
 
 
-@admin_required
+@users_required
 def user_toggle(request, pk):
     user = get_object_or_404(User, pk=pk)
     if user == request.user:
@@ -1877,6 +1922,7 @@ def _slugify_name(text):
 
 def _creer_compte_apprenant(inscrit):
     """Create Django User + CompteApprenant for a new portal registrant. Returns (user, compte)."""
+    # Username : prenom.nom@ensmg.sn (identifiant de connexion ENSMG)
     base_username = f"{_slugify_name(inscrit.prenom)}.{_slugify_name(inscrit.nom)}@ensmg.sn"
     username = base_username
     counter = 2
@@ -1887,12 +1933,29 @@ def _creer_compte_apprenant(inscrit):
 
     user = User.objects.create_user(
         username=username,
-        email=username,
+        email=inscrit.email or username,   # email personnel pour les notifications
         password='passer01',
         first_name=inscrit.prenom,
         last_name=inscrit.nom,
     )
     compte = CompteApprenant.objects.create(user=user, inscrit=inscrit, mdp_change=False)
+
+    # Envoyer les identifiants par email si l'apprenant a une adresse email personnelle
+    if inscrit.email:
+        _send_email_apprenant(
+            inscrit,
+            subject="[ENSMG] Vos identifiants de connexion au portail",
+            body=(
+                f"Bonjour {inscrit.prenom},\n\n"
+                f"Un compte a été créé pour vous sur le portail ENSMG.\n\n"
+                f"Vos identifiants de connexion :\n"
+                f"  Identifiant : {username}\n"
+                f"  Mot de passe provisoire : passer01\n\n"
+                f"Connectez-vous sur : https://ensmg.sn/login/\n"
+                f"Vous serez invité(e) à changer votre mot de passe à la première connexion.\n\n"
+                f"Cordialement,\nL'équipe ENSMG"
+            ),
+        )
     return user, compte
 
 

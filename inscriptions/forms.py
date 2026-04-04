@@ -91,7 +91,7 @@ class CohorteForm(forms.ModelForm):
 class InscritForm(forms.ModelForm):
     class Meta:
         model = Inscrit
-        fields = ["nom", "prenom", "email", "telephone", "activite", "notes"]
+        fields = ["nom", "prenom", "email", "telephone", "activite", "universite", "entreprise", "notes"]
         widgets = {
             "nom": forms.TextInput(attrs={
                 "class": "form-control",
@@ -109,7 +109,18 @@ class InscritForm(forms.ModelForm):
                 "class": "form-control",
                 "placeholder": "+221 77 000 00 00",
             }),
-            "activite": forms.Select(attrs={"class": "form-select"}),
+            "activite": forms.Select(attrs={
+                "class": "form-select",
+                "id": "id_activite",
+            }),
+            "universite": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Nom de l'université ou de l'école",
+            }),
+            "entreprise": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Nom de l'entreprise",
+            }),
             "notes": forms.Textarea(attrs={
                 "class": "form-control",
                 "rows": 3,
@@ -122,6 +133,8 @@ class InscritForm(forms.ModelForm):
             "email": "Adresse email",
             "telephone": "Téléphone",
             "activite": "Activité / Profil",
+            "universite": "Université / École",
+            "entreprise": "Entreprise",
             "notes": "Notes",
         }
 
@@ -294,10 +307,10 @@ class ImportExcelForm(forms.Form):
 
 class UserForm(forms.ModelForm):
     ROLE_CHOICES = [
-        ("Administrateur", "Administrateur"),
-        ("Responsable", "Responsable"),
-        ("Comptable", "Comptable"),
-        ("Utilisateur", "Utilisateur"),
+        ("Super Utilisateur",    "Super Utilisateur — accès complet"),
+        ("Responsable Scolarité","Responsable Scolarité — gestion certifications/inscrits/paiements"),
+        ("Admin",                "Admin — gestion utilisateurs + audit"),
+        ("Personnel Utilisateur","Personnel Utilisateur — lecture seule"),
     ]
     password = forms.CharField(
         label="Mot de passe",
@@ -310,7 +323,7 @@ class UserForm(forms.ModelForm):
         choices=ROLE_CHOICES,
         widget=forms.Select(attrs={"class": "form-select"}),
         required=False,
-        initial="Utilisateur",
+        initial="Personnel Utilisateur",
     )
 
     class Meta:
@@ -334,28 +347,28 @@ class UserForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            # Pré-sélectionner le rôle actuel
             if self.instance.is_superuser:
-                self.fields["role"].initial = "Administrateur"
-            elif self.instance.groups.filter(name="Responsable").exists():
-                self.fields["role"].initial = "Responsable"
-            elif self.instance.groups.filter(name="Comptable").exists():
-                self.fields["role"].initial = "Comptable"
+                self.fields["role"].initial = "Super Utilisateur"
+            elif self.instance.groups.filter(name="Responsable Scolarité").exists():
+                self.fields["role"].initial = "Responsable Scolarité"
+            elif self.instance.groups.filter(name="Admin").exists():
+                self.fields["role"].initial = "Admin"
             else:
-                self.fields["role"].initial = "Utilisateur"
+                self.fields["role"].initial = "Personnel Utilisateur"
 
     def save(self, commit=True):
         user = super().save(commit=False)
         password = self.cleaned_data.get("password")
         if password:
             user.set_password(password)
-        role = self.cleaned_data.get("role", "Utilisateur")
-        user.is_superuser = (role == "Administrateur")
-        user.is_staff = (role in ("Administrateur", "Responsable", "Comptable"))
+        role = self.cleaned_data.get("role", "Personnel Utilisateur")
+        user.is_superuser = (role == "Super Utilisateur")
+        # is_staff=True donne accès à /admin/ Django (Super Utilisateur + Admin seulement)
+        user.is_staff = (role in ("Super Utilisateur", "Admin"))
         if commit:
             user.save()
             user.groups.clear()
-            if role in ("Responsable", "Comptable"):
+            if role in ("Responsable Scolarité", "Admin", "Personnel Utilisateur"):
                 group, _ = Group.objects.get_or_create(name=role)
                 user.groups.add(group)
         return user
