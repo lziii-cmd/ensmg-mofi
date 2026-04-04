@@ -297,12 +297,41 @@ class ImportExcelForm(forms.Form):
         empty_label="— Sélectionner une cohorte —",
         required=False,
     )
+    paiement_solde = forms.BooleanField(
+        label="Paiement soldé",
+        help_text="Enregistrer un paiement intégral confirmé pour chaque apprenant importé.",
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_paiement_solde"}),
+    )
+    moyen_paiement = forms.ChoiceField(
+        label="Moyen de paiement",
+        choices=[
+            ("", "— Choisir —"),
+            ("wave", "Wave"),
+            ("orange_money", "Orange Money"),
+            ("intouch", "InTouch Sénégal"),
+            ("carte", "Carte bancaire"),
+            ("especes", "Espèces"),
+            ("virement", "Virement bancaire"),
+        ],
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select", "id": "id_moyen_paiement"}),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["cohorte"].label_from_instance = (
             lambda obj: f"{obj.certification.nom} — {obj.nom}"
         )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("paiement_solde"):
+            if not cleaned.get("cohorte"):
+                self.add_error("cohorte", "Sélectionnez une cohorte pour enregistrer le paiement.")
+            if not cleaned.get("moyen_paiement"):
+                self.add_error("moyen_paiement", "Choisissez le moyen de paiement.")
+        return cleaned
 
 
 class UserForm(forms.ModelForm):

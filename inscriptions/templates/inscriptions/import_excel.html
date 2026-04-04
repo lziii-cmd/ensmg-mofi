@@ -92,6 +92,33 @@
                                     <i class="bi bi-exclamation-circle me-1"></i>{{ form.cohorte.errors.0 }}
                                 </div>
                                 {% endif %}
+
+                                <!-- Checkbox : paiement soldé (visible uniquement si cohorte choisie) -->
+                                <hr class="my-3">
+                                <div class="form-check mb-2">
+                                    {{ form.paiement_solde }}
+                                    <label class="form-check-label fw-500" for="id_paiement_solde">
+                                        Paiement soldé
+                                    </label>
+                                    <div class="form-text">{{ form.paiement_solde.help_text }}</div>
+                                </div>
+
+                                <!-- Moyen de paiement -->
+                                <div id="paiementSection" style="display:none;">
+                                    <label for="id_moyen_paiement" class="form-label mt-1">
+                                        Moyen de paiement <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.moyen_paiement }}
+                                    {% if form.moyen_paiement.errors %}
+                                    <div class="text-danger mt-1" style="font-size:0.8rem;">
+                                        <i class="bi bi-exclamation-circle me-1"></i>{{ form.moyen_paiement.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text mt-1">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Un paiement confirmé du montant total sera créé pour chaque apprenant importé.
+                                    </div>
+                                </div>
                             </div>
 
                         </div>
@@ -275,6 +302,15 @@ if (fileInput) {
         }
     });
 }
+
+// ── Checkbox paiement soldé ──
+const paiementSolde  = document.getElementById('id_paiement_solde');
+const paiementSection = document.getElementById('paiementSection');
+paiementSolde.addEventListener('change', function () {
+    paiementSection.style.display = this.checked ? 'block' : 'none';
+});
+// Restaurer état si erreur de validation
+if (paiementSolde.checked) paiementSection.style.display = 'block';
 
 // ── Checkbox : afficher/masquer section certification/cohorte ──
 const withCohorte  = document.getElementById('withCohorte');

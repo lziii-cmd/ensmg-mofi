@@ -1196,7 +1196,10 @@ def import_excel(request):
                 created = 0
                 updated = 0
                 enrolled = 0
+                paid = 0
                 errors = []
+                paiement_solde = form.cleaned_data.get("paiement_solde", False)
+                moyen_paiement = form.cleaned_data.get("moyen_paiement", "especes")
 
                 for row_idx, row in enumerate(rows[1:], start=2):
                     try:
@@ -1260,13 +1263,25 @@ def import_excel(request):
                                 cert.tarif_professionnel if activite_val == "professionnel"
                                 else cert.tarif_etudiant
                             )
-                            _, ic_created = Inscription.objects.get_or_create(
+                            inscription, ic_created = Inscription.objects.get_or_create(
                                 inscrit=inscrit,
                                 cohorte=cohorte,
                                 defaults={"statut": "inscrit", "montant_du": montant_du},
                             )
                             if ic_created:
                                 enrolled += 1
+
+                            # Enregistrer le paiement intégral si demandé
+                            if paiement_solde and montant_du > 0:
+                                from django.utils import timezone as tz
+                                Paiement.objects.get_or_create(
+                                    inscription=inscription,
+                                    montant=montant_du,
+                                    moyen_paiement=moyen_paiement,
+                                    statut="confirme",
+                                    defaults={"date_paiement": tz.now().date()},
+                                )
+                                paid += 1
 
                     except Exception as exc:
                         errors.append(f"Ligne {row_idx}: erreur — {exc}")
@@ -1276,9 +1291,10 @@ def import_excel(request):
                 if created or updated:
                     msg = f"Import terminé : {created} inscrit(s) créé(s), {updated} mis à jour"
                     if cohorte:
-                        msg += f", {enrolled} nouvelle(s) inscription(s) à « {cohorte} »."
-                    else:
-                        msg += "."
+                        msg += f", {enrolled} nouvelle(s) inscription(s) à « {cohorte} »"
+                    if paid:
+                        msg += f", {paid} paiement(s) enregistré(s)"
+                    msg += "."
                     messages.success(request, msg)
                 for err in errors[:10]:
                     messages.warning(request, err)
