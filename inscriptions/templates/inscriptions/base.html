@@ -478,11 +478,6 @@
         </div>
         {% endif %}
 
-        {# ══════════════════════════════════════════════════════════
-           SECTION SCOLARITÉ
-           Visible : super_utilisateur, responsable_scolarite, personnel_utilisateur
-           Masqué  : admin
-        ══════════════════════════════════════════════════════════ #}
         {% if user_role != 'admin' %}
 
         <div class="nav-section-title">Navigation</div>
@@ -546,13 +541,6 @@
 
         {% endif %}{# fin not admin #}
 
-        {# ══════════════════════════════════════════════════════════
-           SECTION SYSTÈME
-           - Portail public : tout le monde
-           - Administration Django : super_utilisateur + admin
-           - Utilisateurs : super_utilisateur + admin
-           - Inscrits (admin) : admin seulement → accès basique
-        ══════════════════════════════════════════════════════════ #}
         <div class="nav-section-title">Système</div>
 
         <a href="{% url 'portail_accueil' %}" class="nav-link" target="_blank">
