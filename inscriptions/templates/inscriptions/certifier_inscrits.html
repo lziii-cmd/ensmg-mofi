@@ -374,7 +374,7 @@
                 <tr>
                     <th class="ps-3">Nom</th>
                     <th>Cohorte</th>
-                    <th>Contact</th>
+                    <th>N° Certificat</th>
                     <th>Statut PDF</th>
                     <th class="pe-3 text-end">Actions</th>
                 </tr>
@@ -397,8 +397,19 @@
                         </div>
                     </td>
                     <td style="font-size:.82rem;color:#718096;">{{ ic.cohorte.nom }}</td>
-                    <td style="font-size:.8rem;color:#718096;">
-                        {% if ic.inscrit.email %}{{ ic.inscrit.email }}{% else %}—{% endif %}
+                    <td>
+                        {% for att in ic.attestations.all %}
+                        <div class="d-flex align-items-center gap-1">
+                            <code style="font-size:.78rem;background:#eef2ff;color:#3730a3;padding:.15rem .4rem;border-radius:4px;letter-spacing:.3px;">{{ att.numero }}</code>
+                            <button type="button"
+                                    class="btn btn-link p-0 ms-1"
+                                    title="Copier le numéro"
+                                    onclick="navigator.clipboard.writeText('{{ att.numero }}').then(()=>{ this.innerHTML='<i class=\'bi bi-check text-success\'></i>'; setTimeout(()=>this.innerHTML='<i class=\'bi bi-copy\'></i>',1500) })"
+                                    style="font-size:.8rem;color:#6366f1;line-height:1;">
+                                <i class="bi bi-copy"></i>
+                            </button>
+                        </div>
+                        {% empty %}—{% endfor %}
                     </td>
                     <td>
                         {% for att in ic.attestations.all %}
