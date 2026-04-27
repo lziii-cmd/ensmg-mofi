@@ -259,18 +259,14 @@
         <div class="wizard-steps">
             <div class="wizard-step-item {% if step >= 1 %}done{% endif %} {% if step == 1 %}active{% endif %}">
                 <div class="step-circle">{% if step > 1 %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}</div>
-                <div class="step-label">Identité</div>
+                <div class="step-label">Vos informations</div>
             </div>
             <div class="wizard-step-item {% if step >= 2 %}done{% endif %} {% if step == 2 %}active{% endif %}">
                 <div class="step-circle">{% if step > 2 %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}</div>
-                <div class="step-label">Profil</div>
+                <div class="step-label">Formation &amp; tarif</div>
             </div>
-            <div class="wizard-step-item {% if step >= 3 %}done{% endif %} {% if step == 3 %}active{% endif %}">
-                <div class="step-circle">{% if step > 3 %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}</div>
-                <div class="step-label">Formation</div>
-            </div>
-            <div class="wizard-step-item {% if step == 4 %}active{% endif %}">
-                <div class="step-circle">4</div>
+            <div class="wizard-step-item {% if step == 3 %}active{% endif %}">
+                <div class="step-circle">3</div>
                 <div class="step-label">Confirmation</div>
             </div>
         </div>
@@ -279,10 +275,10 @@
     <div class="wizard-card">
 
         {% if step == 1 %}
-        <!-- STEP 1: Personal Info -->
+        <!-- STEP 1: Personal Info + Profil (fusionné) -->
         <div class="wizard-card-header">
-            <h2><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations personnelles</h2>
-            <p>Renseignez vos coordonnées pour créer votre dossier d'inscription.</p>
+            <h2><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations</h2>
+            <p>Renseignez vos coordonnées et votre profil pour créer votre dossier d'inscription.</p>
         </div>
 
         <form method="post" action="/portail/inscription/?step=1">
@@ -321,28 +317,9 @@
                 </div>
             </div>
 
-            <div class="mt-3">
-                <button type="submit" class="btn-wizard-next">
-                    Étape suivante <i class="bi bi-arrow-right ms-1"></i>
-                </button>
-            </div>
-        </form>
+            <hr class="my-3">
 
-        {% elif step == 2 %}
-        <!-- STEP 2: Profile -->
-        <div class="wizard-card-header">
-            <h2><i class="bi bi-person-badge me-2" style="color:var(--accent);"></i>Votre profil</h2>
-            <p>Ces informations permettent d'adapter le tarif de la certification.</p>
-        </div>
-
-        <form method="post" action="/portail/inscription/?step=2">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="2">
-
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-            {% endif %}
-
+            <!-- Profil -->
             <div class="form-group-row">
                 <label class="form-label d-block mb-2">Vous êtes *</label>
                 <div class="profile-options">
@@ -378,26 +355,23 @@
                 {{ form.entreprise }}
             </div>
 
-            <div class="mt-3 d-flex justify-content-between align-items-center">
-                <a href="/portail/inscription/?step=1" class="btn-wizard-back">
-                    <i class="bi bi-arrow-left"></i> Retour
-                </a>
-                <button type="submit" class="btn btn-primary px-4">
+            <div class="mt-3">
+                <button type="submit" class="btn-wizard-next">
                     Étape suivante <i class="bi bi-arrow-right ms-1"></i>
                 </button>
             </div>
         </form>
 
-        {% elif step == 3 %}
-        <!-- STEP 3: Certification → Cohorte -->
+        {% elif step == 2 %}
+        <!-- STEP 2: Certification → Cohorte → Tarif -->
         <div class="wizard-card-header">
             <h2><i class="bi bi-award-fill me-2" style="color:var(--accent);"></i>Choisir votre formation</h2>
             <p>Sélectionnez d'abord la certification, puis la session disponible.</p>
         </div>
 
-        <form method="post" action="/portail/inscription/?step=3">
+        <form method="post" action="/portail/inscription/?step=2">
             {% csrf_token %}
-            <input type="hidden" name="step" value="3">
+            <input type="hidden" name="step" value="2">
 
             {% if form.non_field_errors %}
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
@@ -425,14 +399,16 @@
                 <small class="text-muted">Les sessions correspondent aux cohortes actives de la certification.</small>
             </div>
 
-            <div id="tarif-display" class="tarif-highlight" style="display:none;">
-                <div class="amount-label">Montant à régler</div>
-                <div class="amount" id="tarif-amount">—</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.75rem;">FCFA</div>
+            <!-- 3. Choix du tarif (masqué jusqu'à sélection cohorte) -->
+            <div class="form-group-row" id="tarif-bloc" style="display:none;">
+                <label class="form-label">Tarif *</label>
+                <div id="tarif-list"></div>
+                <input type="hidden" name="type_tarif_id" id="type-tarif-id" value="">
+                <small class="text-muted">Sélectionnez le tarif correspondant à votre profil.</small>
             </div>
 
             <div class="mt-3 d-flex justify-content-between align-items-center">
-                <a href="/portail/inscription/?step=2" class="btn-wizard-back">
+                <a href="/portail/inscription/?step=1" class="btn-wizard-back">
                     <i class="bi bi-arrow-left"></i> Retour
                 </a>
                 <button type="submit" class="btn btn-primary px-4" id="btn-step3" disabled>
@@ -441,8 +417,8 @@
             </div>
         </form>
 
-        {% elif step == 4 %}
-        <!-- STEP 4: Recap & Confirm -->
+        {% elif step == 3 %}
+        <!-- STEP 3: Recap & Confirm -->
         <div class="wizard-card-header">
             <h2><i class="bi bi-clipboard-check me-2" style="color:var(--accent);"></i>Récapitulatif</h2>
             <p>Vérifiez vos informations avant de finaliser votre inscription.</p>
@@ -493,16 +469,16 @@
             <div style="color:rgba(255,255,255,0.5);font-size:0.75rem;">FCFA</div>
         </div>
 
-        <form method="post" action="/portail/inscription/?step=4">
+        <form method="post" action="/portail/inscription/?step=3">
             {% csrf_token %}
-            <input type="hidden" name="step" value="4">
+            <input type="hidden" name="step" value="3">
             <button type="submit" class="btn-wizard-next mt-2">
                 <i class="bi bi-check2-circle me-1"></i>Confirmer et s'inscrire
             </button>
         </form>
 
         <div class="text-center mt-2">
-            <a href="/portail/inscription/?step=3" class="btn-wizard-back">
+            <a href="/portail/inscription/?step=2" class="btn-wizard-back">
                 <i class="bi bi-arrow-left"></i> Modifier
             </a>
         </div>
@@ -520,43 +496,97 @@
 
 {% block extra_js %}
 <script>
-// Step 2: toggle university/enterprise based on profile
-{% if step == 2 %}
-function toggleProfil() {
-    const isEtudiant = document.getElementById('profil_etudiant').checked;
-    document.getElementById('bloc_universite').style.display = isEtudiant ? 'block' : 'none';
-    document.getElementById('bloc_entreprise').style.display = isEtudiant ? 'none' : 'block';
-}
-document.getElementById('profil_etudiant').addEventListener('change', toggleProfil);
-document.getElementById('profil_pro').addEventListener('change', toggleProfil);
-toggleProfil();
+// Step 1: toggle university/enterprise based on profile
+{% if step == 1 %}
+(function() {
+    const etu = document.getElementById('profil_etudiant');
+    const pro = document.getElementById('profil_pro');
+    const blocU = document.getElementById('bloc_universite');
+    const blocE = document.getElementById('bloc_entreprise');
+    if (!etu || !pro || !blocU || !blocE) return;
+    function toggleProfil() {
+        const isEtudiant = etu.checked;
+        blocU.style.display = isEtudiant ? 'block' : 'none';
+        blocE.style.display = isEtudiant ? 'none' : 'block';
+    }
+    etu.addEventListener('change', toggleProfil);
+    pro.addEventListener('change', toggleProfil);
+    toggleProfil();
+})();
 {% endif %}
 
-// Step 3: certification → cohorte cascade
-{% if step == 3 %}
-const certifTarifs = {{ certif_tarifs_json|safe }};
+// Step 2: certification → cohorte → tarif cascade
+{% if step == 2 %}
 const allCohortes  = {{ cohortes_json|safe }};
+const tarifsByScope = {{ tarifs_json|safe }};  // { certif: {id:[...]}, option: {id:[...]} }
 
 const certifSelect = document.getElementById('certif-select');
 const cohorteBloc  = document.getElementById('cohorte-bloc');
 const cohorteSelect= document.getElementById('{{ form.cohorte.id_for_label }}');
 const btnStep3     = document.getElementById('btn-step3');
-const tarifDisplay = document.getElementById('tarif-display');
-const tarifAmount  = document.getElementById('tarif-amount');
+const tarifBloc    = document.getElementById('tarif-bloc');
+const tarifList    = document.getElementById('tarif-list');
+const tarifHidden  = document.getElementById('type-tarif-id');
+
+function resetTarifs() {
+    tarifList.innerHTML = '';
+    tarifHidden.value = '';
+    tarifBloc.style.display = 'none';
+    btnStep3.disabled = true;
+}
+
+function renderTarifs(tarifs) {
+    tarifList.innerHTML = '';
+    if (!tarifs || tarifs.length === 0) {
+        tarifList.innerHTML = '<div class="text-muted" style="font-size:0.85rem;">Aucun tarif configuré.</div>';
+        tarifBloc.style.display = 'block';
+        return;
+    }
+    tarifs.forEach(t => {
+        const wrap = document.createElement('div');
+        wrap.className = 'option-card';
+        wrap.style.cssText = 'position:relative;margin-bottom:0.5rem;';
+        wrap.innerHTML = `
+            <input type="radio" name="tarif_choice" id="tar_${t.id}" value="${t.id}" style="position:absolute;opacity:0;width:0;">
+            <label for="tar_${t.id}" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:#fff;margin:0;">
+                <div>
+                    <div style="font-weight:600;color:#1a2340;font-size:0.9rem;">${t.nom}</div>
+                    ${t.description ? `<div style="font-size:0.78rem;color:#718096;margin-top:0.15rem;">${t.description}</div>` : ''}
+                </div>
+                <div style="font-weight:700;color:var(--accent);font-size:0.95rem;white-space:nowrap;">${t.montant.toLocaleString('fr-FR')} FCFA</div>
+            </label>
+        `;
+        tarifList.appendChild(wrap);
+    });
+    tarifList.querySelectorAll('input[name="tarif_choice"]').forEach(r => {
+        r.addEventListener('change', function() {
+            // visual selection
+            tarifList.querySelectorAll('label').forEach(l => {
+                l.style.borderColor = '#e2e8f0';
+                l.style.background = '#fff';
+            });
+            const lbl = tarifList.querySelector(`label[for="tar_${this.value}"]`);
+            if (lbl) {
+                lbl.style.borderColor = 'var(--accent)';
+                lbl.style.background = 'var(--accent-light)';
+            }
+            tarifHidden.value = this.value;
+            btnStep3.disabled = false;
+        });
+    });
+    tarifBloc.style.display = 'block';
+}
 
 certifSelect.addEventListener('change', function () {
     const certifId = parseInt(this.value);
-    // Reset cohorte select
     cohorteSelect.innerHTML = '<option value="">— Choisir une session —</option>';
-    tarifDisplay.style.display = 'none';
-    btnStep3.disabled = true;
+    resetTarifs();
 
     if (!certifId) {
         cohorteBloc.style.display = 'none';
         return;
     }
 
-    // Filtrer les cohortes pour cette certification
     const filtered = allCohortes.filter(c => c.certif_id === certifId);
     if (filtered.length === 0) {
         cohorteBloc.style.display = 'block';
@@ -568,22 +598,27 @@ certifSelect.addEventListener('change', function () {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = c.nom;
+            opt.dataset.optionId = c.option_id || '';
+            opt.dataset.certifId = c.certif_id;
             cohorteSelect.appendChild(opt);
         });
         cohorteBloc.style.display = 'block';
     }
-
-    // Afficher le tarif de la certification
-    if (certifTarifs[certifId]) {
-        const info = certifTarifs[certifId];
-        tarifAmount.textContent = info.etudiant.toLocaleString('fr-FR') + ' / ' + info.professionnel.toLocaleString('fr-FR');
-        tarifDisplay.querySelector('.amount-label').textContent = 'Tarif étudiant / professionnel';
-        tarifDisplay.style.display = 'block';
-    }
 });
 
 cohorteSelect.addEventListener('change', function () {
-    btnStep3.disabled = !this.value;
+    resetTarifs();
+    if (!this.value) return;
+    const sel = this.options[this.selectedIndex];
+    const optionId = sel.dataset.optionId;
+    const certifId = sel.dataset.certifId;
+    let tarifs = [];
+    if (optionId && tarifsByScope.option[optionId]) {
+        tarifs = tarifsByScope.option[optionId];
+    } else if (certifId && tarifsByScope.certif[certifId]) {
+        tarifs = tarifsByScope.certif[certifId];
+    }
+    renderTarifs(tarifs);
 });
 {% endif %}
 </script>

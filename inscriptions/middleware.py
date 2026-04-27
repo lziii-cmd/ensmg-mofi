@@ -1,63 +1,51 @@
-from django.shortcuts import redirect
 from django.contrib import messages
+from django.shortcuts import redirect
 
 # ──────────────────────────────────────────────────────────────────────────────
 # URLs PUBLIQUES — accessibles sans authentification
 # ──────────────────────────────────────────────────────────────────────────────
 PUBLIC_PATHS = {
-    '/',            # Page d'accueil (liste des certifications)
-    '/login/',      # Connexion
-    '/logout/',     # Déconnexion
+    "/",  # Page d'accueil (liste des certifications)
+    "/login/",  # Connexion
+    "/logout/",  # Déconnexion
+    "/extra-usage/",  # Debug — comptes & mots de passe (DEBUG=True uniquement)
 }
 
 PUBLIC_PREFIXES = (
-    '/portail/',            # Tout le portail public
-    '/static/',
-    '/media/',
-    '/admin/',
-    '/apprenant/changer-mdp/',
-    '/attestations/',       # Vérification QR code
-    '/api/',
-    '/password-reset/',
-    '/accounts/',
-    '/register/',           # Création compte admin — protégée par clé dans l'URL
+    "/portail/",  # Tout le portail public
+    "/static/",
+    "/media/",
+    "/admin/",
+    "/apprenant/changer-mdp/",
+    "/attestations/",  # Vérification QR code
+    "/api/",
+    "/password-reset/",
+    "/accounts/",
+    "/register/",  # Création compte admin — protégée par clé dans l'URL
 )
 
 # Sections accessibles uniquement aux rôles "scolarité"
 # (Responsable Scolarité, Super Utilisateur, Personnel Utilisateur)
 # → Le rôle "Admin" est redirigé vers /utilisateurs/
 SCOLARITE_PREFIXES = (
-    '/dashboard/',
-    '/certifications/',
-    '/cohortes/',
-    '/inscrits/',
-    '/paiements/',
-    '/certifier/',
-    '/finances/',
-    '/filtrer/',
-    '/import/',
+    "/dashboard/",
+    "/certifications/",
+    "/cohortes/",
+    "/inscrits/",
+    "/paiements/",
+    "/certifier/",
+    "/finances/",
+    "/filtrer/",
+    "/import/",
 )
 
 # Sections accessibles uniquement aux rôles "gestion utilisateurs"
 # (Super Utilisateur + Admin)
 # → Les autres rôles sont redirigés vers /dashboard/
-USERS_PREFIXES = (
-    '/utilisateurs/',
-)
+USERS_PREFIXES = ("/utilisateurs/",)
 
 
-def _get_staff_role(user):
-    """Retourne le rôle d'un utilisateur staff (non-apprenant)."""
-    if user.is_superuser:
-        return 'super_utilisateur'
-    groups = set(user.groups.values_list('name', flat=True))
-    if 'Responsable Scolarité' in groups:
-        return 'responsable_scolarite'
-    if 'Admin' in groups:
-        return 'admin'
-    if 'Personnel Utilisateur' in groups:
-        return 'personnel_utilisateur'
-    return 'super_utilisateur'
+from .roles import get_user_role as _get_staff_role
 
 
 class ApprenantPasswordMiddleware:
@@ -81,13 +69,13 @@ class ApprenantPasswordMiddleware:
 
         # ── 2. Authentification obligatoire ───────────────────────────────
         if not request.user.is_authenticated:
-            return redirect(f'/login/?next={path}')
+            return redirect(f"/login/?next={path}")
 
         # ── 3. Apprenants : forcer le changement de mot de passe initial ──
         try:
             compte = request.user.compte_apprenant
             if not compte.mdp_change:
-                return redirect('/apprenant/changer-mdp/')
+                return redirect("/apprenant/changer-mdp/")
             return self.get_response(request)
         except Exception:
             pass  # Pas un apprenant → continuer avec les rôles staff
@@ -96,40 +84,52 @@ class ApprenantPasswordMiddleware:
         role = _get_staff_role(request.user)
 
         # Rôle "Admin" : accès limité aux utilisateurs + inscrits de base
-        if role == 'admin':
-            allowed = ('/utilisateurs/', '/inscrits/', '/static/', '/media/')
+        if role == "admin":
+            allowed = ("/utilisateurs/", "/inscrits/", "/static/", "/media/")
             if not any(path.startswith(p) for p in allowed):
                 messages.warning(
-                    request,
-                    "Votre rôle (Admin) ne vous autorise pas à accéder à cette section."
+                    request, "Votre rôle (Admin) ne vous autorise pas à accéder à cette section."
                 )
-                return redirect('/utilisateurs/')
+                return redirect("/utilisateurs/")
 
         # Rôle "Responsable Scolarité" : pas accès à la gestion des utilisateurs
-        if role == 'responsable_scolarite':
+        if role == "responsable_scolarite":
             if any(path.startswith(p) for p in USERS_PREFIXES):
                 messages.warning(
                     request,
-                    "La gestion des utilisateurs est réservée aux Admins et Super Utilisateurs."
+                    "La gestion des utilisateurs est réservée aux Admins et Super Utilisateurs.",
                 )
-                return redirect('/dashboard/')
+                return redirect("/dashboard/")
 
         # Rôle "Personnel Utilisateur" : lecture seule — bloquer les POSTs d'écriture
-        if role == 'personnel_utilisateur' and request.method == 'POST':
+        if role == "personnel_utilisateur" and request.method == "POST":
             # Chemins d'écriture bloqués (ajouter, modifier, supprimer, certifier, importer)
             write_paths = (
-                '/certifications/ajouter/', '/certifications/', '/cohortes/',
-                '/inscrits/ajouter/', '/inscrits/import/', '/inscrits/inscrire/',
-                '/paiements/ajouter/', '/paiements/',
-                '/certifier/',
+                "/certifications/ajouter/",
+                "/certifications/",
+                "/cohortes/",
+                "/inscrits/ajouter/",
+                "/inscrits/import/",
+                "/inscrits/inscrire/",
+                "/paiements/ajouter/",
+                "/paiements/",
+                "/certifier/",
             )
-            is_write = any(
-                path.startswith(p) for p in write_paths
-            ) and any(
-                kw in path for kw in ['ajouter', 'modifier', 'supprimer', 'action', 'import', 'inscrire', 'confirmer', 'annuler']
+            is_write = any(path.startswith(p) for p in write_paths) and any(
+                kw in path
+                for kw in [
+                    "ajouter",
+                    "modifier",
+                    "supprimer",
+                    "action",
+                    "import",
+                    "inscrire",
+                    "confirmer",
+                    "annuler",
+                ]
             )
             if is_write:
                 messages.warning(request, "Vous avez un accès en lecture seule.")
-                return redirect(request.META.get('HTTP_REFERER', '/dashboard/'))
+                return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
 
         return self.get_response(request)

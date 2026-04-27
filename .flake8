@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 100
+extend-ignore = E203,W503,E402
+exclude =
+    migrations,
+    venv,
+    staticfiles,
+    .git,
+    __pycache__
+per-file-ignores =
+    inscriptions/views/_base.py:F401
+    inscriptions/tests/conftest.py:E402
+    inscriptions/tests/test_models.py:F401
+    inscriptions/tests/test_roles.py:F401
+    inscriptions/tests/test_views.py:F401
+    inscriptions/migrations/*.py:E501,F401

@@ -1,63 +1,105 @@
 from django import forms
-from django.contrib.auth.models import User, Group
-from .models import Certification, Cohorte, Inscrit, Inscription, Paiement
+from django.contrib.auth.models import Group, User
 
+from .models import (
+    Certification,
+    Cohorte,
+    Inscription,
+    Inscrit,
+    OptionCertification,
+    Paiement,
+    TypeTarif,
+)
 
 
 class CertificationForm(forms.ModelForm):
     class Meta:
         model = Certification
         fields = [
-            "nom", "description", "duree", "tarif_etudiant", "tarif_professionnel", "actif",
-            "partenaire_nom", "partenaire_logo", "partenaire_titre_signataire",
+            "nom",
+            "description",
+            "duree",
+            "a_options",
+            "actif",
         ]
         widgets = {
-            "nom": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Nom de la certification",
-            }),
-            "description": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 4,
-                "placeholder": "Description de la certification...",
-            }),
-            "duree": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Ex: 3 mois, 120 heures...",
-            }),
-            "tarif_etudiant": forms.NumberInput(attrs={
-                "class": "form-control",
-                "placeholder": "0",
-                "min": "0",
-                "step": "1",
-            }),
-            "tarif_professionnel": forms.NumberInput(attrs={
-                "class": "form-control",
-                "placeholder": "0",
-                "min": "0",
-                "step": "1",
-            }),
+            "nom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nom de la certification",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Description de la certification...",
+                }
+            ),
+            "duree": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ex: 3 mois, 120 heures...",
+                }
+            ),
+            "a_options": forms.CheckboxInput(
+                attrs={"class": "form-check-input", "id": "id_a_options"}
+            ),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "partenaire_nom": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Ex: Université Cheikh Anta Diop",
-            }),
-            "partenaire_logo": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
-            "partenaire_titre_signataire": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Ex: Le Recteur, Le Directeur...",
-            }),
         }
         labels = {
             "nom": "Nom de la certification",
             "description": "Description",
             "duree": "Durée",
-            "tarif_etudiant": "Tarif étudiant (FCFA)",
-            "tarif_professionnel": "Tarif professionnel (FCFA)",
+            "a_options": "Organiser par options (A1, A2…)",
             "actif": "Certification active",
-            "partenaire_nom": "Nom du partenaire",
-            "partenaire_logo": "Logo du partenaire",
-            "partenaire_titre_signataire": "Titre du signataire partenaire",
+        }
+
+
+class OptionCertificationForm(forms.ModelForm):
+    class Meta:
+        model = OptionCertification
+        fields = ["nom", "actif"]
+        widgets = {
+            "nom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ex: A1, A2, Module Python…",
+                }
+            ),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+        labels = {
+            "nom": "Nom de l'option",
+            "actif": "Option active",
+        }
+
+
+class TypeTarifForm(forms.ModelForm):
+    class Meta:
+        model = TypeTarif
+        fields = ["nom", "montant", "actif"]
+        widgets = {
+            "nom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ex: Étudiant, Professionnel, Chômeur…",
+                }
+            ),
+            "montant": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "0",
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+        labels = {
+            "nom": "Nom du tarif",
+            "montant": "Montant (FCFA)",
+            "actif": "Tarif actif",
         }
 
 
@@ -66,18 +108,24 @@ class CohorteForm(forms.ModelForm):
         model = Cohorte
         fields = ["nom", "date_debut", "date_fin", "actif"]
         widgets = {
-            "nom": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Nom de la cohorte",
-            }),
-            "date_debut": forms.DateInput(attrs={
-                "class": "form-control",
-                "type": "date",
-            }),
-            "date_fin": forms.DateInput(attrs={
-                "class": "form-control",
-                "type": "date",
-            }),
+            "nom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nom de la cohorte",
+                }
+            ),
+            "date_debut": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+            "date_fin": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
@@ -91,41 +139,66 @@ class CohorteForm(forms.ModelForm):
 class InscritForm(forms.ModelForm):
     class Meta:
         model = Inscrit
-        fields = ["nom", "prenom", "email", "telephone", "activite", "universite", "entreprise", "notes"]
+        fields = [
+            "nom",
+            "prenom",
+            "email",
+            "telephone",
+            "activite",
+            "universite",
+            "entreprise",
+            "notes",
+        ]
         widgets = {
-            "nom": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Nom de famille",
-            }),
-            "prenom": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Prénom",
-            }),
-            "email": forms.EmailInput(attrs={
-                "class": "form-control",
-                "placeholder": "adresse@email.com",
-            }),
-            "telephone": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "+221 77 000 00 00",
-            }),
-            "activite": forms.Select(attrs={
-                "class": "form-select",
-                "id": "id_activite",
-            }),
-            "universite": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Nom de l'université ou de l'école",
-            }),
-            "entreprise": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Nom de l'entreprise",
-            }),
-            "notes": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 3,
-                "placeholder": "Notes ou informations complémentaires...",
-            }),
+            "nom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nom de famille",
+                }
+            ),
+            "prenom": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Prénom",
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "adresse@email.com",
+                }
+            ),
+            "telephone": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "+221 77 000 00 00",
+                }
+            ),
+            "activite": forms.Select(
+                attrs={
+                    "class": "form-select",
+                    "id": "id_activite",
+                }
+            ),
+            "universite": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nom de l'université ou de l'école",
+                }
+            ),
+            "entreprise": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nom de l'entreprise",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Notes ou informations complémentaires...",
+                }
+            ),
         }
         labels = {
             "nom": "Nom",
@@ -142,24 +215,30 @@ class InscritForm(forms.ModelForm):
 class InscriptionForm(forms.ModelForm):
     class Meta:
         model = Inscription
-        fields = ["cohorte", "statut", "montant_du", "notes"]
+        fields = ["cohorte", "type_tarif", "statut", "montant_du", "notes"]
         widgets = {
-            "cohorte": forms.Select(attrs={"class": "form-select"}),
+            "cohorte": forms.Select(attrs={"class": "form-select", "id": "id_cohorte_insc"}),
+            "type_tarif": forms.Select(attrs={"class": "form-select", "id": "id_type_tarif_insc"}),
             "statut": forms.Select(attrs={"class": "form-select"}),
-            "montant_du": forms.NumberInput(attrs={
-                "class": "form-control",
-                "placeholder": "0",
-                "min": "0",
-                "step": "1",
-            }),
-            "notes": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 3,
-                "placeholder": "Notes complémentaires...",
-            }),
+            "montant_du": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "0",
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Notes complémentaires...",
+                }
+            ),
         }
         labels = {
             "cohorte": "Cohorte",
+            "type_tarif": "Type de tarif",
             "statut": "Statut initial",
             "montant_du": "Montant dû (FCFA)",
             "notes": "Notes",
@@ -168,6 +247,9 @@ class InscriptionForm(forms.ModelForm):
     def __init__(self, *args, inscrit=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.inscrit = inscrit
+        self.fields["type_tarif"].required = False
+        self.fields["type_tarif"].empty_label = "— Sélectionner un tarif —"
+        self.fields["type_tarif"].queryset = TypeTarif.objects.none()
         if inscrit:
             # Exclude cohortes already enrolled
             already = inscrit.inscriptions.values_list("cohorte_id", flat=True)
@@ -177,6 +259,9 @@ class InscriptionForm(forms.ModelForm):
             self.fields["cohorte"].label_from_instance = (
                 lambda obj: f"{obj.certification.nom} — {obj.nom}"
             )
+        self.fields["type_tarif"].label_from_instance = (
+            lambda obj: f"{obj.nom} — {obj.montant:,.0f} FCFA"
+        )
 
 
 class ChangerStatutForm(forms.ModelForm):
@@ -202,26 +287,34 @@ class PaiementForm(forms.ModelForm):
         ]
         widgets = {
             "inscription": forms.Select(attrs={"class": "form-select"}),
-            "montant": forms.NumberInput(attrs={
-                "class": "form-control",
-                "placeholder": "0",
-                "min": "0",
-                "step": "1",
-            }),
-            "date_paiement": forms.DateInput(attrs={
-                "class": "form-control",
-                "type": "date",
-            }),
+            "montant": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "0",
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+            "date_paiement": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
             "moyen_paiement": forms.Select(attrs={"class": "form-select"}),
-            "reference": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Numéro de transaction ou référence",
-            }),
-            "notes": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 3,
-                "placeholder": "Notes complémentaires...",
-            }),
+            "reference": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Numéro de transaction ou référence",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Notes complémentaires...",
+                }
+            ),
         }
         labels = {
             "inscription": "Inscription (Inscrit — Cohorte)",
@@ -234,10 +327,9 @@ class PaiementForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["inscription"].queryset = (
-            Inscription.objects.select_related("inscrit", "cohorte__certification")
-            .order_by("inscrit__nom", "inscrit__prenom")
-        )
+        self.fields["inscription"].queryset = Inscription.objects.select_related(
+            "inscrit", "cohorte__certification"
+        ).order_by("inscrit__nom", "inscrit__prenom")
         self.fields["inscription"].label_from_instance = (
             lambda obj: f"{obj.inscrit.prenom} {obj.inscrit.nom} — {obj.cohorte}"
         )
@@ -250,26 +342,34 @@ class PaiementInscriptionForm(forms.ModelForm):
         model = Paiement
         fields = ["montant", "date_paiement", "moyen_paiement", "reference", "notes"]
         widgets = {
-            "montant": forms.NumberInput(attrs={
-                "class": "form-control",
-                "placeholder": "0",
-                "min": "0",
-                "step": "1",
-            }),
-            "date_paiement": forms.DateInput(attrs={
-                "class": "form-control",
-                "type": "date",
-            }),
+            "montant": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "0",
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+            "date_paiement": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
             "moyen_paiement": forms.Select(attrs={"class": "form-select"}),
-            "reference": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Numéro de transaction ou référence",
-            }),
-            "notes": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 3,
-                "placeholder": "Notes complémentaires...",
-            }),
+            "reference": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Numéro de transaction ou référence",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Notes complémentaires...",
+                }
+            ),
         }
         labels = {
             "montant": "Montant (FCFA)",
@@ -283,14 +383,18 @@ class PaiementInscriptionForm(forms.ModelForm):
 class ImportExcelForm(forms.Form):
     fichier = forms.FileField(
         label="Fichier Excel (.xlsx)",
-        widget=forms.ClearableFileInput(attrs={
-            "class": "form-control",
-            "accept": ".xlsx",
-        }),
+        widget=forms.ClearableFileInput(
+            attrs={
+                "class": "form-control",
+                "accept": ".xlsx",
+            }
+        ),
         help_text="Format accepté : .xlsx",
     )
     cohorte = forms.ModelChoiceField(
-        queryset=Cohorte.objects.select_related("certification").order_by("certification__nom", "nom"),
+        queryset=Cohorte.objects.select_related("certification").order_by(
+            "certification__nom", "nom"
+        ),
         label="Cohorte cible",
         help_text="Les inscrits importés seront inscrits à cette cohorte.",
         widget=forms.Select(attrs={"class": "form-select"}),
@@ -336,10 +440,13 @@ class ImportExcelForm(forms.Form):
 
 class UserForm(forms.ModelForm):
     ROLE_CHOICES = [
-        ("Super Utilisateur",    "Super Utilisateur — accès complet"),
-        ("Responsable Scolarité","Responsable Scolarité — gestion certifications/inscrits/paiements"),
-        ("Admin",                "Admin — gestion utilisateurs + audit"),
-        ("Personnel Utilisateur","Personnel Utilisateur — lecture seule"),
+        ("Super Utilisateur", "Super Utilisateur — accès complet"),
+        (
+            "Responsable Scolarité",
+            "Responsable Scolarité — gestion certifications/inscrits/paiements",
+        ),
+        ("Admin", "Admin — gestion utilisateurs + audit"),
+        ("Personnel Utilisateur", "Personnel Utilisateur — lecture seule"),
     ]
     password = forms.CharField(
         label="Mot de passe",
@@ -391,9 +498,9 @@ class UserForm(forms.ModelForm):
         if password:
             user.set_password(password)
         role = self.cleaned_data.get("role", "Personnel Utilisateur")
-        user.is_superuser = (role == "Super Utilisateur")
+        user.is_superuser = role == "Super Utilisateur"
         # is_staff=True donne accès à /admin/ Django (Super Utilisateur + Admin seulement)
-        user.is_staff = (role in ("Super Utilisateur", "Admin"))
+        user.is_staff = role in ("Super Utilisateur", "Admin")
         if commit:
             user.save()
             user.groups.clear()
@@ -407,8 +514,14 @@ class UserForm(forms.ModelForm):
 # Portail / Wizard forms
 # ---------------------------------------------------------------------------
 
+
 class WizardStep1Form(forms.Form):
-    """Étape 1 : informations personnelles"""
+    """Étape 1 : informations personnelles + profil (fusion ancien step 1 + step 2)"""
+
+    ACTIVITE_CHOICES = [
+        ("etudiant", "Étudiant(e)"),
+        ("professionnel", "Professionnel(le)"),
+    ]
     nom = forms.CharField(
         label="Nom",
         max_length=100,
@@ -434,10 +547,33 @@ class WizardStep1Form(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Votre adresse"}),
     )
+    activite = forms.ChoiceField(
+        label="Profil",
+        choices=ACTIVITE_CHOICES,
+        initial="etudiant",
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+    )
+    universite = forms.CharField(
+        label="Université / École",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom de votre université"}
+        ),
+    )
+    entreprise = forms.CharField(
+        label="Entreprise",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom de votre entreprise"}
+        ),
+    )
 
 
 class WizardStep2Form(forms.Form):
     """Étape 2 : profil"""
+
     ACTIVITE_CHOICES = [
         ("etudiant", "Étudiant(e)"),
         ("professionnel", "Professionnel(le)"),
@@ -451,23 +587,28 @@ class WizardStep2Form(forms.Form):
         label="Université / École",
         max_length=200,
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom de votre université"}),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom de votre université"}
+        ),
     )
     entreprise = forms.CharField(
         label="Entreprise",
         max_length=200,
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom de votre entreprise"}),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom de votre entreprise"}
+        ),
     )
 
 
 class WizardStep3Form(forms.Form):
     """Étape 3 : choix certification + cohorte"""
+
     certif_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     cohorte = forms.ModelChoiceField(
-        queryset=Cohorte.objects.filter(actif=True).select_related("certification").order_by(
-            "certification__nom", "nom"
-        ),
+        queryset=Cohorte.objects.filter(actif=True)
+        .select_related("certification")
+        .order_by("certification__nom", "nom"),
         label="Cohorte",
         empty_label="— Sélectionner une cohorte —",
         widget=forms.Select(attrs={"class": "form-select"}),
@@ -482,6 +623,7 @@ class WizardStep3Form(forms.Form):
 
 class ChangerMdpApprenantForm(forms.Form):
     """Formulaire de changement de mot de passe (première connexion)"""
+
     nouveau_mdp = forms.CharField(
         label="Nouveau mot de passe",
         min_length=6,
@@ -510,7 +652,16 @@ class ProfilApprenantForm(forms.ModelForm):
 
     class Meta:
         model = Inscrit
-        fields = ["nom", "prenom", "email", "telephone", "adresse", "universite", "entreprise", "activite"]
+        fields = [
+            "nom",
+            "prenom",
+            "email",
+            "telephone",
+            "adresse",
+            "universite",
+            "entreprise",
+            "activite",
+        ]
         widgets = {
             "nom": forms.TextInput(attrs={"class": "form-control"}),
             "prenom": forms.TextInput(attrs={"class": "form-control"}),

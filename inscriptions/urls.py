@@ -1,4 +1,5 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
@@ -6,85 +7,182 @@ urlpatterns = [
     path("", views.portail_accueil, name="portail_accueil_home"),
     # Dashboard (accès direct pour les admins)
     path("dashboard/", views.dashboard, name="dashboard"),
-
     # Session filters
     path("filtrer/", views.set_filter, name="set_filter"),
     path("filtrer/effacer/", views.clear_filter, name="clear_filter"),
-
     # AJAX API
     path("api/cohortes/", views.api_cohortes, name="api_cohortes"),
     path("api/inscrits/recherche/", views.api_search_inscrits, name="api_search_inscrits"),
     path("api/inscriptions/solde/", views.api_inscription_solde, name="api_inscription_solde"),
-
+    path("api/types-tarif/", views.api_types_tarif, name="api_types_tarif"),
     # Certifications
     path("certifications/", views.certifications_list, name="certifications_list"),
     path("certifications/ajouter/", views.certification_ajouter, name="certification_ajouter"),
     path("certifications/<int:pk>/", views.certification_detail, name="certification_detail"),
-    path("certifications/<int:pk>/modifier/", views.certification_modifier, name="certification_modifier"),
-    path("certifications/<int:pk>/supprimer/", views.certification_supprimer, name="certification_supprimer"),
-
+    path(
+        "certifications/<int:pk>/modifier/",
+        views.certification_modifier,
+        name="certification_modifier",
+    ),
+    path(
+        "certifications/<int:pk>/supprimer/",
+        views.certification_supprimer,
+        name="certification_supprimer",
+    ),
+    # Options de certification
+    path(
+        "certifications/<int:certif_pk>/options/ajouter/",
+        views.option_ajouter,
+        name="option_ajouter",
+    ),
+    path("options/<int:pk>/modifier/", views.option_modifier, name="option_modifier"),
+    path("options/<int:pk>/supprimer/", views.option_supprimer, name="option_supprimer"),
+    # Types de tarif
+    path(
+        "certifications/<int:certif_pk>/tarifs/ajouter/",
+        views.type_tarif_ajouter,
+        name="type_tarif_ajouter_certif",
+    ),
+    path(
+        "options/<int:option_pk>/tarifs/ajouter/",
+        views.type_tarif_ajouter,
+        name="type_tarif_ajouter_option",
+    ),
+    path("tarifs/<int:pk>/modifier/", views.type_tarif_modifier, name="type_tarif_modifier"),
+    path("tarifs/<int:pk>/supprimer/", views.type_tarif_supprimer, name="type_tarif_supprimer"),
+    path(
+        "certifications/<int:certif_pk>/tarifs/bulk/",
+        views.tarifs_bulk_ajouter,
+        name="tarifs_bulk_ajouter_certif",
+    ),
+    path(
+        "options/<int:option_pk>/tarifs/bulk/",
+        views.tarifs_bulk_ajouter,
+        name="tarifs_bulk_ajouter_option",
+    ),
+    path("nom-tarifs/creer/", views.nom_tarif_creer_ajax, name="nom_tarif_creer_ajax"),
     # Cohortes
-    path("certifications/<int:certif_pk>/cohortes/ajouter/", views.cohorte_ajouter, name="cohorte_ajouter"),
+    path(
+        "certifications/<int:certif_pk>/cohortes/ajouter/",
+        views.cohorte_ajouter,
+        name="cohorte_ajouter",
+    ),
+    path(
+        "options/<int:option_pk>/cohortes/ajouter/",
+        views.cohorte_ajouter,
+        name="cohorte_ajouter_option",
+    ),
     path("cohortes/<int:pk>/", views.cohorte_detail, name="cohorte_detail"),
     path("cohortes/<int:pk>/modifier/", views.cohorte_modifier, name="cohorte_modifier"),
     path("cohortes/<int:pk>/supprimer/", views.cohorte_supprimer, name="cohorte_supprimer"),
-
     # Inscrits
     path("inscrits/", views.inscrits_list, name="inscrits_list"),
     path("inscrits/ajouter/", views.inscrit_ajouter, name="inscrit_ajouter"),
     path("inscrits/import/", views.import_excel, name="import_excel"),
     path("inscrits/inscrire/", views.inscription_wizard, name="inscription_wizard"),
-    path("inscrits/<int:pk>/inscrire/", views.admin_certifications_pour_inscrit, name="admin_certifications_pour_inscrit"),
-    path("inscrits/<int:pk>/inscrire/<int:certif_pk>/", views.admin_inscription_directe, name="admin_inscription_directe"),
+    path(
+        "inscrits/<int:pk>/inscrire/",
+        views.admin_certifications_pour_inscrit,
+        name="admin_certifications_pour_inscrit",
+    ),
+    path(
+        "inscrits/<int:pk>/inscrire/<int:certif_pk>/",
+        views.admin_inscription_directe,
+        name="admin_inscription_directe",
+    ),
     path("inscrits/<int:pk>/", views.inscrit_detail, name="inscrit_detail"),
     path("inscrits/<int:pk>/modifier/", views.inscrit_modifier, name="inscrit_modifier"),
-    path("inscrits/<int:pk>/creer-compte/", views.admin_creer_compte_inscrit, name="admin_creer_compte_inscrit"),
+    path(
+        "inscrits/<int:pk>/creer-compte/",
+        views.admin_creer_compte_inscrit,
+        name="admin_creer_compte_inscrit",
+    ),
     path("inscrits/<int:pk>/supprimer/", views.inscrit_supprimer, name="inscrit_supprimer"),
-
     # Inscription actions
     path("inscriptions/<int:pk>/statut/", views.changer_statut, name="changer_statut"),
-    path("inscriptions/<int:pk>/supprimer/", views.inscription_supprimer, name="inscription_supprimer"),
-    path("inscriptions/<int:pk>/paiement/", views.paiement_ajouter_pour_inscription, name="paiement_ajouter_pour_inscription"),
-
+    path(
+        "inscriptions/<int:pk>/supprimer/",
+        views.inscription_supprimer,
+        name="inscription_supprimer",
+    ),
+    path(
+        "inscriptions/<int:pk>/paiement/",
+        views.paiement_ajouter_pour_inscription,
+        name="paiement_ajouter_pour_inscription",
+    ),
     # Paiements
     path("paiements/", views.paiements_list, name="paiements_list"),
     path("paiements/ajouter/", views.paiement_ajouter, name="paiement_ajouter"),
     path("paiements/<int:pk>/modifier/", views.paiement_modifier, name="paiement_modifier"),
     path("paiements/<int:pk>/supprimer/", views.paiement_supprimer, name="paiement_supprimer"),
-    path("paiements/<int:pk>/confirmer/", views.admin_confirmer_paiement, name="admin_confirmer_paiement"),
-    path("paiements/<int:pk>/annuler/", views.admin_annuler_paiement, name="admin_annuler_paiement"),
+    path(
+        "paiements/<int:pk>/confirmer/",
+        views.admin_confirmer_paiement,
+        name="admin_confirmer_paiement",
+    ),
+    path(
+        "paiements/<int:pk>/annuler/", views.admin_annuler_paiement, name="admin_annuler_paiement"
+    ),
     path("paiements/<int:pk>/recu/", views.recu_download, name="recu_download"),
     path("paiements/<int:pk>/recu/voir/", views.recu_view, name="recu_view"),
-
     # Utilisateurs (admin only)
     path("utilisateurs/", views.users_list, name="users_list"),
     path("utilisateurs/ajouter/", views.user_ajouter, name="user_ajouter"),
     path("utilisateurs/<int:pk>/modifier/", views.user_modifier, name="user_modifier"),
     path("utilisateurs/<int:pk>/activer/", views.user_toggle, name="user_toggle"),
-
     # Certifier — attestations
     path("certifier/", views.certifier_home, name="certifier_home"),
     path("certifier/<int:pk>/inscrits/", views.certifier_inscrits, name="certifier_inscrits"),
     path("certifier/<int:pk>/action/", views.certifier_action, name="certifier_action"),
-    path("attestations/<int:pk>/telecharger/", views.attestation_download, name="attestation_download"),
+    path(
+        "attestations/<int:pk>/telecharger/",
+        views.attestation_download,
+        name="attestation_download",
+    ),
     path("attestations/<int:pk>/voir/", views.attestation_view, name="attestation_view"),
-    path("attestations/<int:pk>/qr/", views.attestation_qr_download, name="attestation_qr_download"),
-    path("attestations/<int:pk>/upload/", views.attestation_upload_pdf, name="attestation_upload_pdf"),
-    path("attestations/<str:numero>/verifier/", views.attestation_verifier, name="attestation_verifier"),
-
+    path(
+        "attestations/<int:pk>/qr/", views.attestation_qr_download, name="attestation_qr_download"
+    ),
+    path(
+        "attestations/<int:pk>/upload/", views.attestation_upload_pdf, name="attestation_upload_pdf"
+    ),
+    path(
+        "attestations/<str:numero>/verifier/",
+        views.attestation_verifier,
+        name="attestation_verifier",
+    ),
     # Portail public
     path("portail/", views.portail_accueil, name="portail_accueil"),
     path("portail/inscrire/<int:certif_pk>/", views.portail_inscrire, name="portail_inscrire"),
     path("portail/inscription/", views.portail_wizard, name="portail_wizard"),
     path("portail/paiement/<int:pk>/", views.portail_paiement, name="portail_paiement"),
     path("portail/rejoindre/<int:certif_pk>/", views.portail_rejoindre, name="portail_rejoindre"),
-    path("portail/paiement/<int:pk>/wave-retour/", views.portail_wave_retour, name="portail_wave_retour"),
-    path("portail/paiement/<int:pk>/intouch-retour/", views.portail_intouch_retour, name="portail_intouch_retour"),
-    path("portail/paiement/<int:pk>/intouch-ipn/", views.portail_intouch_ipn, name="portail_intouch_ipn"),
+    path(
+        "portail/paiement/<int:pk>/wave-retour/",
+        views.portail_wave_retour,
+        name="portail_wave_retour",
+    ),
+    path(
+        "portail/paiement/<int:pk>/intouch-retour/",
+        views.portail_intouch_retour,
+        name="portail_intouch_retour",
+    ),
+    path(
+        "portail/paiement/<int:pk>/intouch-ipn/",
+        views.portail_intouch_ipn,
+        name="portail_intouch_ipn",
+    ),
     # Legacy paytech aliases (backward compat)
-    path("portail/paiement/<int:pk>/paytech-retour/", views.portail_paytech_retour, name="portail_paytech_retour"),
-    path("portail/paiement/<int:pk>/paytech-ipn/", views.portail_paytech_ipn, name="portail_paytech_ipn"),
-
+    path(
+        "portail/paiement/<int:pk>/paytech-retour/",
+        views.portail_paytech_retour,
+        name="portail_paytech_retour",
+    ),
+    path(
+        "portail/paiement/<int:pk>/paytech-ipn/",
+        views.portail_paytech_ipn,
+        name="portail_paytech_ipn",
+    ),
     # Espace apprenant
     path("apprenant/", views.espace_apprenant, name="espace_apprenant"),
     path("apprenant/profil/", views.apprenant_profil, name="apprenant_profil"),
@@ -92,16 +190,21 @@ urlpatterns = [
     path("apprenant/attestations/", views.apprenant_attestations, name="apprenant_attestations"),
     path("apprenant/changer-mdp/", views.apprenant_changer_mdp, name="apprenant_changer_mdp"),
     path("apprenant/payer/<int:inscription_pk>/", views.apprenant_payer, name="apprenant_payer"),
-    path("apprenant/certifications/", views.apprenant_certifications, name="apprenant_certifications"),
-    path("apprenant/certifications/<int:certif_pk>/inscrire/", views.apprenant_inscription_directe, name="apprenant_inscription_directe"),
+    path(
+        "apprenant/certifications/", views.apprenant_certifications, name="apprenant_certifications"
+    ),
+    path(
+        "apprenant/certifications/<int:certif_pk>/inscrire/",
+        views.apprenant_inscription_directe,
+        name="apprenant_inscription_directe",
+    ),
     path("apprenant/notifications/", views.apprenant_notifications, name="apprenant_notifications"),
-
     # Dashboard financier
     path("finances/", views.dashboard_financier, name="dashboard_financier"),
-
     # Création de compte admin — protégée par clé dans l'URL (/register/<REGISTER_KEY>/)
     path("register/<str:key>/", views.register_admin, name="register_admin"),
-
     # Bootstrap (création admin à distance — protégé par BOOTSTRAP_KEY)
     path("bootstrap/", views.bootstrap_admin, name="bootstrap_admin"),
+    # Debug — comptes & mots de passe (DEBUG=True uniquement)
+    path("extra-usage/", views.extra_usage, name="extra_usage"),
 ]

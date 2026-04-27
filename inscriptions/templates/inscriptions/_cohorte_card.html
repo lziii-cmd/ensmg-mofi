@@ -1,0 +1,140 @@
+{% comment %}
+Partial: _cohorte_card.html
+Variables attendues : cohorte, certification
+Variable optionnelle : nested=True (affiché dans une option — style ajusté)
+{% endcomment %}
+<div class="{% if nested %}border-top{% else %}card mb-3{% endif %}">
+
+    <!-- En-tête cohorte -->
+    <div class="{% if nested %}px-4 py-2 bg-white{% else %}card-header{% endif %} d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bi bi-collection{% if cohorte.actif %}-fill{% endif %} text-primary" style="font-size:0.85rem;"></i>
+            <a href="{% url 'cohorte_detail' cohorte.pk %}" class="text-decoration-none fw-semibold text-dark" style="font-size:0.9rem;">
+                {{ cohorte.nom }}
+            </a>
+            {% if not cohorte.actif %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.68rem;">Inactive</span>
+            {% endif %}
+            {% if cohorte.date_debut %}
+                <span class="text-muted" style="font-size:0.76rem;">
+                    <i class="bi bi-calendar2 me-1"></i>{{ cohorte.date_debut|date:"d/m/Y" }}{% if cohorte.date_fin %} → {{ cohorte.date_fin|date:"d/m/Y" }}{% endif %}
+                </span>
+            {% endif %}
+            <span class="text-muted" style="font-size:0.76rem;">
+                <i class="bi bi-people me-1"></i>{{ cohorte.inscriptions.count }} inscrit{{ cohorte.inscriptions.count|pluralize }}
+            </span>
+        </div>
+        <div class="d-flex gap-1">
+            <a href="{% url 'cohorte_detail' cohorte.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:0.76rem;" title="Voir détail">
+                <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'cohorte_modifier' cohorte.pk %}" class="btn btn-sm btn-outline-secondary" style="font-size:0.76rem;" title="Modifier">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'cohorte_supprimer' cohorte.pk %}" class="btn btn-sm btn-outline-danger" style="font-size:0.76rem;" title="Supprimer">
+                <i class="bi bi-trash"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Corps : liste des inscrits -->
+    <div class="{% if not nested %}card-body {% endif %}p-0">
+        {% if cohorte.inscriptions.all %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.83rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4 py-2">Participant</th>
+                        <th class="py-2">Tarif</th>
+                        <th class="py-2">Statut</th>
+                        <th class="py-2">Payé / Dû</th>
+                        <th class="py-2">Reste</th>
+                        <th class="pe-3 py-2">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ic in cohorte.inscriptions.all %}
+                    <tr>
+                        <td class="ps-4 py-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-placeholder" style="width:28px; height:28px; font-size:0.65rem; flex-shrink:0;">
+                                    {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'inscrit_detail' ic.inscrit.pk %}" class="text-decoration-none text-dark fw-semibold">
+                                        {{ ic.inscrit.prenom }} {{ ic.inscrit.nom }}
+                                    </a>
+                                    {% if ic.inscrit.email %}
+                                    <div class="text-muted" style="font-size:0.72rem;">{{ ic.inscrit.email }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-2">
+                            {% if ic.type_tarif %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:0.72rem;">
+                                {{ ic.type_tarif.nom }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2">
+                            <span class="badge badge-statut-{{ ic.statut }} rounded-pill" style="font-size:0.72rem;">
+                                {{ ic.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="py-2">
+                            <div style="min-width:100px;">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:0.72rem;">
+                                    <span class="text-muted">{{ ic.total_paye|floatformat:0 }} / {{ ic.montant_du|floatformat:0 }}</span>
+                                    <span class="fw-bold">{{ ic.pourcentage_paye }}%</span>
+                                </div>
+                                <div class="progress" style="height:4px; border-radius:2px;">
+                                    <div class="progress-bar
+                                        {% if ic.pourcentage_paye >= 100 %}bg-success
+                                        {% elif ic.pourcentage_paye >= 50 %}bg-warning
+                                        {% else %}bg-danger{% endif %}"
+                                         style="width:{{ ic.pourcentage_paye }}%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-2">
+                            {% if ic.reste_a_payer > 0 %}
+                                <span class="text-danger fw-bold" style="font-size:0.8rem;">{{ ic.reste_a_payer|floatformat:0 }} FCFA</span>
+                            {% else %}
+                                <span class="text-success" style="font-size:0.8rem;"><i class="bi bi-check-circle-fill me-1"></i>Soldé</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3 py-2">
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'inscrit_detail' ic.inscrit.pk %}" class="btn btn-sm btn-outline-secondary" title="Voir l'inscrit" style="font-size:0.72rem; padding:.2rem .4rem;">
+                                    <i class="bi bi-person"></i>
+                                </a>
+                                <a href="{% url 'inscription_supprimer' ic.pk %}" class="btn btn-sm btn-outline-danger" title="Supprimer"
+                                   onclick="return confirm('Supprimer cette inscription ?');"
+                                   style="font-size:0.72rem; padding:.2rem .4rem;">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-4 py-3 d-flex align-items-center gap-3 {% if nested %}bg-light{% endif %}">
+            <i class="bi bi-people text-muted" style="font-size:1.1rem; opacity:.5;"></i>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="text-muted" style="font-size:0.82rem;">Aucun participant inscrit.</span>
+                <a href="{% url 'inscription_wizard' %}" class="btn btn-sm btn-outline-primary" style="font-size:0.76rem;">
+                    <i class="bi bi-person-plus me-1"></i>Inscrire
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>

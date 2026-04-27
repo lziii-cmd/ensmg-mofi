@@ -1,24 +1,22 @@
-import uuid
-from django.db import models
-from django.utils import timezone
+from functools import cached_property
+
 from django.conf import settings
+from django.db import models
+from django.db.models import Sum
+from django.utils import timezone
 
 
 class Certification(models.Model):
     nom = models.CharField(max_length=200, verbose_name="Nom de la certification")
     description = models.TextField(blank=True, verbose_name="Description")
     duree = models.CharField(max_length=100, blank=True, verbose_name="Durée")
-    tarif_etudiant = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0, verbose_name="Tarif étudiant (FCFA)"
-    )
-    tarif_professionnel = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0, verbose_name="Tarif professionnel (FCFA)"
+    a_options = models.BooleanField(
+        default=False,
+        verbose_name="Avec options",
+        help_text="Si activé, la certification est organisée en options (ex: A1, A2…). "
+        "Chaque option dispose de ses propres cohortes et tarifs.",
     )
     actif = models.BooleanField(default=True, verbose_name="Active")
-    # Partenaire (optionnel — utilisé sur l'attestation PDF)
-    partenaire_nom              = models.CharField(max_length=200, blank=True, verbose_name="Nom du partenaire")
-    partenaire_logo             = models.ImageField(upload_to="partenaires/", blank=True, null=True, verbose_name="Logo du partenaire")
-    partenaire_titre_signataire = models.CharField(max_length=200, blank=True, default="Le Représentant", verbose_name="Titre du signataire partenaire")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -29,30 +27,128 @@ class Certification(models.Model):
     def __str__(self):
         return self.nom
 
-    @property
+    @cached_property
     def nb_inscrits(self):
         return Inscription.objects.filter(cohorte__certification=self).count()
 
-    @property
+    @cached_property
     def nb_certifies(self):
         return Inscription.objects.filter(cohorte__certification=self, statut="certifie").count()
 
-    @property
+    @cached_property
     def nb_en_formation(self):
-        return Inscription.objects.filter(cohorte__certification=self, statut="en_formation").count()
+        return Inscription.objects.filter(
+            cohorte__certification=self, statut="en_formation"
+        ).count()
 
-    @property
+    @cached_property
     def nb_cohortes(self):
         return self.cohortes.count()
 
-    @property
+    @cached_property
     def montant_encaisse(self):
-        total = sum(
-            p.montant
-            for insc in Inscription.objects.filter(cohorte__certification=self)
-            for p in insc.paiements.all()
+        result = Paiement.objects.filter(inscription__cohorte__certification=self).aggregate(
+            total=Sum("montant")
         )
-        return total
+        return result["total"] or 0
+
+
+class OptionCertification(models.Model):
+    """Option d'une certification (ex: A1, A2, Module Python…).
+    Utilisée uniquement quand Certification.a_options=True."""
+
+    certification = models.ForeignKey(
+        Certification,
+        on_delete=models.CASCADE,
+        related_name="options",
+        verbose_name="Certification",
+    )
+    nom = models.CharField(max_length=200, verbose_name="Nom de l'option")
+    actif = models.BooleanField(default=True, verbose_name="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Option de certification"
+        verbose_name_plural = "Options de certification"
+        ordering = ["nom"]
+        unique_together = [["certification", "nom"]]
+
+    def __str__(self):
+        return f"{self.certification.nom} — {self.nom}"
+
+    @cached_property
+    def nb_inscrits(self):
+        return Inscription.objects.filter(cohorte__option=self).count()
+
+    @cached_property
+    def montant_encaisse(self):
+        result = Paiement.objects.filter(inscription__cohorte__option=self).aggregate(
+            total=Sum("montant")
+        )
+        return result["total"] or 0
+
+
+class NomTypeTarif(models.Model):
+    """Catalogue global de noms de types de tarif (Étudiant, Professionnel…).
+    Réutilisable sur toutes les certifications."""
+
+    nom = models.CharField(max_length=100, unique=True, verbose_name="Nom")
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Nom de type de tarif"
+        verbose_name_plural = "Noms de types de tarif"
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+
+class TypeTarif(models.Model):
+    """Type de tarif flexible (Étudiant, Professionnel, Chômeur, Fonctionnaire…).
+    Rattaché soit à une Certification (si a_options=False),
+    soit à une OptionCertification (si a_options=True)."""
+
+    certification = models.ForeignKey(
+        Certification,
+        on_delete=models.CASCADE,
+        related_name="types_tarif",
+        verbose_name="Certification",
+        null=True,
+        blank=True,
+    )
+    option = models.ForeignKey(
+        OptionCertification,
+        on_delete=models.CASCADE,
+        related_name="types_tarif",
+        verbose_name="Option",
+        null=True,
+        blank=True,
+    )
+    nom = models.CharField(max_length=100, verbose_name="Nom du tarif")
+    montant = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, verbose_name="Montant (FCFA)"
+    )
+    actif = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Type de tarif"
+        verbose_name_plural = "Types de tarif"
+        ordering = ["nom"]
+
+    def __str__(self):
+        if self.option:
+            return f"{self.option} — {self.nom} ({self.montant} FCFA)"
+        if self.certification:
+            return f"{self.certification.nom} — {self.nom} ({self.montant} FCFA)"
+        return f"{self.nom} ({self.montant} FCFA)"
+
+    @property
+    def parent(self):
+        """Retourne l'option ou la certification parente."""
+        return self.option or self.certification
 
 
 class Cohorte(models.Model):
@@ -61,6 +157,14 @@ class Cohorte(models.Model):
         on_delete=models.CASCADE,
         related_name="cohortes",
         verbose_name="Certification",
+    )
+    option = models.ForeignKey(
+        OptionCertification,
+        on_delete=models.SET_NULL,
+        related_name="cohortes",
+        verbose_name="Option",
+        null=True,
+        blank=True,
     )
     nom = models.CharField(max_length=200, verbose_name="Nom de la cohorte")
     date_debut = models.DateField(null=True, blank=True, verbose_name="Date de début")
@@ -76,22 +180,18 @@ class Cohorte(models.Model):
     def __str__(self):
         return f"{self.certification.nom} — {self.nom}"
 
-    @property
+    @cached_property
     def nb_inscrits(self):
         return self.inscriptions.count()
 
-    @property
+    @cached_property
     def nb_certifies(self):
         return self.inscriptions.filter(statut="certifie").count()
 
-    @property
+    @cached_property
     def montant_encaisse(self):
-        total = sum(
-            p.montant
-            for insc in self.inscriptions.all()
-            for p in insc.paiements.all()
-        )
-        return total
+        result = Paiement.objects.filter(inscription__cohorte=self).aggregate(total=Sum("montant"))
+        return result["total"] or 0
 
 
 class Inscrit(models.Model):
@@ -125,9 +225,7 @@ class Inscrit(models.Model):
     universite = models.CharField(max_length=200, blank=True, verbose_name="Université")
     entreprise = models.CharField(max_length=200, blank=True, verbose_name="Entreprise")
     notes = models.TextField(blank=True, verbose_name="Notes")
-    date_inscription = models.DateTimeField(
-        auto_now_add=True, verbose_name="Date d'inscription"
-    )
+    date_inscription = models.DateTimeField(auto_now_add=True, verbose_name="Date d'inscription")
 
     class Meta:
         verbose_name = "Inscrit"
@@ -137,19 +235,19 @@ class Inscrit(models.Model):
     def __str__(self):
         return f"{self.prenom} {self.nom}"
 
-    @property
+    @cached_property
     def nom_complet(self):
         return f"{self.prenom} {self.nom}"
 
 
 class Inscription(models.Model):
     STATUT_CHOICES = [
-        ("pre_inscrit",       "Pré-inscrit"),        # Inscrit, paiement non encore confirmé
-        ("inscrit",           "Inscrit"),             # Paiement confirmé — officiellement admis
-        ("en_formation",      "En formation"),        # Cohorte démarrée (auto)
-        ("abandon",           "Abandon"),             # Manuel
-        ("formation_terminee","Formation terminée"),  # Cohorte terminée (auto)
-        ("certifie",          "Certifié"),            # Attestation délivrée (auto)
+        ("pre_inscrit", "Pré-inscrit"),  # Inscrit, paiement non encore confirmé
+        ("inscrit", "Inscrit"),  # Paiement confirmé — officiellement admis
+        ("en_formation", "En formation"),  # Cohorte démarrée (auto)
+        ("abandon", "Abandon"),  # Manuel
+        ("formation_terminee", "Formation terminée"),  # Cohorte terminée (auto)
+        ("certifie", "Certifié"),  # Attestation délivrée (auto)
     ]
 
     inscrit = models.ForeignKey(
@@ -171,12 +269,18 @@ class Inscription(models.Model):
         verbose_name="Statut",
         db_index=True,
     )
+    type_tarif = models.ForeignKey(
+        TypeTarif,
+        on_delete=models.SET_NULL,
+        related_name="inscriptions",
+        verbose_name="Type de tarif",
+        null=True,
+        blank=True,
+    )
     montant_du = models.DecimalField(
         max_digits=12, decimal_places=2, default=0, verbose_name="Montant dû (FCFA)"
     )
-    date_inscription = models.DateTimeField(
-        auto_now_add=True, verbose_name="Date d'inscription"
-    )
+    date_inscription = models.DateTimeField(auto_now_add=True, verbose_name="Date d'inscription")
     notes = models.TextField(blank=True, verbose_name="Notes")
 
     class Meta:
@@ -188,8 +292,9 @@ class Inscription(models.Model):
     def __str__(self):
         return f"{self.inscrit} — {self.cohorte}"
 
-    @property
+    @cached_property
     def total_paye(self):
+        """Somme des paiements (bénéficie du prefetch_related si activé)."""
         return sum(p.montant for p in self.paiements.all())
 
     @property
@@ -236,12 +341,8 @@ class Paiement(models.Model):
         related_name="paiements",
         verbose_name="Inscription",
     )
-    montant = models.DecimalField(
-        max_digits=12, decimal_places=2, verbose_name="Montant (FCFA)"
-    )
-    date_paiement = models.DateField(
-        default=timezone.now, verbose_name="Date de paiement"
-    )
+    montant = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Montant (FCFA)")
+    date_paiement = models.DateField(default=timezone.now, verbose_name="Date de paiement")
     moyen_paiement = models.CharField(
         max_length=20,
         choices=MOYEN_CHOICES,
@@ -249,9 +350,7 @@ class Paiement(models.Model):
         verbose_name="Moyen de paiement",
         db_index=True,
     )
-    reference = models.CharField(
-        max_length=100, blank=True, verbose_name="Référence"
-    )
+    reference = models.CharField(max_length=100, blank=True, verbose_name="Référence")
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
@@ -308,14 +407,11 @@ class CompteApprenant(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='compte_apprenant',
-        verbose_name="Utilisateur"
+        related_name="compte_apprenant",
+        verbose_name="Utilisateur",
     )
     inscrit = models.OneToOneField(
-        Inscrit,
-        on_delete=models.CASCADE,
-        related_name='compte_apprenant',
-        verbose_name="Inscrit"
+        Inscrit, on_delete=models.CASCADE, related_name="compte_apprenant", verbose_name="Inscrit"
     )
     mdp_change = models.BooleanField(default=False, verbose_name="Mot de passe changé")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -330,26 +426,24 @@ class CompteApprenant(models.Model):
 
 class Notification(models.Model):
     TYPE_CHOICES = [
-        ('nouvelle_certification', 'Nouvelle certification disponible'),
-        ('attestation_generee', 'Attestation générée'),
-        ('paiement_confirme', 'Paiement confirmé'),
+        ("nouvelle_certification", "Nouvelle certification disponible"),
+        ("attestation_generee", "Attestation générée"),
+        ("paiement_confirme", "Paiement confirmé"),
     ]
     destinataire = models.ForeignKey(
         CompteApprenant,
         on_delete=models.CASCADE,
-        related_name='notifications',
-        verbose_name="Destinataire"
+        related_name="notifications",
+        verbose_name="Destinataire",
     )
-    type_notif = models.CharField(
-        max_length=30, choices=TYPE_CHOICES, verbose_name="Type"
-    )
+    type_notif = models.CharField(max_length=30, choices=TYPE_CHOICES, verbose_name="Type")
     message = models.TextField(verbose_name="Message")
     lu = models.BooleanField(default=False, verbose_name="Lu")
     date_creation = models.DateTimeField(auto_now_add=True)
     lien = models.CharField(max_length=200, blank=True, verbose_name="Lien")
 
     class Meta:
-        ordering = ['-date_creation']
+        ordering = ["-date_creation"]
         verbose_name = "Notification"
         verbose_name_plural = "Notifications"
 

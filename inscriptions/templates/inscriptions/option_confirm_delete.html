@@ -1,0 +1,45 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Supprimer l'option {{ option.nom }} — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifications_list' %}" class="text-decoration-none text-muted">Certifications</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'certification_detail' certification.pk %}" class="text-decoration-none text-muted">{{ certification.nom|truncatechars:30 }}</a>
+</li>
+<li class="breadcrumb-item active">Supprimer l'option</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger-subtle text-danger">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirmer la suppression</h6>
+            </div>
+            <div class="card-body">
+                <p>
+                    Supprimer l'option <strong>« {{ option.nom }} »</strong> de la certification
+                    <strong>{{ certification.nom }}</strong> ?
+                </p>
+                <p class="text-danger" style="font-size:0.88rem;">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    Toutes les cohortes et types de tarif liés à cette option seront également supprimés.
+                    Cette action est irréversible.
+                </p>
+                <form method="post" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Supprimer
+                    </button>
+                    <a href="{% url 'certification_detail' certification.pk %}" class="btn btn-outline-secondary">
+                        Annuler
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

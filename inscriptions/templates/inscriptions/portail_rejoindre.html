@@ -3,7 +3,7 @@
 
 {% block title %}
   {% if wizard_step and wizard_step > 0 %}
-    Inscription — Étape {{ wizard_step }}/4 — {{ certification.nom }}
+    Inscription — Étape {{ wizard_step }}/3 — {{ certification.nom }}
   {% else %}
     Rejoindre {{ certification.nom }} — ENSMG
   {% endif %}
@@ -159,6 +159,13 @@
     border-color: var(--accent); background: var(--accent-light);
 }
 .cohorte-card-inner:hover { border-color: #b4c0f8; }
+.cohorte-card-label.disabled-card { cursor: not-allowed; }
+.cohorte-card-label.disabled-card .cohorte-card-inner {
+    opacity: 0.55;
+    background: #f7fafc;
+    border-style: dashed;
+}
+.cohorte-card-label.disabled-card .cohorte-card-inner:hover { border-color: #e2e8f0; }
 
 /* ─── Recap ───────────────────────────────────────────── */
 .recap-item {
@@ -194,6 +201,27 @@
     color: #e53e3e; font-size: 0.79rem;
 }
 .field-error .form-control, .field-error .form-select { border-color: #e53e3e; }
+
+/* ─── Cascade sections (step 3) ───────────────────────── */
+.cascade-section {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid #edf1f7;
+    animation: fadeInUp 0.25s ease;
+}
+.cascade-section:last-of-type { border-bottom: none; }
+.cascade-title {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.95rem; font-weight: 700; color: var(--navy);
+    margin-bottom: 1rem;
+}
+.cascade-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 700;
+}
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>
 {% endblock %}
 
@@ -222,18 +250,14 @@
         <div class="wiz-steps">
             <div class="wiz-step-item {% if wizard_step > 1 %}done{% endif %} {% if wizard_step == 1 %}active{% endif %}">
                 <div class="step-circle">{% if wizard_step > 1 %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}</div>
-                <div class="step-label">Identité</div>
+                <div class="step-label">Vos informations</div>
             </div>
             <div class="wiz-step-item {% if wizard_step > 2 %}done{% endif %} {% if wizard_step == 2 %}active{% endif %}">
                 <div class="step-circle">{% if wizard_step > 2 %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}</div>
-                <div class="step-label">Profil</div>
+                <div class="step-label">Session &amp; tarif</div>
             </div>
-            <div class="wiz-step-item {% if wizard_step > 3 %}done{% endif %} {% if wizard_step == 3 %}active{% endif %}">
-                <div class="step-circle">{% if wizard_step > 3 %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}</div>
-                <div class="step-label">Session</div>
-            </div>
-            <div class="wiz-step-item {% if wizard_step == 4 %}active{% endif %}">
-                <div class="step-circle">4</div>
+            <div class="wiz-step-item {% if wizard_step == 3 %}active{% endif %}">
+                <div class="step-circle">3</div>
                 <div class="step-label">Confirmation</div>
             </div>
         </div>
@@ -242,71 +266,15 @@
     <div class="panel-box show">
 
         {% if wizard_step == 2 %}
-        <!-- ─── Step 2: Profil ─── -->
-        <div class="wiz-section-title"><i class="bi bi-person-badge me-2" style="color:var(--accent);"></i>Votre profil</div>
-        <div class="wiz-section-sub">Ces informations permettent d'adapter le tarif de la certification.</div>
-
-        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="wizard_step2">
-
-            {% if form_step2.non_field_errors %}
-            <div class="alert alert-danger">{{ form_step2.non_field_errors }}</div>
+        <!-- ─── Step 2: Option + Cohorte + Tarif ─── -->
+        <div class="wiz-section-title"><i class="bi bi-calendar3 me-2" style="color:var(--accent);"></i>Choisir votre formation</div>
+        <div class="wiz-section-sub">
+            {% if has_options %}
+                Sélectionnez votre option, puis votre session et votre tarif.
+            {% else %}
+                Sélectionnez votre session et votre tarif pour <strong>{{ certification.nom }}</strong>.
             {% endif %}
-
-            <div class="mb-3">
-                <label class="form-label d-block mb-2 fw-semibold">Vous êtes <span class="text-danger">*</span></label>
-                <div class="profile-options">
-                    <div class="profile-option">
-                        <input type="radio" id="p_etudiant" name="activite" value="etudiant"
-                               {% if not form_step2 or form_step2.activite.value == 'etudiant' or not form_step2.activite.value %}checked{% endif %}>
-                        <label for="p_etudiant">
-                            <i class="bi bi-mortarboard-fill"></i>
-                            <span>Étudiant(e)</span><small>En cours d'études</small>
-                        </label>
-                    </div>
-                    <div class="profile-option">
-                        <input type="radio" id="p_pro" name="activite" value="professionnel"
-                               {% if form_step2 and form_step2.activite.value == 'professionnel' %}checked{% endif %}>
-                        <label for="p_pro">
-                            <i class="bi bi-briefcase-fill"></i>
-                            <span>Professionnel(le)</span><small>En activité</small>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div id="bloc_universite" class="mb-3">
-                <label class="form-label">Université / École</label>
-                {% if form_step2 %}{{ form_step2.universite }}{% else %}<input type="text" name="universite" class="form-control" placeholder="Nom de votre université">{% endif %}
-            </div>
-            <div id="bloc_entreprise" class="mb-3" style="display:none;">
-                <label class="form-label">Entreprise</label>
-                {% if form_step2 %}{{ form_step2.entreprise }}{% else %}<input type="text" name="entreprise" class="form-control" placeholder="Nom de votre entreprise">{% endif %}
-            </div>
-
-            <!-- Tarif indicatif -->
-            <div style="background:#f0f4ff;border-radius:10px;padding:0.85rem 1rem;font-size:0.83rem;color:#4a5568;margin-bottom:1.25rem;">
-                <i class="bi bi-info-circle me-1 text-primary"></i>
-                Tarif étudiant : <strong>{{ certification.tarif_etudiant|floatformat:0|intcomma }} FCFA</strong>
-                &nbsp;|&nbsp;
-                Tarif pro : <strong>{{ certification.tarif_professionnel|floatformat:0|intcomma }} FCFA</strong>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center gap-2">
-                <a href="/portail/rejoindre/{{ certification.pk }}/?step=1" class="btn-back">
-                    <i class="bi bi-arrow-left"></i> Retour
-                </a>
-                <button type="submit" class="btn btn-primary px-4">
-                    Étape suivante <i class="bi bi-arrow-right ms-1"></i>
-                </button>
-            </div>
-        </form>
-
-        {% elif wizard_step == 3 %}
-        <!-- ─── Step 3: Cohorte ─── -->
-        <div class="wiz-section-title"><i class="bi bi-calendar3 me-2" style="color:var(--accent);"></i>Choisir votre session</div>
-        <div class="wiz-section-sub">Sélectionnez la session disponible pour <strong>{{ certification.nom }}</strong>.</div>
+        </div>
 
         {% if cohorte_error %}
         <div class="alert alert-danger" style="font-size:0.84rem;">
@@ -314,54 +282,192 @@
         </div>
         {% endif %}
 
-        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
+        <form method="post" action="/portail/rejoindre/{{ certification.pk }}/" id="form-step3">
             {% csrf_token %}
-            <input type="hidden" name="action" value="wizard_step3">
+            <input type="hidden" name="action" value="wizard_step2">
 
-            {% if cohortes %}
-            <div class="row g-3 mb-4">
-                {% for c in cohortes %}
-                <div class="col-md-6">
-                    <label class="cohorte-card-label">
-                        <input type="radio" name="cohorte_id" value="{{ c.pk }}"
-                               {% if forloop.first %}checked{% endif %}>
-                        <div class="cohorte-card-inner">
-                            <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">{{ c.nom }}</div>
-                            {% if c.date_debut %}
-                            <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
-                                <i class="bi bi-calendar3 me-1"></i>{{ c.date_debut|date:"d/m/Y" }}
-                                {% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
+            {% if has_options %}
+            <!-- ───── Zone 1 : Choix de l'option ───── -->
+            <div class="cascade-section">
+                <div class="cascade-title">
+                    <span class="cascade-num">1</span>
+                    Votre option
+                </div>
+                <div class="row g-3">
+                    {% for opt in options_data %}
+                    <div class="col-md-6">
+                        <label class="cohorte-card-label{% if not opt.cohortes %} disabled-card{% endif %}">
+                            <input type="radio" name="option_id" value="{{ opt.id }}"
+                                   class="opt-radio" data-option-id="{{ opt.id }}"
+                                   data-has-cohortes="{% if opt.cohortes %}1{% else %}0{% endif %}"
+                                   {% if not opt.cohortes %}disabled{% endif %}>
+                            <div class="cohorte-card-inner">
+                                <div style="font-weight:700;color:var(--navy);font-size:1rem;">
+                                    <i class="bi bi-layers me-1" style="color:var(--accent);"></i>{{ opt.nom }}
+                                </div>
+                                <div style="font-size:0.76rem;color:{% if opt.cohortes %}#a0aec0{% else %}#c53030{% endif %};margin-top:0.35rem;">
+                                    {% if opt.cohortes %}
+                                        {{ opt.cohortes|length }} session{{ opt.cohortes|length|pluralize }} disponible{{ opt.cohortes|length|pluralize }}
+                                    {% else %}
+                                        <i class="bi bi-calendar-x me-1"></i>Aucune session ouverte
+                                    {% endif %}
+                                </div>
                             </div>
-                            {% endif %}
-                            <div style="font-size:0.74rem;color:#a0aec0;margin-top:0.15rem;">
-                                <i class="bi bi-people me-1"></i>{{ c.nb_inscrits }} inscrit{{ c.nb_inscrits|pluralize }}
-                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ───── Zone 2 : Cohortes (par option) ───── -->
+            <div class="cascade-section" id="section-cohortes" style="display:none;">
+                <div class="cascade-title">
+                    <span class="cascade-num">2</span>
+                    Votre session
+                </div>
+                {% for opt in options_data %}
+                <div class="cohorte-group" data-option-id="{{ opt.id }}" style="display:none;">
+                    {% if opt.cohortes %}
+                    <div class="row g-3">
+                        {% for c in opt.cohortes %}
+                        <div class="col-md-6">
+                            <label class="cohorte-card-label">
+                                <input type="radio" name="cohorte_id" value="{{ c.pk }}"
+                                       class="coh-radio" data-option-id="{{ opt.id }}">
+                                <div class="cohorte-card-inner">
+                                    <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">{{ c.nom }}</div>
+                                    {% if c.date_debut %}
+                                    <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
+                                        <i class="bi bi-calendar3 me-1"></i>{{ c.date_debut|date:"d/m/Y" }}
+                                        {% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </label>
                         </div>
-                    </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning" style="font-size:0.84rem;">
+                        <i class="bi bi-calendar-x me-2"></i>Aucune session disponible pour cette option.
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
+
+            <!-- ───── Zone 3 : Tarifs (par option) ───── -->
+            <div class="cascade-section" id="section-tarifs" style="display:none;">
+                <div class="cascade-title">
+                    <span class="cascade-num">3</span>
+                    Votre tarif
+                </div>
+                {% for opt in options_data %}
+                <div class="tarif-group" data-option-id="{{ opt.id }}" style="display:none;">
+                    {% if opt.tarifs %}
+                    <div class="row g-3">
+                        {% for t in opt.tarifs %}
+                        <div class="col-md-6">
+                            <label class="cohorte-card-label">
+                                <input type="radio" name="type_tarif_id" value="{{ t.pk }}" class="tar-radio">
+                                <div class="cohorte-card-inner">
+                                    <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">
+                                        <i class="bi bi-tag me-1" style="color:var(--accent);"></i>{{ t.nom }}
+                                    </div>
+                                    <div style="font-size:1.05rem;color:var(--accent);font-weight:700;margin-top:0.3rem;">
+                                        {{ t.montant|floatformat:0|intcomma }} FCFA
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning" style="font-size:0.84rem;">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Aucun tarif défini pour cette option.
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
             {% else %}
-            <div class="alert alert-warning">
-                <i class="bi bi-calendar-x me-2"></i>
-                Aucune session disponible pour cette certification pour le moment.
+            <!-- ───── Pas d'options : cohorte + tarif ───── -->
+            <div class="cascade-section">
+                <div class="cascade-title">
+                    <span class="cascade-num">1</span>
+                    Votre session
+                </div>
+                {% if cohortes %}
+                <div class="row g-3">
+                    {% for c in cohortes %}
+                    <div class="col-md-6">
+                        <label class="cohorte-card-label">
+                            <input type="radio" name="cohorte_id" value="{{ c.pk }}" class="coh-radio">
+                            <div class="cohorte-card-inner">
+                                <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">{{ c.nom }}</div>
+                                {% if c.date_debut %}
+                                <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
+                                    <i class="bi bi-calendar3 me-1"></i>{{ c.date_debut|date:"d/m/Y" }}
+                                    {% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-calendar-x me-2"></i>
+                    Aucune session disponible pour cette certification pour le moment.
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="cascade-section" id="section-tarifs" style="display:none;">
+                <div class="cascade-title">
+                    <span class="cascade-num">2</span>
+                    Votre tarif
+                </div>
+                {% if tarifs_data %}
+                <div class="row g-3">
+                    {% for t in tarifs_data %}
+                    <div class="col-md-6">
+                        <label class="cohorte-card-label">
+                            <input type="radio" name="type_tarif_id" value="{{ t.pk }}" class="tar-radio">
+                            <div class="cohorte-card-inner">
+                                <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">
+                                    <i class="bi bi-tag me-1" style="color:var(--accent);"></i>{{ t.nom }}
+                                </div>
+                                <div style="font-size:1.05rem;color:var(--accent);font-weight:700;margin-top:0.3rem;">
+                                    {{ t.montant|floatformat:0|intcomma }} FCFA
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning" style="font-size:0.84rem;">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Aucun tarif défini pour cette certification.
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
-            <div class="d-flex justify-content-between align-items-center gap-2">
-                <a href="/portail/rejoindre/{{ certification.pk }}/?step=2" class="btn-back">
+            <div class="d-flex justify-content-between align-items-center gap-2 mt-4">
+                <a href="/portail/rejoindre/{{ certification.pk }}/?step=1" class="btn-back">
                     <i class="bi bi-arrow-left"></i> Retour
                 </a>
-                {% if cohortes %}
-                <button type="submit" class="btn btn-primary px-4">
+                <button type="submit" class="btn btn-primary px-4" id="btn-step3-continue" disabled>
                     Continuer <i class="bi bi-arrow-right ms-1"></i>
                 </button>
-                {% endif %}
             </div>
         </form>
 
-        {% elif wizard_step == 4 %}
-        <!-- ─── Step 4: Récapitulatif ─── -->
+        {% elif wizard_step == 3 %}
+        <!-- ─── Step 3: Récapitulatif ─── -->
         <div class="wiz-section-title"><i class="bi bi-clipboard-check me-2" style="color:var(--accent);"></i>Récapitulatif</div>
         <div class="wiz-section-sub">Vérifiez vos informations avant de finaliser votre inscription.</div>
 
@@ -403,10 +509,22 @@
             <span class="recap-label"><i class="bi bi-award me-2"></i>Certification</span>
             <span class="recap-value">{{ certification.nom }}</span>
         </div>
+        {% if cohorte.option %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-layers me-2"></i>Option</span>
+            <span class="recap-value">{{ cohorte.option.nom }}</span>
+        </div>
+        {% endif %}
         <div class="recap-item">
             <span class="recap-label"><i class="bi bi-calendar3 me-2"></i>Session</span>
-            <span class="recap-value">{{ cohorte }}</span>
+            <span class="recap-value">{{ cohorte.nom }}</span>
         </div>
+        {% if type_tarif %}
+        <div class="recap-item">
+            <span class="recap-label"><i class="bi bi-tag me-2"></i>Tarif</span>
+            <span class="recap-value">{{ type_tarif.nom }}</span>
+        </div>
+        {% endif %}
 
         <div class="tarif-box">
             <div class="amount-label">Montant à régler</div>
@@ -416,19 +534,19 @@
 
         <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
             {% csrf_token %}
-            <input type="hidden" name="action" value="wizard_step4">
+            <input type="hidden" name="action" value="wizard_step3">
             <button type="submit" class="btn-main">
                 <i class="bi bi-check2-circle me-1"></i>Confirmer et créer mon compte
             </button>
         </form>
         <div class="text-center mt-2">
-            <a href="/portail/rejoindre/{{ certification.pk }}/?step=3" class="btn-back">
+            <a href="/portail/rejoindre/{{ certification.pk }}/?step=2" class="btn-back">
                 <i class="bi bi-arrow-left"></i> Modifier
             </a>
         </div>
 
         {% endif %}
-    </div><!-- /panel-box step 2-4 -->
+    </div><!-- /panel-box step 2-3 -->
 
     {# ================================================================= #}
     {# ÉTAPE 0 / 1 : page de choix + panels login & wizard              #}
@@ -495,25 +613,21 @@
             <div class="wiz-steps">
                 <div class="wiz-step-item active">
                     <div class="step-circle">1</div>
-                    <div class="step-label">Identité</div>
+                    <div class="step-label">Vos informations</div>
                 </div>
                 <div class="wiz-step-item">
                     <div class="step-circle">2</div>
-                    <div class="step-label">Profil</div>
+                    <div class="step-label">Session &amp; tarif</div>
                 </div>
                 <div class="wiz-step-item">
                     <div class="step-circle">3</div>
-                    <div class="step-label">Session</div>
-                </div>
-                <div class="wiz-step-item">
-                    <div class="step-circle">4</div>
                     <div class="step-label">Confirmation</div>
                 </div>
             </div>
         </div>
 
-        <div class="wiz-section-title"><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations personnelles</div>
-        <div class="wiz-section-sub">Renseignez vos coordonnées pour créer votre dossier d'inscription.</div>
+        <div class="wiz-section-title"><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations</div>
+        <div class="wiz-section-sub">Renseignez vos coordonnées et votre profil pour créer votre dossier d'inscription.</div>
 
         <form method="post" action="/portail/rejoindre/{{ certification.pk }}/">
             {% csrf_token %}
@@ -549,6 +663,40 @@
                     <label class="form-label">Adresse</label>
                     {{ form_step1.adresse }}
                 </div>
+            </div>
+
+            <hr class="my-3">
+
+            <!-- Profil (fusionné depuis l'ancien step 2) -->
+            <div class="mb-3">
+                <label class="form-label d-block mb-2 fw-semibold">Vous êtes <span class="text-danger">*</span></label>
+                <div class="profile-options">
+                    <div class="profile-option">
+                        <input type="radio" id="p_etudiant" name="activite" value="etudiant"
+                               {% if not form_step1.activite.value or form_step1.activite.value == 'etudiant' %}checked{% endif %}>
+                        <label for="p_etudiant">
+                            <i class="bi bi-mortarboard-fill"></i>
+                            <span>Étudiant(e)</span><small>En cours d'études</small>
+                        </label>
+                    </div>
+                    <div class="profile-option">
+                        <input type="radio" id="p_pro" name="activite" value="professionnel"
+                               {% if form_step1.activite.value == 'professionnel' %}checked{% endif %}>
+                        <label for="p_pro">
+                            <i class="bi bi-briefcase-fill"></i>
+                            <span>Professionnel(le)</span><small>En activité</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bloc_universite" class="mb-3">
+                <label class="form-label">Université / École</label>
+                {{ form_step1.universite }}
+            </div>
+            <div id="bloc_entreprise" class="mb-3" style="display:none;">
+                <label class="form-label">Entreprise</label>
+                {{ form_step1.entreprise }}
             </div>
 
             <div class="mt-4">
@@ -600,16 +748,89 @@ function togglePw(id, btn) {
     }
 }
 
-// Step 2: toggle university/enterprise
+// Step 1: toggle université/entreprise selon profil (fusion identité+profil)
+(function() {
+    var etu = document.getElementById('p_etudiant');
+    var pro = document.getElementById('p_pro');
+    var blocU = document.getElementById('bloc_universite');
+    var blocE = document.getElementById('bloc_entreprise');
+    if (!etu || !pro || !blocU || !blocE) return;
+    function toggleProfil() {
+        var isEtu = etu.checked;
+        blocU.style.display = isEtu ? 'block' : 'none';
+        blocE.style.display = isEtu ? 'none' : 'block';
+    }
+    etu.addEventListener('change', toggleProfil);
+    pro.addEventListener('change', toggleProfil);
+    toggleProfil();
+})();
+
+// Step 2: cascade option → cohorte → tarif
 {% if wizard_step == 2 %}
-function toggleProfil() {
-    var isEtu = document.getElementById('p_etudiant').checked;
-    document.getElementById('bloc_universite').style.display = isEtu ? 'block' : 'none';
-    document.getElementById('bloc_entreprise').style.display = isEtu ? 'none' : 'block';
-}
-document.getElementById('p_etudiant').addEventListener('change', toggleProfil);
-document.getElementById('p_pro').addEventListener('change', toggleProfil);
-toggleProfil();
+(function() {
+    var form = document.getElementById('form-step3');
+    if (!form) return;
+
+    var btnContinue = document.getElementById('btn-step3-continue');
+    var hasOptions = {% if has_options %}true{% else %}false{% endif %};
+
+    function checkCanContinue() {
+        var cohorteChecked = form.querySelector('input[name="cohorte_id"]:checked');
+        var tarifChecked = form.querySelector('input[name="type_tarif_id"]:checked');
+        var ok = !!(cohorteChecked && tarifChecked);
+        if (hasOptions) {
+            var optChecked = form.querySelector('input[name="option_id"]:checked');
+            ok = ok && !!optChecked;
+        }
+        btnContinue.disabled = !ok;
+    }
+
+    if (hasOptions) {
+        // 1) Option choisie → afficher SEULEMENT la section cohortes (tarifs caché tant qu'aucune cohorte)
+        form.querySelectorAll('.opt-radio').forEach(function(r) {
+            r.addEventListener('change', function() {
+                if (this.disabled) return;
+                var optId = this.dataset.optionId;
+                var sectionC = document.getElementById('section-cohortes');
+                var sectionT = document.getElementById('section-tarifs');
+                sectionC.style.display = 'block';
+                sectionT.style.display = 'none';  // masqué tant qu'aucune cohorte
+
+                // Réinitialiser les radios cohorte/tarif
+                form.querySelectorAll('input[name="cohorte_id"]').forEach(function(x) { x.checked = false; });
+                form.querySelectorAll('input[name="type_tarif_id"]').forEach(function(x) { x.checked = false; });
+
+                // Afficher uniquement les cohortes/tarifs de l'option choisie
+                form.querySelectorAll('.cohorte-group').forEach(function(g) {
+                    g.style.display = (g.dataset.optionId === optId) ? 'block' : 'none';
+                });
+                form.querySelectorAll('.tarif-group').forEach(function(g) {
+                    g.style.display = (g.dataset.optionId === optId) ? 'block' : 'none';
+                });
+                checkCanContinue();
+            });
+        });
+
+        // 2) Cohorte choisie → révéler la section tarifs
+        form.querySelectorAll('.coh-radio').forEach(function(r) {
+            r.addEventListener('change', function() {
+                document.getElementById('section-tarifs').style.display = 'block';
+            });
+        });
+    } else {
+        // Pas d'options : afficher la section tarifs dès qu'une cohorte est choisie
+        form.querySelectorAll('.coh-radio').forEach(function(r) {
+            r.addEventListener('change', function() {
+                document.getElementById('section-tarifs').style.display = 'block';
+                checkCanContinue();
+            });
+        });
+    }
+
+    form.querySelectorAll('.coh-radio, .tar-radio').forEach(function(r) {
+        r.addEventListener('change', checkCanContinue);
+    });
+})();
 {% endif %}
 </script>
 {% endblock %}

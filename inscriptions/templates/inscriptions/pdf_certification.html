@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+@font-face {
+    font-family: 'DancingScript';
+    src: url('{{ font_url }}') format('truetype');
+    font-weight: bold;
+}
+
+@page {
+    size: 297mm 210mm;
+    margin: 0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    width: 297mm;
+    height: 210mm;
+    position: relative;
+    overflow: hidden;
+    background: white;
+}
+
+/* ── Fond = template complet ── */
+.bg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 297mm;
+    height: 210mm;
+}
+
+/* ── Masque logo central (à supprimer) ── */
+.cover-center-logo {
+    position: absolute;
+    top: 3.3mm;
+    left: 127.3mm;
+    width: 43.5mm;
+    height: 21.9mm;
+    background: white;
+}
+
+/* ── Numéro de certificat ── */
+.cert-number {
+    position: absolute;
+    top: 9.5mm;
+    left: 7mm;
+    width: 55mm;
+    font-family: Arial, sans-serif;
+    font-size: 7pt;
+    color: #1a1a1a;
+    white-space: nowrap;
+}
+
+/* ── Nom du bénéficiaire ── */
+.beneficiary-name {
+    position: absolute;
+    top: 96mm;
+    left: 0;
+    width: 297mm;
+    text-align: center;
+    font-family: 'DancingScript', cursive;
+    font-size: 38pt;
+    font-weight: bold;
+    color: #0d2461;
+    line-height: 1;
+}
+
+/* ── Masque zone formation (texte fixe du template) ── */
+.cover-formation {
+    position: absolute;
+    top: 118mm;
+    left: 15mm;
+    width: 267mm;
+    height: 38mm;
+    background: white;
+}
+
+/* ── Nom de la formation ── */
+.formation-nom {
+    position: absolute;
+    top: 119mm;
+    left: 0;
+    width: 297mm;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0d2461;
+    line-height: 1.3;
+    padding: 0 18mm;
+}
+
+/* ── Description (sous-titre) ── */
+.formation-desc {
+    position: absolute;
+    top: 138mm;
+    left: 0;
+    width: 297mm;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    color: #444;
+    padding: 0 20mm;
+}
+
+/* ── QR code ── */
+.qr-code {
+    position: absolute;
+    top: 143mm;
+    left: 7mm;
+    width: 38mm;
+    height: 38mm;
+}
+
+/* ── Nom du partenaire signataire ── */
+.partenaire-sig {
+    display: none;
+    font-family: Arial, sans-serif;
+    font-size: 8pt;
+    color: #555;
+}
+
+/* ── Masque date ── */
+.cover-date {
+    position: absolute;
+    top: 193mm;
+    left: 218mm;
+    width: 73mm;
+    height: 10mm;
+    background: white;
+}
+
+/* ── Date ── */
+.date-text {
+    position: absolute;
+    top: 194.5mm;
+    left: 218mm;
+    width: 73mm;
+    text-align: right;
+    font-family: Arial, sans-serif;
+    font-size: 8pt;
+    color: #0d2461;
+    padding-right: 5mm;
+}
+</style>
+</head>
+<body>
+
+<!-- Fond : template complet -->
+<img class="bg" src="{{ template_url }}" />
+
+<!-- Suppression du logo central -->
+<div class="cover-center-logo"></div>
+
+<!-- Numéro de certificat -->
+<div class="cert-number">{{ cert_number }}</div>
+
+<!-- Nom du bénéficiaire en Dancing Script -->
+<div class="beneficiary-name">{{ nom_complet }}</div>
+
+<!-- Masque + Formation dynamique -->
+<div class="cover-formation"></div>
+<div class="formation-nom">{{ formation_nom }}</div>
+{% if formation_desc %}
+<div class="formation-desc">({{ formation_desc }})</div>
+{% endif %}
+
+<!-- QR Code -->
+{% if qr_data_uri %}
+<img class="qr-code" src="{{ qr_data_uri }}" />
+{% endif %}
+
+<!-- Date -->
+<div class="cover-date"></div>
+<div class="date-text">Fait à Dakar, le {{ date_str }}</div>
+
+</body>
+</html>

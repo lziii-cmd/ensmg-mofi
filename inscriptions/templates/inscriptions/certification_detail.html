@@ -11,75 +11,83 @@
 {% endblock %}
 
 {% block content %}
-<!-- Page header -->
-<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE HEADER -->
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
     <div>
-        <h1>
-            <i class="bi bi-award me-2 text-primary"></i>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            {% if certification.actif %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:0.72rem;">Active</span>
+            {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.72rem;">Inactive</span>
+            {% endif %}
+            {% if certification.a_options %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:0.72rem;">
+                    <i class="bi bi-layers me-1"></i>Avec options
+                </span>
+            {% endif %}
+            {% if certification.duree %}
+                <span class="text-muted" style="font-size:0.8rem;"><i class="bi bi-clock me-1"></i>{{ certification.duree }}</span>
+            {% endif %}
+        </div>
+        <h1 class="mb-0" style="font-size:1.6rem; font-weight:700;">
             {{ certification.nom }}
         </h1>
-        <p>
-            {% if certification.actif %}
-                <span class="badge bg-success-subtle text-success me-2">Active</span>
-            {% else %}
-                <span class="badge bg-secondary-subtle text-secondary me-2">Inactive</span>
-            {% endif %}
-            {% if certification.duree %}<span class="text-muted"><i class="bi bi-clock me-1"></i>{{ certification.duree }}</span>{% endif %}
-        </p>
     </div>
-    <div class="d-flex gap-2 flex-shrink-0 flex-wrap">
-        <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success">
-            <i class="bi bi-plus-circle me-1"></i>Ajouter une cohorte
+    <div class="d-flex gap-2 flex-wrap">
+        {% if certification.a_options %}
+        <a href="{% url 'option_ajouter' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Nouvelle option
         </a>
-        <a href="{% url 'certification_modifier' certification.pk %}" class="btn btn-outline-primary">
+        {% else %}
+        <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Nouvelle cohorte
+        </a>
+        <a href="{% url 'type_tarif_ajouter_certif' certification.pk %}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-tag me-1"></i>Nouveau tarif
+        </a>
+        {% endif %}
+        <a href="{% url 'certification_modifier' certification.pk %}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-pencil me-1"></i>Modifier
         </a>
-        <a href="{% url 'certification_supprimer' certification.pk %}" class="btn btn-outline-danger">
+        <a href="{% url 'certification_supprimer' certification.pk %}" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-trash me-1"></i>Supprimer
         </a>
     </div>
 </div>
 
-<!-- Stats cards -->
+<!-- ═══════════════════════════════════════════════════════════ STATS -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3">
+    <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#eef1ff; color:#4f6ef7;">
-                <i class="bi bi-people-fill"></i>
-            </div>
+            <div class="stat-icon" style="background:#eef1ff; color:#4f6ef7;"><i class="bi bi-people-fill"></i></div>
             <div>
                 <div class="stat-value" style="color:#4f6ef7;">{{ certification.nb_inscrits }}</div>
                 <div class="stat-label">Inscrits</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
+    <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#dcfce7; color:#15803d;">
-                <i class="bi bi-patch-check-fill"></i>
-            </div>
+            <div class="stat-icon" style="background:#dcfce7; color:#15803d;"><i class="bi bi-patch-check-fill"></i></div>
             <div>
                 <div class="stat-value" style="color:#15803d;">{{ certification.nb_certifies }}</div>
                 <div class="stat-label">Certifiés</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
+    <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#fef3c7; color:#b45309;">
-                <i class="bi bi-cash-coin"></i>
-            </div>
+            <div class="stat-icon" style="background:#fef3c7; color:#b45309;"><i class="bi bi-cash-coin"></i></div>
             <div>
-                <div class="stat-value" style="color:#b45309; font-size:1.3rem;">{{ certification.montant_encaisse|floatformat:0 }}</div>
+                <div class="stat-value" style="color:#b45309; font-size:1.2rem;">{{ certification.montant_encaisse|floatformat:0 }}</div>
                 <div class="stat-label">FCFA encaissés</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
+    <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;">
-                <i class="bi bi-collection-fill"></i>
-            </div>
+            <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;"><i class="bi bi-collection-fill"></i></div>
             <div>
                 <div class="stat-value" style="color:#3182ce;">{{ certification.nb_cohortes }}</div>
                 <div class="stat-label">Cohortes</div>
@@ -88,179 +96,393 @@
     </div>
 </div>
 
-<!-- Tarifs -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#e0f2fe; color:#0369a1; width:42px; height:42px; font-size:1.1rem; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    <i class="bi bi-mortarboard"></i>
-                </div>
-                <div>
-                    <div class="fw-bold" style="font-size:1.1rem;">{{ certification.tarif_etudiant|floatformat:0 }} FCFA</div>
-                    <div class="text-muted" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Tarif étudiant</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#fdf4ff; color:#7e22ce; width:42px; height:42px; font-size:1.1rem; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    <i class="bi bi-briefcase"></i>
-                </div>
-                <div>
-                    <div class="fw-bold" style="font-size:1.1rem;">{{ certification.tarif_professionnel|floatformat:0 }} FCFA</div>
-                    <div class="text-muted" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Tarif professionnel</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Description -->
+<!-- ═══════════════════════════════════════════════════════════ DESCRIPTION -->
 {% if certification.description %}
-<div class="card mb-4">
-    <div class="card-body">
-        <p class="mb-0 text-muted" style="font-size:0.88rem; line-height:1.6;">
-            {{ certification.description }}
-        </p>
+<div class="card mb-4" style="border-left:3px solid #4f6ef7;">
+    <div class="card-body py-3">
+        <p class="mb-0 text-muted" style="font-size:0.88rem; line-height:1.7;">{{ certification.description }}</p>
     </div>
 </div>
 {% endif %}
 
-<!-- Cohortes -->
-{% if cohortes %}
-{% for cohorte in cohortes %}
+<!-- ═══════════════════════════════════════════════════════════ TARIFS (sans options) -->
+{% if not certification.a_options %}
 <div class="card mb-4">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-collection text-primary"></i>
-            <h6 class="mb-0">
-                <a href="{% url 'cohorte_detail' cohorte.pk %}" class="text-decoration-none text-dark">
-                    {{ cohorte.nom }}
-                </a>
-            </h6>
-            {% if not cohorte.actif %}<span class="badge bg-secondary-subtle text-secondary" style="font-size:0.72rem;">Inactive</span>{% endif %}
-            {% if cohorte.date_debut %}<span class="text-muted" style="font-size:0.78rem;"><i class="bi bi-calendar me-1"></i>{{ cohorte.date_debut|date:"d/m/Y" }}{% if cohorte.date_fin %} → {{ cohorte.date_fin|date:"d/m/Y" }}{% endif %}</span>{% endif %}
-        </div>
-        <div class="d-flex gap-2">
-            <a href="{% url 'cohorte_detail' cohorte.pk %}" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-eye me-1"></i>Détail
-            </a>
-            <a href="{% url 'cohorte_modifier' cohorte.pk %}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-pencil"></i>
-            </a>
-            <a href="{% url 'cohorte_supprimer' cohorte.pk %}" class="btn btn-sm btn-outline-danger">
-                <i class="bi bi-trash"></i>
-            </a>
+    <div class="card-header d-flex align-items-center justify-content-between py-2">
+        <span class="fw-semibold" style="font-size:0.88rem;">
+            <i class="bi bi-tags me-2 text-primary"></i>Tarifs
+        </span>
+        <button class="btn btn-sm btn-outline-success" style="font-size:0.78rem;"
+                data-bs-toggle="collapse" data-bs-target="#panel-tarifs-certif">
+            <i class="bi bi-plus me-1"></i>Ajouter des tarifs
+        </button>
+    </div>
+
+    <!-- Panneau multi-sélection -->
+    <div class="collapse" id="panel-tarifs-certif">
+        <div class="card-body border-bottom bg-light py-3">
+            <form method="post" action="{% url 'tarifs_bulk_ajouter_certif' certification.pk %}">
+                {% csrf_token %}
+                <div class="row g-2 mb-3" id="catalogue-certif">
+                    {% for n in noms_catalogue %}
+                    <div class="col-12 col-md-6">
+                        <div class="d-flex align-items-center gap-2 p-2 rounded border bg-white">
+                            <input type="checkbox" class="form-check-input catalogue-check"
+                                   name="noms_ids" value="{{ n.pk }}"
+                                   id="nom-certif-{{ n.pk }}"
+                                   data-target="montant-certif-{{ n.pk }}">
+                            <label class="form-check-label flex-grow-1 fw-semibold" for="nom-certif-{{ n.pk }}"
+                                   style="font-size:0.84rem; cursor:pointer;">{{ n.nom }}</label>
+                            <input type="number" name="montant_{{ n.pk }}"
+                                   id="montant-certif-{{ n.pk }}"
+                                   class="form-control form-control-sm montant-input"
+                                   placeholder="Montant FCFA" min="0" step="1"
+                                   style="width:150px; display:none;">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer la sélection
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-toggle="collapse" data-bs-target="#panel-tarifs-certif">
+                        Annuler
+                    </button>
+                    <span class="text-muted" style="font-size:0.78rem;">ou</span>
+                    <button type="button" class="btn btn-outline-primary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#modal-nouveau-nom"
+                            data-catalogue="certif">
+                        <i class="bi bi-plus me-1"></i>Nouveau type
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-    <div class="card-body p-0">
-        {% if cohorte.inscriptions.all %}
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th class="ps-3">Participant</th>
-                        <th>Activité</th>
-                        <th>Statut</th>
-                        <th>Payé / Dû</th>
-                        <th>Reste</th>
-                        <th class="pe-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ic in cohorte.inscriptions.all %}
-                    <tr>
-                        <td class="ps-3">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="avatar-placeholder">
-                                    {{ ic.inscrit.prenom.0|upper }}{{ ic.inscrit.nom.0|upper }}
-                                </div>
-                                <div>
-                                    <a href="{% url 'inscrit_detail' ic.inscrit.pk %}"
-                                       class="text-decoration-none text-dark fw-500" style="font-weight:500;">
-                                        {{ ic.inscrit.prenom }} {{ ic.inscrit.nom }}
-                                    </a>
-                                    <div class="text-muted" style="font-size:0.73rem;">{{ ic.inscrit.email }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if ic.inscrit.activite == 'etudiant' %}
-                                <span class="badge badge-etudiant rounded-pill">Étudiant</span>
-                            {% else %}
-                                <span class="badge badge-professionnel rounded-pill">Professionnel</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge badge-statut-{{ ic.statut }} rounded-pill" style="font-size:0.75rem;">
-                                {{ ic.get_statut_display }}
-                            </span>
-                        </td>
-                        <td>
-                            <div style="min-width:110px;">
-                                <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;">
-                                    <span class="text-muted">{{ ic.total_paye|floatformat:0 }} / {{ ic.montant_du|floatformat:0 }}</span>
-                                    <span class="fw-bold">{{ ic.pourcentage_paye }}%</span>
-                                </div>
-                                <div class="progress" style="height:5px;">
-                                    <div class="progress-bar
-                                        {% if ic.pourcentage_paye >= 100 %}bg-success
-                                        {% elif ic.pourcentage_paye >= 50 %}bg-warning
-                                        {% else %}bg-danger{% endif %}"
-                                         style="width:{{ ic.pourcentage_paye }}%;">
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if ic.reste_a_payer > 0 %}
-                                <span class="text-danger fw-bold" style="font-size:0.83rem;">{{ ic.reste_a_payer|floatformat:0 }} FCFA</span>
-                            {% else %}
-                                <span class="text-success" style="font-size:0.83rem;"><i class="bi bi-check-circle-fill me-1"></i>Soldé</span>
-                            {% endif %}
-                        </td>
-                        <td class="pe-3">
-                            <div class="d-flex gap-1">
-                                <a href="{% url 'inscrit_detail' ic.inscrit.pk %}" class="btn btn-sm btn-outline-secondary" title="Voir l'inscrit">
-                                    <i class="bi bi-person"></i>
-                                </a>
-                                <a href="{% url 'inscription_supprimer' ic.pk %}" class="btn btn-sm btn-outline-danger" title="Supprimer l'inscription"
-                                   onclick="return confirm('Supprimer cette inscription ?');">
-                                    <i class="bi bi-x-lg"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+    <div class="card-body py-3">
+        {% if types_tarif %}
+        <div class="d-flex flex-wrap gap-2">
+            {% for t in types_tarif %}
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-white" style="font-size:0.84rem;">
+                <i class="bi bi-tag text-primary" style="font-size:0.8rem;"></i>
+                <span class="fw-semibold">{{ t.nom }}</span>
+                <span class="text-muted">—</span>
+                <span class="text-success fw-bold">{{ t.montant|floatformat:0 }} FCFA</span>
+                {% if not t.actif %}<span class="badge bg-secondary-subtle text-secondary" style="font-size:0.68rem;">Inactif</span>{% endif %}
+                <div class="d-flex gap-1 ms-1">
+                    <a href="{% url 'type_tarif_modifier' t.pk %}" class="text-muted" title="Modifier" style="line-height:1; font-size:0.78rem;">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="{% url 'type_tarif_supprimer' t.pk %}" class="text-danger" title="Supprimer" style="line-height:1; font-size:0.78rem;">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
         </div>
         {% else %}
-        <div class="empty-state py-4">
-            <i class="bi bi-people"></i>
-            <p>Aucun participant inscrit à cette cohorte.</p>
-            <a href="{% url 'inscription_wizard' %}" class="btn btn-primary btn-sm">
-                <i class="bi bi-person-plus me-1"></i>Inscrire un participant
-            </a>
-        </div>
+        <p class="text-muted mb-0" style="font-size:0.84rem;">
+            <i class="bi bi-info-circle me-1"></i>Aucun tarif défini. Utilisez le bouton "Ajouter des tarifs" ci-dessus.
+        </p>
         {% endif %}
     </div>
 </div>
-{% endfor %}
-{% else %}
-<div class="card">
-    <div class="card-body">
-        <div class="empty-state">
-            <i class="bi bi-collection"></i>
-            <p>Aucune cohorte pour cette certification.</p>
-            <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success btn-sm">
-                <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
-            </a>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════ CONTENU PRINCIPAL -->
+{% if certification.a_options %}
+
+<!-- ── MODE AVEC OPTIONS ──────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h6 class="mb-0 text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:.6px;">
+        <i class="bi bi-layers me-2"></i>Options ({{ options|length }})
+    </h6>
+</div>
+
+{% if options %}
+{% for option in options %}
+<div class="card mb-3" style="border-left:4px solid {% if option.actif %}#4f6ef7{% else %}#cbd5e1{% endif %};">
+
+    <!-- En-tête option -->
+    <div class="card-header bg-white py-3">
+        <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+
+            <!-- Infos gauche -->
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-layers{% if option.actif %}-fill{% endif %} text-primary" style="font-size:1rem;"></i>
+                    <span class="fw-bold" style="font-size:1rem;">{{ option.nom }}</span>
+                    {% if not option.actif %}
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.68rem;">Inactive</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-people me-1"></i>{{ option.nb_inscrits }} inscrit{{ option.nb_inscrits|pluralize }}
+                    </span>
+                    <span class="text-muted" style="font-size:0.78rem;">
+                        <i class="bi bi-collection me-1"></i>{{ option.cohortes.count }} cohorte{{ option.cohortes.count|pluralize }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Actions droite -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a href="{% url 'cohorte_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
+                    <i class="bi bi-plus-circle me-1"></i>Cohorte
+                </a>
+                <button class="btn btn-sm btn-outline-primary" style="font-size:0.78rem;"
+                        data-bs-toggle="collapse" data-bs-target="#panel-tarifs-opt-{{ option.pk }}">
+                    <i class="bi bi-tag me-1"></i>Tarifs
+                </button>
+                <div class="vr"></div>
+                <a href="{% url 'option_modifier' option.pk %}" class="btn btn-sm btn-outline-secondary" title="Modifier l'option" style="font-size:0.78rem;">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <a href="{% url 'option_supprimer' option.pk %}" class="btn btn-sm btn-outline-danger" title="Supprimer l'option" style="font-size:0.78rem;">
+                    <i class="bi bi-trash"></i>
+                </a>
+            </div>
         </div>
+
+        <!-- Panneau multi-sélection tarifs option -->
+        <div class="collapse" id="panel-tarifs-opt-{{ option.pk }}">
+            <div class="mx-3 mb-2 p-3 rounded border bg-light">
+                <form method="post" action="{% url 'tarifs_bulk_ajouter_option' option.pk %}">
+                    {% csrf_token %}
+                    <div class="row g-2 mb-3">
+                        {% for n in noms_catalogue %}
+                        <div class="col-12 col-md-6">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded border bg-white">
+                                <input type="checkbox" class="form-check-input catalogue-check"
+                                       name="noms_ids" value="{{ n.pk }}"
+                                       id="nom-opt{{ option.pk }}-{{ n.pk }}"
+                                       data-target="montant-opt{{ option.pk }}-{{ n.pk }}">
+                                <label class="form-check-label flex-grow-1 fw-semibold"
+                                       for="nom-opt{{ option.pk }}-{{ n.pk }}"
+                                       style="font-size:0.82rem; cursor:pointer;">{{ n.nom }}</label>
+                                <input type="number" name="montant_{{ n.pk }}"
+                                       id="montant-opt{{ option.pk }}-{{ n.pk }}"
+                                       class="form-control form-control-sm montant-input"
+                                       placeholder="Montant FCFA" min="0" step="1"
+                                       style="width:140px; display:none;">
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-check-lg me-1"></i>Enregistrer
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="collapse" data-bs-target="#panel-tarifs-opt-{{ option.pk }}">
+                            Annuler
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#modal-nouveau-nom"
+                                data-catalogue="opt{{ option.pk }}">
+                            <i class="bi bi-plus me-1"></i>Nouveau type
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tarifs de l'option -->
+        {% with tarifs=option.types_tarif.all %}
+        {% if tarifs %}
+        <div class="mt-2 d-flex flex-wrap gap-2">
+            {% for t in tarifs %}
+            <span class="d-inline-flex align-items-center gap-2 px-2 py-1 rounded-2 border bg-light" style="font-size:0.78rem;">
+                <i class="bi bi-tag text-primary" style="font-size:0.7rem;"></i>
+                <span class="fw-semibold">{{ t.nom }}</span>
+                <span class="text-success fw-bold">{{ t.montant|floatformat:0 }} FCFA</span>
+                {% if not t.actif %}<span class="badge bg-secondary-subtle text-secondary" style="font-size:0.62rem;">Inactif</span>{% endif %}
+                <a href="{% url 'type_tarif_modifier' t.pk %}" class="text-muted" title="Modifier"><i class="bi bi-pencil" style="font-size:0.65rem;"></i></a>
+                <a href="{% url 'type_tarif_supprimer' t.pk %}" class="text-danger" title="Supprimer"><i class="bi bi-trash" style="font-size:0.65rem;"></i></a>
+            </span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="mt-2">
+            <span class="text-muted" style="font-size:0.76rem;">
+                <i class="bi bi-info-circle me-1"></i>Aucun tarif. Utilisez le bouton "Tarifs" ci-dessus.
+            </span>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Cohortes de l'option -->
+    {% with cohortes_option=option.cohortes.all %}
+    {% if cohortes_option %}
+    <div class="card-body p-0">
+        {% for cohorte in cohortes_option %}
+        {% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=certification nested=True %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-body py-3 px-4 bg-light border-top">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-collection text-muted" style="font-size:1.2rem;"></i>
+            <div>
+                <p class="mb-1 text-muted" style="font-size:0.84rem;">Aucune cohorte pour cette option.</p>
+                <a href="{% url 'cohorte_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
+                    <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+</div><!-- /card option -->
+{% endfor %}
+
+{% else %}
+<!-- Aucune option créée -->
+<div class="card">
+    <div class="card-body py-5 text-center">
+        <i class="bi bi-layers text-muted" style="font-size:2.5rem; opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold text-muted">Aucune option créée</p>
+        <p class="text-muted mb-3" style="font-size:0.84rem;">Créez la première option pour cette certification.</p>
+        <a href="{% url 'option_ajouter' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Créer une option
+        </a>
     </div>
 </div>
 {% endif %}
+
+{% else %}
+
+<!-- ── MODE SANS OPTIONS ──────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h6 class="mb-0 text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:.6px;">
+        <i class="bi bi-collection me-2"></i>Cohortes ({{ cohortes|length }})
+    </h6>
+</div>
+
+{% if cohortes %}
+{% for cohorte in cohortes %}
+{% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=certification %}
+{% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body py-5 text-center">
+        <i class="bi bi-collection text-muted" style="font-size:2.5rem; opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold text-muted">Aucune cohorte</p>
+        <p class="text-muted mb-3" style="font-size:0.84rem;">Créez la première cohorte pour cette certification.</p>
+        <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+<!-- Modal : ajouter un nouveau nom au catalogue -->
+<div class="modal fade" id="modal-nouveau-nom" tabindex="-1" aria-labelledby="modalNouveauNomLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-semibold" id="modalNouveauNomLabel">
+                    <i class="bi bi-plus-circle me-1 text-primary"></i>Nouveau type de tarif
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="input-nouveau-nom" class="form-control form-control-sm"
+                       placeholder="Ex : Chômeur, Retraité…" maxlength="100">
+                <div id="nouveau-nom-error" class="text-danger mt-1" style="font-size:0.78rem; display:none;"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-sauver-nom">
+                    <i class="bi bi-check-lg me-1"></i>Ajouter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Affiche/masque le champ montant quand une checkbox est cochée
+document.querySelectorAll('.catalogue-check').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var input = document.getElementById(this.dataset.target);
+        if (input) {
+            input.style.display = this.checked ? 'block' : 'none';
+            input.required = this.checked;
+            if (!this.checked) input.value = '';
+        }
+    });
+});
+
+// Modal : ajout d'un nouveau nom au catalogue via AJAX
+var modalEl = document.getElementById('modal-nouveau-nom');
+var activeCatalogue = null;
+
+modalEl.addEventListener('show.bs.modal', function(e) {
+    activeCatalogue = e.relatedTarget ? e.relatedTarget.dataset.catalogue : null;
+    document.getElementById('input-nouveau-nom').value = '';
+    document.getElementById('nouveau-nom-error').style.display = 'none';
+});
+
+document.getElementById('btn-sauver-nom').addEventListener('click', function() {
+    var nom = document.getElementById('input-nouveau-nom').value.trim();
+    var errDiv = document.getElementById('nouveau-nom-error');
+    if (!nom) { errDiv.textContent = 'Le nom est obligatoire.'; errDiv.style.display = 'block'; return; }
+
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ?
+        document.querySelector('[name=csrfmiddlewaretoken]').value :
+        '{{ csrf_token }}';
+
+    fetch("{% url 'nom_tarif_creer_ajax' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken},
+        body: 'nom=' + encodeURIComponent(nom)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { errDiv.textContent = data.error; errDiv.style.display = 'block'; return; }
+
+        // Ajouter la nouvelle ligne dans tous les catalogues ouverts
+        var prefix = activeCatalogue === 'certif' ? 'certif' : activeCatalogue;
+        var containers = activeCatalogue === 'certif'
+            ? [document.getElementById('catalogue-certif')]
+            : document.querySelectorAll('#panel-tarifs-opt-' + activeCatalogue.replace('opt','') + ' .row');
+
+        document.querySelectorAll('[id^="catalogue-"], .row.g-2').forEach(function(container) {
+            var div = document.createElement('div');
+            div.className = 'col-12 col-md-6';
+            div.innerHTML =
+                '<div class="d-flex align-items-center gap-2 p-2 rounded border bg-white">' +
+                '<input type="checkbox" class="form-check-input catalogue-check" ' +
+                'name="noms_ids" value="' + data.id + '" ' +
+                'id="nom-' + prefix + '-' + data.id + '" ' +
+                'data-target="montant-' + prefix + '-' + data.id + '" checked>' +
+                '<label class="form-check-label flex-grow-1 fw-semibold" ' +
+                'for="nom-' + prefix + '-' + data.id + '" style="font-size:0.84rem; cursor:pointer;">' +
+                data.nom + '</label>' +
+                '<input type="number" name="montant_' + data.id + '" ' +
+                'id="montant-' + prefix + '-' + data.id + '" ' +
+                'class="form-control form-control-sm montant-input" ' +
+                'placeholder="Montant FCFA" min="0" step="1" style="width:150px;">' +
+                '</div>';
+            container.appendChild(div);
+            // Attacher le listener sur la nouvelle checkbox
+            div.querySelector('.catalogue-check').addEventListener('change', function() {
+                var input = document.getElementById(this.dataset.target);
+                if (input) { input.style.display = this.checked ? 'block' : 'none'; input.required = this.checked; if (!this.checked) input.value = ''; }
+            });
+        });
+
+        bootstrap.Modal.getInstance(modalEl).hide();
+    })
+    .catch(function() { errDiv.textContent = 'Erreur réseau.'; errDiv.style.display = 'block'; });
+});
+</script>
 {% endblock %}

@@ -1,0 +1,14 @@
+# Dépendances de développement uniquement — ne pas installer en production
+-r requirements.txt
+
+# Tests
+pytest>=8.0
+pytest-django>=4.9
+pytest-cov>=5.0
+factory-boy>=3.3
+
+# Linting & formatage
+black>=24.3
+isort>=5.13
+flake8>=7.0
+pre-commit>=3.7

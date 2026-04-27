@@ -11,71 +11,6 @@
         padding: 0 1rem;
     }
 
-    .wizard-progress { margin-bottom: 2rem; }
-
-    .wizard-steps {
-        display: flex;
-        align-items: center;
-        gap: 0;
-        margin-bottom: 1.5rem;
-    }
-
-    .wizard-step-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex: 1;
-        position: relative;
-    }
-
-    .wizard-step-item:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        top: 18px;
-        left: 50%;
-        width: 100%;
-        height: 2px;
-        background: #e2e8f0;
-        z-index: 0;
-    }
-
-    .wizard-step-item.done:not(:last-child)::after { background: var(--accent); }
-
-    .step-circle {
-        width: 36px; height: 36px;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.85rem;
-        font-weight: 700;
-        z-index: 1;
-        position: relative;
-        background: #e2e8f0;
-        color: #718096;
-        transition: all 0.2s;
-    }
-
-    .wizard-step-item.done .step-circle {
-        background: var(--accent);
-        color: #fff;
-    }
-
-    .wizard-step-item.active .step-circle {
-        background: var(--accent);
-        color: #fff;
-        box-shadow: 0 0 0 4px rgba(79,110,247,0.2);
-    }
-
-    .step-label {
-        font-size: 0.72rem;
-        color: #718096;
-        margin-top: 0.4rem;
-        text-align: center;
-        font-weight: 500;
-    }
-
-    .wizard-step-item.active .step-label,
-    .wizard-step-item.done .step-label { color: var(--accent); }
-
     .wizard-card {
         background: #fff;
         border: 1px solid #e8edf5;
@@ -84,7 +19,7 @@
         box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     }
 
-    .wizard-card-header { margin-bottom: 1.75rem; }
+    .wizard-card-header { margin-bottom: 1.5rem; }
 
     .wizard-card-header h2 {
         font-size: 1.3rem;
@@ -99,7 +34,60 @@
         margin: 0;
     }
 
-    .form-group-row { margin-bottom: 1.1rem; }
+    /* Cascade sections */
+    .cascade-section {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #edf2f7;
+    }
+    .cascade-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .cascade-section.hidden { display: none; }
+
+    .cascade-title {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1a2340;
+        margin-bottom: 0.85rem;
+    }
+    .cascade-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px; height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    /* Radio cards for cohortes and tarifs */
+    .option-card { position: relative; margin-bottom: 0.5rem; }
+    .option-card input[type="radio"] { position: absolute; opacity: 0; width: 0; }
+    .option-card label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #fff;
+        transition: all 0.15s;
+        margin: 0;
+    }
+    .option-card label:hover { border-color: #cbd5e0; background: #f7fafc; }
+    .option-card input[type="radio"]:checked + label {
+        border-color: var(--accent);
+        background: var(--accent-light);
+    }
+    .option-card .oc-title { font-weight: 600; color: #1a2340; font-size: 0.9rem; }
+    .option-card .oc-meta { font-size: 0.78rem; color: #718096; margin-top: 0.15rem; }
+    .option-card .oc-price { font-weight: 700; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
 
     .profile-options {
         display: grid;
@@ -109,19 +97,13 @@
     }
 
     .profile-option { position: relative; }
-
-    .profile-option input[type="radio"] {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-    }
-
+    .profile-option input[type="radio"] { position: absolute; opacity: 0; width: 0; }
     .profile-option label {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 0.5rem;
-        padding: 1.25rem 1rem;
+        padding: 1rem;
         border: 2px solid #e2e8f0;
         border-radius: 12px;
         cursor: pointer;
@@ -129,42 +111,36 @@
         background: #fff;
         text-align: center;
     }
-
-    .profile-option label i { font-size: 1.75rem; color: #718096; }
-    .profile-option label span { font-size: 0.9rem; font-weight: 600; color: #4a5568; }
-    .profile-option label small { font-size: 0.75rem; color: #a0aec0; }
-
+    .profile-option label i { font-size: 1.5rem; color: #718096; }
+    .profile-option label span { font-size: 0.88rem; font-weight: 600; color: #4a5568; }
     .profile-option input[type="radio"]:checked + label {
         border-color: var(--accent);
         background: var(--accent-light);
     }
-
     .profile-option input[type="radio"]:checked + label i,
     .profile-option input[type="radio"]:checked + label span { color: var(--accent); }
 
     .certif-recap {
         background: linear-gradient(135deg, #1a2340, #243056);
         border-radius: 12px;
-        padding: 1.25rem 1.5rem;
+        padding: 1.1rem 1.3rem;
         color: #fff;
         margin-bottom: 1.5rem;
         display: flex;
         align-items: center;
         gap: 1rem;
     }
-
     .certif-recap-icon {
-        width: 44px; height: 44px;
+        width: 40px; height: 40px;
         background: rgba(79,110,247,0.25);
         border-radius: 10px;
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.3rem;
+        font-size: 1.2rem;
         color: #a5b4fc;
         flex-shrink: 0;
     }
-
-    .certif-recap-name { font-weight: 700; font-size: 1rem; }
-    .certif-recap-meta { font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 0.2rem; }
+    .certif-recap-name { font-weight: 700; font-size: 0.98rem; }
+    .certif-recap-meta { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin-top: 0.15rem; }
 
     .btn-wizard-next {
         width: 100%;
@@ -178,11 +154,16 @@
         transition: all 0.2s;
         cursor: pointer;
     }
-
-    .btn-wizard-next:hover {
+    .btn-wizard-next:hover:not(:disabled) {
         background: var(--accent-hover);
         transform: translateY(-1px);
     }
+    .btn-wizard-next:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .form-group-row { margin-bottom: 1.1rem; }
 
     .errorlist {
         list-style: none;
@@ -191,7 +172,6 @@
         color: #e53e3e;
         font-size: 0.8rem;
     }
-
     .field-error .form-control { border-color: #e53e3e; }
 
     .no-cohorte-alert {
@@ -217,6 +197,12 @@
         transition: color 0.15s;
     }
     .back-link:hover { color: var(--accent); }
+
+    .section-divider {
+        border: none;
+        border-top: 1px solid #edf2f7;
+        margin: 1.5rem 0;
+    }
 </style>
 {% endblock %}
 
@@ -227,24 +213,6 @@
         <i class="bi bi-arrow-left"></i> Retour aux certifications
     </a>
 
-    <!-- Progress steps -->
-    <div class="wizard-progress">
-        <div class="wizard-steps">
-            <div class="wizard-step-item active">
-                <div class="step-circle">1</div>
-                <div class="step-label">Identité</div>
-            </div>
-            <div class="wizard-step-item">
-                <div class="step-circle">2</div>
-                <div class="step-label">Profil</div>
-            </div>
-            <div class="wizard-step-item">
-                <div class="step-circle">3</div>
-                <div class="step-label">Paiement</div>
-            </div>
-        </div>
-    </div>
-
     <div class="wizard-card">
 
         <!-- Résumé certification -->
@@ -252,18 +220,11 @@
             <div class="certif-recap-icon"><i class="bi bi-award-fill"></i></div>
             <div>
                 <div class="certif-recap-name">{{ certification.nom }}</div>
-                <div class="certif-recap-meta">
-                    {% if cohorte %}
-                        Session : {{ cohorte.nom }}
-                        {% if cohorte.date_debut %} · Début {{ cohorte.date_debut|date:"d/m/Y" }}{% endif %}
-                    {% else %}
-                        Aucune session disponible
-                    {% endif %}
-                </div>
+                <div class="certif-recap-meta">Inscription en ligne</div>
             </div>
         </div>
 
-        {% if not cohorte %}
+        {% if not cohortes %}
         <div class="no-cohorte-alert">
             <i class="bi bi-exclamation-triangle-fill" style="font-size:1.4rem;color:#f6ad55;flex-shrink:0;"></i>
             <div>
@@ -271,100 +232,153 @@
                 <span style="font-size:0.83rem;">Revenez bientôt ou contactez-nous pour être informé de l'ouverture des inscriptions.</span>
             </div>
         </div>
-
         {% else %}
 
         <div class="wizard-card-header">
-            <h2><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Vos informations</h2>
-            <p>Renseignez vos coordonnées et votre profil pour finaliser votre inscription.</p>
+            <h2><i class="bi bi-person-circle me-2" style="color:var(--accent);"></i>Finaliser votre inscription</h2>
+            <p>Choisissez votre session, votre tarif, puis renseignez vos informations.</p>
         </div>
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="inscrire-form">
             {% csrf_token %}
 
-            <!-- Identité -->
-            <div class="row g-3">
-                <div class="col-sm-6 form-group-row {% if errors.nom %}field-error{% endif %}">
-                    <label class="form-label">Nom *</label>
-                    <input type="text" name="nom" class="form-control"
-                           value="{{ form_data.nom|default:'' }}" placeholder="Nom de famille" required>
-                    {% if errors.nom %}<ul class="errorlist"><li>{{ errors.nom }}</li></ul>{% endif %}
+            <!-- 1. Choix cohorte -->
+            <div class="cascade-section" id="sec-cohorte">
+                <div class="cascade-title">
+                    <span class="cascade-num">1</span>
+                    <span>Choisissez votre session</span>
                 </div>
-                <div class="col-sm-6 form-group-row {% if errors.prenom %}field-error{% endif %}">
-                    <label class="form-label">Prénom *</label>
-                    <input type="text" name="prenom" class="form-control"
-                           value="{{ form_data.prenom|default:'' }}" placeholder="Prénom" required>
-                    {% if errors.prenom %}<ul class="errorlist"><li>{{ errors.prenom }}</li></ul>{% endif %}
+                {% if errors.cohorte %}<div class="errorlist mb-2"><li>{{ errors.cohorte }}</li></div>{% endif %}
+                {% for co in cohortes %}
+                <div class="option-card">
+                    <input type="radio" name="cohorte_id" id="coh_{{ co.pk }}" value="{{ co.pk }}"
+                           {% if form_data.cohorte_id == co.pk|stringformat:"s" %}checked{% endif %}>
+                    <label for="coh_{{ co.pk }}">
+                        <div>
+                            <div class="oc-title">{{ co.nom }}</div>
+                            <div class="oc-meta">
+                                {% if co.date_debut %}<i class="bi bi-calendar2 me-1"></i>Début {{ co.date_debut|date:"d/m/Y" }}{% endif %}
+                                {% if co.date_fin %} → {{ co.date_fin|date:"d/m/Y" }}{% endif %}
+                            </div>
+                        </div>
+                    </label>
                 </div>
-                <div class="col-12 form-group-row {% if errors.email %}field-error{% endif %}">
-                    <label class="form-label">Email *</label>
-                    <input type="email" name="email" class="form-control"
-                           value="{{ form_data.email|default:'' }}" placeholder="votre@email.com" required>
-                    {% if errors.email %}<ul class="errorlist"><li>{{ errors.email }}</li></ul>{% endif %}
-                    <small class="text-muted">Votre identifiant de connexion sera lié à cet email.</small>
-                </div>
-                <div class="col-sm-6 form-group-row">
-                    <label class="form-label">Téléphone</label>
-                    <input type="tel" name="telephone" class="form-control"
-                           value="{{ form_data.telephone|default:'' }}" placeholder="+221 77 000 00 00">
-                </div>
-                <div class="col-sm-6 form-group-row">
-                    <label class="form-label">Adresse</label>
-                    <input type="text" name="adresse" class="form-control"
-                           value="{{ form_data.adresse|default:'' }}" placeholder="Votre adresse (facultatif)">
-                </div>
+                {% endfor %}
             </div>
 
-            <hr class="my-3">
-
-            <!-- Profil -->
-            <div class="form-group-row">
-                <label class="form-label d-block mb-2">Vous êtes *</label>
-                <div class="profile-options">
-                    <div class="profile-option">
-                        <input type="radio" id="profil_etudiant" name="activite" value="etudiant"
-                               {% if form_data.activite != 'professionnel' %}checked{% endif %}>
-                        <label for="profil_etudiant">
-                            <i class="bi bi-mortarboard-fill"></i>
-                            <span>Étudiant(e)</span>
-                            <small>{{ certification.tarif_etudiant|floatformat:0|intcomma }} FCFA</small>
+            <!-- 2. Choix tarif -->
+            <div class="cascade-section {% if not form_data.cohorte_id %}hidden{% endif %}" id="sec-tarif">
+                <div class="cascade-title">
+                    <span class="cascade-num">2</span>
+                    <span>Choisissez votre tarif</span>
+                </div>
+                {% if errors.type_tarif %}<div class="errorlist mb-2"><li>{{ errors.type_tarif }}</li></div>{% endif %}
+                {% if types_tarif %}
+                    {% for tt in types_tarif %}
+                    <div class="option-card">
+                        <input type="radio" name="type_tarif_id" id="tar_{{ tt.pk }}" value="{{ tt.pk }}"
+                               {% if form_data.type_tarif_id == tt.pk|stringformat:"s" %}checked{% endif %}>
+                        <label for="tar_{{ tt.pk }}">
+                            <div>
+                                <div class="oc-title">{{ tt.nom }}</div>
+                                {% if tt.description %}<div class="oc-meta">{{ tt.description }}</div>{% endif %}
+                            </div>
+                            <div class="oc-price">{{ tt.montant|floatformat:0|intcomma }} FCFA</div>
                         </label>
                     </div>
-                    <div class="profile-option">
-                        <input type="radio" id="profil_pro" name="activite" value="professionnel"
-                               {% if form_data.activite == 'professionnel' %}checked{% endif %}>
-                        <label for="profil_pro">
-                            <i class="bi bi-briefcase-fill"></i>
-                            <span>Professionnel(le)</span>
-                            <small>{{ certification.tarif_professionnel|floatformat:0|intcomma }} FCFA</small>
-                        </label>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-muted" style="font-size:0.85rem;">Aucun tarif configuré pour cette certification.</div>
+                {% endif %}
+            </div>
+
+            <!-- 3. Identité -->
+            <div class="cascade-section {% if not form_data.type_tarif_id %}hidden{% endif %}" id="sec-identite">
+                <div class="cascade-title">
+                    <span class="cascade-num">3</span>
+                    <span>Vos informations</span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-sm-6 form-group-row {% if errors.nom %}field-error{% endif %}">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" name="nom" class="form-control"
+                               value="{{ form_data.nom|default:'' }}" placeholder="Nom de famille">
+                        {% if errors.nom %}<ul class="errorlist"><li>{{ errors.nom }}</li></ul>{% endif %}
+                    </div>
+                    <div class="col-sm-6 form-group-row {% if errors.prenom %}field-error{% endif %}">
+                        <label class="form-label">Prénom *</label>
+                        <input type="text" name="prenom" class="form-control"
+                               value="{{ form_data.prenom|default:'' }}" placeholder="Prénom">
+                        {% if errors.prenom %}<ul class="errorlist"><li>{{ errors.prenom }}</li></ul>{% endif %}
+                    </div>
+                    <div class="col-12 form-group-row {% if errors.email %}field-error{% endif %}">
+                        <label class="form-label">Email *</label>
+                        <input type="email" name="email" class="form-control"
+                               value="{{ form_data.email|default:'' }}" placeholder="votre@email.com">
+                        {% if errors.email %}<ul class="errorlist"><li>{{ errors.email }}</li></ul>{% endif %}
+                        <small class="text-muted">Votre identifiant de connexion sera lié à cet email.</small>
+                    </div>
+                    <div class="col-sm-6 form-group-row">
+                        <label class="form-label">Téléphone</label>
+                        <input type="tel" name="telephone" class="form-control"
+                               value="{{ form_data.telephone|default:'' }}" placeholder="+221 77 000 00 00">
+                    </div>
+                    <div class="col-sm-6 form-group-row">
+                        <label class="form-label">Adresse</label>
+                        <input type="text" name="adresse" class="form-control"
+                               value="{{ form_data.adresse|default:'' }}" placeholder="Votre adresse (facultatif)">
                     </div>
                 </div>
+
+                <hr class="section-divider">
+
+                <div class="form-group-row">
+                    <label class="form-label d-block mb-2">Vous êtes *</label>
+                    <div class="profile-options">
+                        <div class="profile-option">
+                            <input type="radio" id="profil_etudiant" name="activite" value="etudiant"
+                                   {% if form_data.activite != 'professionnel' %}checked{% endif %}>
+                            <label for="profil_etudiant">
+                                <i class="bi bi-mortarboard-fill"></i>
+                                <span>Étudiant(e)</span>
+                            </label>
+                        </div>
+                        <div class="profile-option">
+                            <input type="radio" id="profil_pro" name="activite" value="professionnel"
+                                   {% if form_data.activite == 'professionnel' %}checked{% endif %}>
+                            <label for="profil_pro">
+                                <i class="bi bi-briefcase-fill"></i>
+                                <span>Professionnel(le)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bloc_universite" class="form-group-row">
+                    <label class="form-label">Université / École</label>
+                    <input type="text" name="universite" class="form-control"
+                           value="{{ form_data.universite|default:'' }}" placeholder="Nom de votre établissement">
+                </div>
+
+                <div id="bloc_entreprise" class="form-group-row" style="display:none;">
+                    <label class="form-label">Entreprise</label>
+                    <input type="text" name="entreprise" class="form-control"
+                           value="{{ form_data.entreprise|default:'' }}" placeholder="Nom de votre entreprise">
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn-wizard-next" id="btn-submit">
+                        Confirmer mon inscription <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+
+                <p class="text-center mt-3 mb-0" style="font-size:0.78rem;color:#a0aec0;">
+                    Un compte apprenant vous sera créé automatiquement et vous serez connecté directement.
+                </p>
             </div>
 
-            <div id="bloc_universite" class="form-group-row">
-                <label class="form-label">Université / École</label>
-                <input type="text" name="universite" class="form-control"
-                       value="{{ form_data.universite|default:'' }}" placeholder="Nom de votre établissement">
-            </div>
-
-            <div id="bloc_entreprise" class="form-group-row" style="display:none;">
-                <label class="form-label">Entreprise</label>
-                <input type="text" name="entreprise" class="form-control"
-                       value="{{ form_data.entreprise|default:'' }}" placeholder="Nom de votre entreprise">
-            </div>
-
-            <div class="mt-3">
-                <button type="submit" class="btn-wizard-next">
-                    Confirmer mon inscription <i class="bi bi-arrow-right ms-1"></i>
-                </button>
-            </div>
-
-            <p class="text-center mt-3 mb-0" style="font-size:0.78rem;color:#a0aec0;">
-                Un compte apprenant vous sera créé automatiquement et vous serez connecté directement.
-            </p>
-
-            <hr class="my-3">
+            <hr class="section-divider">
 
             <div class="text-center" style="font-size:0.85rem;color:#718096;">
                 Vous avez déjà un compte ?
@@ -382,19 +396,36 @@
 {% block extra_js %}
 <script>
 (function() {
+    // Profil étudiant/professionnel toggle
     const etu = document.getElementById('profil_etudiant');
     const pro = document.getElementById('profil_pro');
     const blocU = document.getElementById('bloc_universite');
     const blocE = document.getElementById('bloc_entreprise');
 
-    function toggle() {
+    function toggleProfil() {
+        if (!blocU || !blocE || !pro) return;
         blocU.style.display = pro.checked ? 'none' : 'block';
         blocE.style.display = pro.checked ? 'block' : 'none';
     }
+    if (etu) etu.addEventListener('change', toggleProfil);
+    if (pro) pro.addEventListener('change', toggleProfil);
+    toggleProfil();
 
-    if (etu) etu.addEventListener('change', toggle);
-    if (pro) pro.addEventListener('change', toggle);
-    toggle();
+    // Cascade révélation : cohorte → tarif → identité
+    const secTarif = document.getElementById('sec-tarif');
+    const secIdentite = document.getElementById('sec-identite');
+
+    document.querySelectorAll('input[name="cohorte_id"]').forEach(r => {
+        r.addEventListener('change', function() {
+            if (secTarif) secTarif.classList.remove('hidden');
+        });
+    });
+
+    document.querySelectorAll('input[name="type_tarif_id"]').forEach(r => {
+        r.addEventListener('change', function() {
+            if (secIdentite) secIdentite.classList.remove('hidden');
+        });
+    });
 })();
 </script>
 {% endblock %}

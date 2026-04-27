@@ -2,18 +2,19 @@
 Management command: python manage.py seed_data
 Crée 8 certifications avec cohortes, inscrits et paiements de test.
 """
-import random
-from decimal import Decimal
-from datetime import date, timedelta
-from django.core.management.base import BaseCommand
-from django.utils import timezone
-from inscriptions.models import Certification, Cohorte, Inscrit, Inscription, Paiement
 
+import random
+from datetime import date, timedelta
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+
+from inscriptions.models import Certification, Cohorte, Inscription, Inscrit, Paiement, TypeTarif
 
 CERTIFICATIONS = [
     {
         "nom": "Management de Projet (MOFI)",
-        "description": "Formation complète en gestion de projet selon les standards PMI et Prince2.",
+        "description": "Formation complète en gestion de projet selon les standards PMI et Prince2.",  # noqa: E501
         "duree": "4 mois",
         "tarif_etudiant": Decimal("150000"),
         "tarif_professionnel": Decimal("350000"),
@@ -64,10 +65,12 @@ CERTIFICATIONS = [
         "nom": "Entrepreneuriat & Innovation",
         "description": "Business plan, financement, lean startup et gestion de l'innovation.",
         "duree": "3 mois",
-        "tarif_etudiant": Decimal("0"),          # Gratuit pour étudiants
+        "tarif_etudiant": Decimal("0"),  # Gratuit pour étudiants
         "tarif_professionnel": Decimal("150000"),
     },
 ]
+# NOTE: tarif_etudiant/tarif_professionnel are kept in the dict above only for seed
+# purposes — they are migrated into TypeTarif objects below.
 
 COHORTES_PAR_CERTIF = [
     # (nom, date_debut, date_fin)
@@ -150,17 +153,25 @@ INSCRITS_DATA = [
     ("Keita", "Fatoumata", "fatoumata.keita@gmail.com", "+221 70 770 87 97", "etudiant"),
 ]
 
-STATUTS = ["inscrit", "en_formation", "en_formation", "formation_terminee", "certifie", "certifie", "abandon"]
+STATUTS = [
+    "inscrit",
+    "en_formation",
+    "en_formation",
+    "formation_terminee",
+    "certifie",
+    "certifie",
+    "abandon",
+]
 
 # Payment modes per certification (some single, some multiple)
 PAIEMENT_MODES = [
-    ["wave"],                                      # Certif 1 - paiement unique Wave
-    ["orange_money"],                              # Certif 2 - paiement unique Orange Money
-    ["especes"],                                   # Certif 3 - paiement unique Espèces
-    ["virement"],                                  # Certif 4 - paiement unique Virement
-    ["wave", "orange_money"],                      # Certif 5 - Wave + Orange Money
-    ["wave", "especes", "orange_money"],           # Certif 6 - Wave + Espèces + Orange Money
-    ["virement", "especes"],                       # Certif 7 - Virement + Espèces
+    ["wave"],  # Certif 1 - paiement unique Wave
+    ["orange_money"],  # Certif 2 - paiement unique Orange Money
+    ["especes"],  # Certif 3 - paiement unique Espèces
+    ["virement"],  # Certif 4 - paiement unique Virement
+    ["wave", "orange_money"],  # Certif 5 - Wave + Orange Money
+    ["wave", "especes", "orange_money"],  # Certif 6 - Wave + Espèces + Orange Money
+    ["virement", "especes"],  # Certif 7 - Virement + Espèces
     ["wave", "orange_money", "especes", "virement"],  # Certif 8 - tous les moyens
 ]
 
@@ -198,10 +209,19 @@ class Command(BaseCommand):
                 defaults={
                     "description": cert_data["description"],
                     "duree": cert_data["duree"],
-                    "tarif_etudiant": cert_data["tarif_etudiant"],
-                    "tarif_professionnel": cert_data["tarif_professionnel"],
                     "actif": True,
                 },
+            )
+            # Créer les types de tarif si pas encore présents
+            tt_etu, _ = TypeTarif.objects.get_or_create(
+                certification=cert,
+                nom="Étudiant",
+                defaults={"montant": cert_data["tarif_etudiant"], "actif": True},
+            )
+            tt_pro, _ = TypeTarif.objects.get_or_create(
+                certification=cert,
+                nom="Professionnel",
+                defaults={"montant": cert_data["tarif_professionnel"], "actif": True},
             )
 
             modes = PAIEMENT_MODES[i]
@@ -225,15 +245,17 @@ class Command(BaseCommand):
                 for inscrit in sample:
                     statut = random.choice(STATUTS)
                     if inscrit.activite == "etudiant":
-                        montant_du = cert.tarif_etudiant
+                        type_tarif = tt_etu
                     else:
-                        montant_du = cert.tarif_professionnel
+                        type_tarif = tt_pro
+                    montant_du = type_tarif.montant
 
                     inscription, created = Inscription.objects.get_or_create(
                         inscrit=inscrit,
                         cohorte=cohorte,
                         defaults={
                             "statut": statut,
+                            "type_tarif": type_tarif,
                             "montant_du": montant_du,
                         },
                     )
@@ -242,7 +264,10 @@ class Command(BaseCommand):
                     total_inscriptions += 1
 
                     # Créer paiement si statut avancé et montant > 0
-                    if statut in ("en_formation", "formation_terminee", "certifie") and montant_du > 0:
+                    if (
+                        statut in ("en_formation", "formation_terminee", "certifie")
+                        and montant_du > 0
+                    ):
                         mode = random.choice(modes)
                         date_p = date_debut + timedelta(days=random.randint(1, 30))
                         Paiement.objects.create(
@@ -269,10 +294,12 @@ class Command(BaseCommand):
 
             self.stdout.write(f"  Certification '{cert.nom}' — modes: {', '.join(modes)}")
 
-        self.stdout.write(self.style.SUCCESS(
-            f"\nTermine ! {Certification.objects.count()} certifications, "
-            f"{Cohorte.objects.count()} cohortes, "
-            f"{Inscrit.objects.count()} inscrits, "
-            f"{total_inscriptions} inscriptions, "
-            f"{total_paiements} paiements."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\nTermine ! {Certification.objects.count()} certifications, "
+                f"{Cohorte.objects.count()} cohortes, "
+                f"{Inscrit.objects.count()} inscrits, "
+                f"{total_inscriptions} inscriptions, "
+                f"{total_paiements} paiements."
+            )
+        )

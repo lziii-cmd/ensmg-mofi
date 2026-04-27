@@ -1,0 +1,98 @@
+/* ============================================================
+   ENSMG MOFI — Custom styles (supplements base.html inline CSS)
+   ============================================================ */
+
+/* ── Typography helpers ── */
+.fw-500 { font-weight: 500 !important; }
+.fw-600 { font-weight: 600 !important; }
+
+/* ── Smooth page transitions ── */
+.page-content {
+    animation: fadeInUp 0.2s ease-out;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card hover lift ── */
+.card-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ── Stat cards ── */
+.stat-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Table action buttons — tighter spacing ── */
+.table .btn-sm {
+    padding: 0.2rem 0.5rem;
+    line-height: 1.4;
+}
+
+/* ── Upload zone ── */
+.upload-zone {
+    border-style: dashed !important;
+    transition: background 0.2s, border-color 0.2s;
+}
+.upload-zone:hover {
+    background: #ebf4ff !important;
+    border-color: #4f6ef7 !important;
+}
+
+/* ── Badge sizes ── */
+.badge {
+    font-size: 0.72rem;
+    letter-spacing: 0.2px;
+}
+
+/* ── Sidebar scrollbar (thin) ── */
+#sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+#sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+#sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+/* ── Form section divider ── */
+.form-section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #a0aec0;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Responsive table font size ── */
+@media (max-width: 575.98px) {
+    .table {
+        font-size: 0.8rem;
+    }
+    .page-header h1 {
+        font-size: 1.2rem;
+    }
+}
+
+/* ── Print styles ── */
+@media print {
+    #sidebar, #topbar, .btn, .modal { display: none !important; }
+    #main-content { margin-left: 0 !important; }
+    .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+}
