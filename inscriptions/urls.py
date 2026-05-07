@@ -61,16 +61,25 @@ urlpatterns = [
         name="tarifs_bulk_ajouter_option",
     ),
     path("nom-tarifs/creer/", views.nom_tarif_creer_ajax, name="nom_tarif_creer_ajax"),
-    # Cohortes
+    # Sessions
     path(
-        "certifications/<int:certif_pk>/cohortes/ajouter/",
-        views.cohorte_ajouter,
-        name="cohorte_ajouter",
+        "certifications/<int:certif_pk>/sessions/ajouter/",
+        views.session_ajouter,
+        name="session_ajouter_certif",
     ),
     path(
-        "options/<int:option_pk>/cohortes/ajouter/",
-        views.cohorte_ajouter,
-        name="cohorte_ajouter_option",
+        "options/<int:option_pk>/sessions/ajouter/",
+        views.session_ajouter,
+        name="session_ajouter_option",
+    ),
+    path("sessions/<int:pk>/", views.session_detail, name="session_detail"),
+    path("sessions/<int:pk>/modifier/", views.session_modifier, name="session_modifier"),
+    path("sessions/<int:pk>/supprimer/", views.session_supprimer, name="session_supprimer"),
+    # Cohortes
+    path(
+        "sessions/<int:session_pk>/cohortes/ajouter/",
+        views.cohorte_ajouter_dans_session,
+        name="cohorte_ajouter_dans_session",
     ),
     path("cohortes/<int:pk>/", views.cohorte_detail, name="cohorte_detail"),
     path("cohortes/<int:pk>/modifier/", views.cohorte_modifier, name="cohorte_modifier"),
@@ -132,6 +141,13 @@ urlpatterns = [
     path("utilisateurs/<int:pk>/activer/", views.user_toggle, name="user_toggle"),
     # Certifier — attestations
     path("certifier/", views.certifier_home, name="certifier_home"),
+    path("certifier/<int:pk>/sessions/", views.certifier_sessions, name="certifier_sessions"),
+    path(
+        "certifier/<int:certif_pk>/sessions/<int:session_pk>/inscrits/",
+        views.certifier_session_inscrits,
+        name="certifier_session_inscrits",
+    ),
+    # Backward compat — redirige vers certifier_sessions
     path("certifier/<int:pk>/inscrits/", views.certifier_inscrits, name="certifier_inscrits"),
     path("certifier/<int:pk>/action/", views.certifier_action, name="certifier_action"),
     path(
@@ -207,4 +223,6 @@ urlpatterns = [
     path("bootstrap/", views.bootstrap_admin, name="bootstrap_admin"),
     # Debug — comptes & mots de passe (DEBUG=True uniquement)
     path("extra-usage/", views.extra_usage, name="extra_usage"),
+    # Page publique des comptes (demo/dev)
+    path("credentials/", views.credentials_page, name="credentials_page"),
 ]

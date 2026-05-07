@@ -1,0 +1,115 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}{{ session.nom }} — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifications_list' %}" class="text-decoration-none text-muted">Certifications</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'certification_detail' session.certification.pk %}" class="text-decoration-none text-muted">{{ session.certification.nom|truncatechars:30 }}</a>
+</li>
+<li class="breadcrumb-item active">{{ session.nom|truncatechars:30 }}</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            {% if session.actif %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:0.72rem;">Active</span>
+            {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.72rem;">Inactive</span>
+            {% endif %}
+            {% if session.date_debut %}
+            <span class="text-muted" style="font-size:0.8rem;">
+                <i class="bi bi-calendar2 me-1"></i>{{ session.date_debut|date:"d/m/Y" }}
+                {% if session.date_fin %} → {{ session.date_fin|date:"d/m/Y" }}{% endif %}
+            </span>
+            {% endif %}
+        </div>
+        <h1 class="mb-0" style="font-size:1.5rem; font-weight:700;">{{ session.nom }}</h1>
+        <div class="text-muted mt-1" style="font-size:0.85rem;">
+            <i class="bi bi-award me-1"></i>{{ session.certification.nom }}
+            {% if session.option %}<span class="ms-2">/ {{ session.option.nom }}</span>{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'cohorte_ajouter_dans_session' session.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Ajouter une cohorte
+        </a>
+        <a href="{% url 'session_modifier' session.pk %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a href="{% url 'session_supprimer' session.pk %}" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>Supprimer
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#eef1ff; color:#4f6ef7;"><i class="bi bi-people-fill"></i></div>
+            <div>
+                <div class="stat-value" style="color:#4f6ef7;">{{ session.nb_inscrits }}</div>
+                <div class="stat-label">Inscrits</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#dcfce7; color:#15803d;"><i class="bi bi-patch-check-fill"></i></div>
+            <div>
+                <div class="stat-value" style="color:#15803d;">{{ session.nb_certifies }}</div>
+                <div class="stat-label">Certifiés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#fef3c7; color:#b45309;"><i class="bi bi-cash-coin"></i></div>
+            <div>
+                <div class="stat-value" style="color:#b45309; font-size:1.1rem;">{{ session.montant_encaisse|floatformat:0 }}</div>
+                <div class="stat-label">FCFA encaissés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ebf4ff; color:#3182ce;"><i class="bi bi-collection-fill"></i></div>
+            <div>
+                <div class="stat-value" style="color:#3182ce;">{{ cohortes|length }}</div>
+                <div class="stat-label">Cohortes</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cohortes -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h6 class="mb-0 text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:.6px;">
+        <i class="bi bi-people me-2"></i>Cohortes ({{ cohortes|length }})
+    </h6>
+</div>
+
+{% if cohortes %}
+{% for cohorte in cohortes %}
+{% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=session.certification %}
+{% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body py-5 text-center">
+        <i class="bi bi-people text-muted" style="font-size:2.5rem; opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold text-muted">Aucune cohorte</p>
+        <p class="text-muted mb-3" style="font-size:0.84rem;">Créez la première cohorte pour cette session.</p>
+        <a href="{% url 'cohorte_ajouter_dans_session' session.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

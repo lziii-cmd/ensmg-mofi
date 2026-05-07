@@ -1,0 +1,48 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Supprimer la session — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifications_list' %}" class="text-decoration-none text-muted">Certifications</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'certification_detail' session.certification.pk %}" class="text-decoration-none text-muted">{{ session.certification.nom|truncatechars:30 }}</a>
+</li>
+<li class="breadcrumb-item active">Supprimer session</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-7 col-lg-5">
+        <div class="card border-danger">
+            <div class="card-header bg-danger-subtle py-3">
+                <h5 class="mb-0 fw-semibold text-danger" style="font-size:1rem;">
+                    <i class="bi bi-trash me-2"></i>Supprimer la session
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Êtes-vous sûr de vouloir supprimer la session <strong>« {{ session.nom }} »</strong> ?</p>
+                {% if session.cohortes.count > 0 %}
+                <div class="alert alert-warning" style="font-size:0.85rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Cette session contient <strong>{{ session.cohortes.count }} cohorte{{ session.cohortes.count|pluralize }}</strong>
+                    et toutes les inscriptions associées seront supprimées.
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Confirmer la suppression
+                        </button>
+                        <a href="{% url 'certification_detail' session.certification.pk %}" class="btn btn-outline-secondary">
+                            Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

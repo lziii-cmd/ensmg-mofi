@@ -2,11 +2,19 @@ import io
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from ..models import Attestation, Certification, Inscription, Notification
+from ..models import (
+    Attestation,
+    Certification,
+    Inscription,
+    Notification,
+    OptionCertification,
+    Session,
+)
 from ..notifications import notifier_attestation
 from ._base import _send_email_apprenant
 
@@ -24,17 +32,95 @@ def certifier_home(request):
     )
 
 
+def _sessions_annotees(qs):
+    """Annote un queryset de Session avec nb_inscrits et nb_certifies."""
+    return qs.annotate(
+        nb_inscrits_total=Count("cohortes__inscriptions", distinct=True),
+        nb_certifies_total=Count(
+            "cohortes__inscriptions",
+            filter=Q(cohortes__inscriptions__statut="certifie"),
+            distinct=True,
+        ),
+    )
+
+
+def _split_sessions(sessions):
+    """Sépare une liste de sessions annotées en (actives, terminées)."""
+    actives, terminees = [], []
+    for s in sessions:
+        if s.nb_inscrits_total > 0 and s.nb_certifies_total >= s.nb_inscrits_total:
+            terminees.append(s)
+        else:
+            actives.append(s)
+    return actives, terminees
+
+
 @login_required
-def certifier_inscrits(request, pk):
+def certifier_sessions(request, pk):
+    """Page intermédiaire : liste des sessions d'une certification, groupées par option."""
     certification = get_object_or_404(Certification, pk=pk)
+
+    base_qs = _sessions_annotees(
+        Session.objects.filter(certification=certification, actif=True).order_by("date_debut")
+    )
+
+    if certification.a_options:
+        options_data = []
+        for option in OptionCertification.objects.filter(
+            certification=certification, actif=True
+        ).order_by("nom"):
+            opt_sessions = list(base_qs.filter(option=option))
+            actives, terminees = _split_sessions(opt_sessions)
+            options_data.append({"option": option, "actives": actives, "terminees": terminees})
+
+        nb_actives = sum(len(g["actives"]) for g in options_data)
+        nb_terminees = sum(len(g["terminees"]) for g in options_data)
+
+        return render(
+            request,
+            "inscriptions/certifier_sessions.html",
+            {
+                "certification": certification,
+                "has_options": True,
+                "options_data": options_data,
+                "nb_actives": nb_actives,
+                "nb_terminees": nb_terminees,
+                "active_page": "certifier",
+            },
+        )
+    else:
+        sessions_libres = list(base_qs.filter(option__isnull=True))
+        actives, terminees = _split_sessions(sessions_libres)
+
+        return render(
+            request,
+            "inscriptions/certifier_sessions.html",
+            {
+                "certification": certification,
+                "has_options": False,
+                "sessions_actives": actives,
+                "sessions_terminees": terminees,
+                "nb_actives": len(actives),
+                "nb_terminees": len(terminees),
+                "active_page": "certifier",
+            },
+        )
+
+
+@login_required
+def certifier_session_inscrits(request, certif_pk, session_pk):
+    """Liste des inscrits d'une session précise (avec action de certification)."""
+    certification = get_object_or_404(Certification, pk=certif_pk)
+    session = get_object_or_404(Session, pk=session_pk, certification=certification)
+
     inscriptions = (
-        Inscription.objects.filter(cohorte__certification=certification)
+        Inscription.objects.filter(cohorte__session=session)
         .exclude(statut="certifie")
         .select_related("inscrit", "cohorte")
         .order_by("inscrit__nom", "inscrit__prenom")
     )
     certifies = (
-        Inscription.objects.filter(cohorte__certification=certification, statut="certifie")
+        Inscription.objects.filter(cohorte__session=session, statut="certifie")
         .select_related("inscrit", "cohorte")
         .prefetch_related("attestations")
         .order_by("inscrit__nom", "inscrit__prenom")
@@ -44,11 +130,18 @@ def certifier_inscrits(request, pk):
         "inscriptions/certifier_inscrits.html",
         {
             "certification": certification,
+            "session": session,
             "inscriptions": inscriptions,
             "certifies": certifies,
             "active_page": "certifier",
         },
     )
+
+
+@login_required
+def certifier_inscrits(request, pk):
+    """Fallback : tous les inscrits d'une certification (redirige vers sessions)."""
+    return redirect("certifier_sessions", pk=pk)
 
 
 @login_required
@@ -65,8 +158,8 @@ def certifier_action(request, pk):
 
     inscriptions_qs = Inscription.objects.filter(
         pk__in=inscription_ids,
-        cohorte__certification=certification,
-    ).select_related("inscrit", "cohorte", "cohorte__certification")
+        cohorte__session__certification=certification,
+    ).select_related("inscrit", "cohorte", "cohorte__session__certification")
 
     nb_ok = 0
     for inscription in inscriptions_qs:
@@ -80,7 +173,7 @@ def certifier_action(request, pk):
         abbrev = "".join(c for c in certification.nom.upper() if c.isalpha())[:6]
         seq = (
             Attestation.objects.filter(
-                inscription__cohorte__certification=certification,
+                inscription__cohorte__session__certification=certification,
                 date_delivrance__year=annee,
             ).count()
             + 1
@@ -107,14 +200,26 @@ def certifier_action(request, pk):
         )
     else:
         messages.info(request, "Tous les inscrits sélectionnés ont déjà une attestation.")
-    return redirect("certifier_inscrits", pk=pk)
+
+    # Rediriger vers la page de la session si on y était
+    session_pk = request.POST.get("session_pk")
+    if session_pk:
+        return redirect("certifier_session_inscrits", certif_pk=pk, session_pk=session_pk)
+    return redirect("certifier_sessions", pk=pk)
 
 
 @login_required
 def attestation_qr_download(request, pk):
     """Génère et télécharge le QR code de vérification d'une attestation (PNG)."""
     attestation = get_object_or_404(Attestation, pk=pk)
-    verification_url = request.build_absolute_uri(f"/attestations/{attestation.numero}/verifier/")
+    from django.conf import settings as _settings
+
+    _base = getattr(_settings, "SITE_URL", "").rstrip("/")
+    verification_url = (
+        f"{_base}/attestations/{attestation.numero}/verifier/"
+        if _base
+        else request.build_absolute_uri(f"/attestations/{attestation.numero}/verifier/")
+    )
     try:
         import qrcode as _qrcode
         from PIL import Image as _PilImage
@@ -207,7 +312,9 @@ def attestation_upload_pdf(request, pk):
                 f"PDF chargé avec succès pour {attestation.inscription.inscrit.nom_complet}.",
             )
 
-    return redirect("certifier_inscrits", pk=certif_pk)
+    # Rediriger vers la session si on connaît la session de l'attestation
+    session_pk = attestation.inscription.cohorte.session_id
+    return redirect("certifier_session_inscrits", certif_pk=certif_pk, session_pk=session_pk)
 
 
 @login_required
@@ -247,7 +354,7 @@ def attestation_verifier(request, numero):
     """Page publique de vérification d'authenticité (accessible sans connexion)."""
     try:
         attestation = Attestation.objects.select_related(
-            "inscription__inscrit", "inscription__cohorte__certification"
+            "inscription__inscrit", "inscription__cohorte__session__certification"
         ).get(numero=numero)
         valide = True
     except Attestation.DoesNotExist:

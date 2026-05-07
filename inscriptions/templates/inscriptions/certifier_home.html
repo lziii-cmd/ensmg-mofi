@@ -19,7 +19,7 @@
     {% for cert in certifications %}
     {% with nb_a_certifier=cert.nb_inscrits|add:"-"|add:cert.nb_certifies %}
     <div class="col-md-6 col-xl-4">
-        <a href="{% url 'certifier_inscrits' cert.pk %}" class="text-decoration-none">
+        <a href="{% url 'certifier_sessions' cert.pk %}" class="text-decoration-none">
             <div class="card card-lift h-100" style="border-left: 4px solid var(--accent);">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between mb-3">

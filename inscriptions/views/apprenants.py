@@ -33,7 +33,7 @@ def espace_apprenant(request):
     inscrit = compte.inscrit
 
     inscriptions = list(
-        inscrit.inscriptions.select_related("cohorte__certification")
+        inscrit.inscriptions.select_related("cohorte__session__certification")
         .prefetch_related("paiements", "attestations")
         .order_by("-date_inscription")
     )
@@ -58,7 +58,7 @@ def espace_apprenant(request):
     nb_notifs_non_lues = Notification.objects.filter(destinataire=compte, lu=False).count()
 
     certif_ids_certifiees = set(
-        i.cohorte.certification_id for i in inscriptions if i.statut == "certifie"
+        i.cohorte.session.certification_id for i in inscriptions if i.statut == "certifie"
     )
     certifs_disponibles = (
         Certification.objects.filter(actif=True).exclude(pk__in=certif_ids_certifiees).count()
@@ -90,8 +90,8 @@ def apprenant_paiements(request):
     """Dedicated paiements list page for the apprenant."""
     compte = request.user.compte_apprenant
     inscrit = compte.inscrit
-    inscriptions = (
-        inscrit.inscriptions.select_related("cohorte__certification")
+    inscriptions = list(
+        inscrit.inscriptions.select_related("cohorte__session__certification")
         .prefetch_related("paiements")
         .order_by("-date_inscription")
     )
@@ -99,6 +99,9 @@ def apprenant_paiements(request):
     for ins in inscriptions:
         for p in ins.paiements.all():
             paiements.append({"paiement": p, "inscription": ins})
+
+    inscriptions_a_payer = [i for i in inscriptions if i.reste_a_payer > 0]
+
     return render(
         request,
         "inscriptions/apprenant_paiements.html",
@@ -106,6 +109,7 @@ def apprenant_paiements(request):
             "compte": compte,
             "inscrit": inscrit,
             "paiements": paiements,
+            "inscriptions_a_payer": inscriptions_a_payer,
             "active_page": "paiements",
         },
     )
@@ -117,7 +121,7 @@ def apprenant_attestations(request):
     compte = request.user.compte_apprenant
     inscrit = compte.inscrit
     inscriptions = (
-        inscrit.inscriptions.select_related("cohorte__certification")
+        inscrit.inscriptions.select_related("cohorte__session__certification")
         .prefetch_related("attestations")
         .order_by("-date_inscription")
     )
@@ -148,6 +152,8 @@ def apprenant_changer_mdp(request):
         return redirect("dashboard")
 
     if request.method == "POST":
+        from django.contrib.auth import update_session_auth_hash
+
         from ..forms import ChangerMdpApprenantForm
 
         form = ChangerMdpApprenantForm(request.POST)
@@ -156,11 +162,13 @@ def apprenant_changer_mdp(request):
             request.user.save()
             compte.mdp_change = True
             compte.save()
-            from django.contrib.auth import logout as auth_logout
-
-            auth_logout(request)
-            messages.success(request, "Mot de passe changé avec succès. Veuillez vous reconnecter.")
-            return redirect("login")
+            # Garder la session active après le changement de mot de passe
+            # (update_session_auth_hash met à jour le hash en session sans déconnecter)
+            update_session_auth_hash(request, request.user)
+            messages.success(
+                request, "Mot de passe changé avec succès. Bienvenue dans votre espace !"
+            )
+            return redirect("espace_apprenant")
     else:
         from ..forms import ChangerMdpApprenantForm
 
@@ -219,7 +227,7 @@ def apprenant_certifications(request):
 
     certif_ids_obtenues = Inscription.objects.filter(
         inscrit=inscrit, statut="certifie"
-    ).values_list("cohorte__certification_id", flat=True)
+    ).values_list("cohorte__session__certification_id", flat=True)
 
     certifs_actives = (
         Certification.objects.filter(actif=True).exclude(pk__in=certif_ids_obtenues).order_by("nom")
@@ -255,8 +263,8 @@ def apprenant_inscription_directe(request, certif_pk):
     certification = get_object_or_404(Certification, pk=certif_pk, actif=True)
 
     cohorte = (
-        Cohorte.objects.filter(certification=certification, actif=True)
-        .order_by("date_debut")
+        Cohorte.objects.filter(session__certification=certification, actif=True)
+        .order_by("session__date_debut")
         .first()
     )
 
@@ -269,7 +277,7 @@ def apprenant_inscription_directe(request, certif_pk):
         if cohorte_id:
             try:
                 cohorte = Cohorte.objects.get(
-                    pk=cohorte_id, certification=certification, actif=True
+                    pk=cohorte_id, session__certification=certification, actif=True
                 )
             except Cohorte.DoesNotExist:
                 errors["cohorte"] = "Cohorte invalide."
@@ -312,7 +320,9 @@ def apprenant_inscription_directe(request, certif_pk):
             request.session.pop("new_compte_username", None)
             return redirect("portail_paiement", pk=inscription.pk)
 
-    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by("nom")
+    cohortes = Cohorte.objects.filter(session__certification=certification, actif=True).order_by(
+        "nom"
+    )
 
     return render(
         request,

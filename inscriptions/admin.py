@@ -8,6 +8,7 @@ from .models import (
     Inscrit,
     OptionCertification,
     Paiement,
+    Session,
     TypeTarif,
 )
 
@@ -28,7 +29,19 @@ class InscriptionInline(admin.TabularInline):
 
 
 class CohorteInline(admin.TabularInline):
+    """Inline : cohortes dans une session."""
+
     model = Cohorte
+    extra = 0
+    readonly_fields = ["created_at"]
+    fields = ["nom", "actif", "created_at"]
+    show_change_link = True
+
+
+class SessionInline(admin.TabularInline):
+    """Inline : sessions dans une certification (sans options)."""
+
+    model = Session
     extra = 0
     readonly_fields = ["created_at"]
     fields = ["nom", "date_debut", "date_fin", "actif", "created_at"]
@@ -44,14 +57,14 @@ class CertificationAdmin(admin.ModelAdmin):
         "actif",
         "nb_inscrits_display",
         "nb_certifies_display",
-        "nb_cohortes_display",
+        "nb_sessions_display",
         "created_at",
     ]
     list_filter = ["actif", "a_options"]
     search_fields = ["nom", "description"]
     readonly_fields = ["created_at"]
     ordering = ["-created_at"]
-    inlines = [CohorteInline]
+    inlines = [SessionInline]
 
     def nb_inscrits_display(self, obj):
         return obj.nb_inscrits
@@ -63,17 +76,18 @@ class CertificationAdmin(admin.ModelAdmin):
 
     nb_certifies_display.short_description = "Nb certifiés"
 
-    def nb_cohortes_display(self, obj):
-        return obj.nb_cohortes
+    def nb_sessions_display(self, obj):
+        return obj.nb_sessions
 
-    nb_cohortes_display.short_description = "Cohortes"
+    nb_sessions_display.short_description = "Sessions"
 
 
-@admin.register(Cohorte)
-class CohorteAdmin(admin.ModelAdmin):
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
     list_display = [
         "nom",
         "certification",
+        "option",
         "date_debut",
         "date_fin",
         "actif",
@@ -81,9 +95,36 @@ class CohorteAdmin(admin.ModelAdmin):
         "created_at",
     ]
     list_filter = ["actif", "certification"]
-    search_fields = ["nom", "certification__nom"]
+    search_fields = ["nom", "certification__nom", "option__nom"]
     readonly_fields = ["created_at"]
     autocomplete_fields = ["certification"]
+    inlines = [CohorteInline]
+
+    def nb_inscrits_display(self, obj):
+        return obj.nb_inscrits
+
+    nb_inscrits_display.short_description = "Nb inscrits"
+
+
+@admin.register(Cohorte)
+class CohorteAdmin(admin.ModelAdmin):
+    list_display = [
+        "nom",
+        "session",
+        "certification_display",
+        "actif",
+        "nb_inscrits_display",
+        "created_at",
+    ]
+    list_filter = ["actif", "session__certification"]
+    search_fields = ["nom", "session__nom", "session__certification__nom"]
+    readonly_fields = ["created_at"]
+    autocomplete_fields = ["session"]
+
+    def certification_display(self, obj):
+        return obj.certification.nom
+
+    certification_display.short_description = "Certification"
 
     def nb_inscrits_display(self, obj):
         return obj.nb_inscrits
@@ -126,13 +167,14 @@ class InscriptionAdmin(admin.ModelAdmin):
         "reste_display",
         "date_inscription",
     ]
-    list_filter = ["statut", "cohorte__certification", "date_inscription"]
+    list_filter = ["statut", "cohorte__session__certification", "date_inscription"]
     search_fields = [
         "inscrit__nom",
         "inscrit__prenom",
         "inscrit__email",
         "cohorte__nom",
-        "cohorte__certification__nom",
+        "cohorte__session__nom",
+        "cohorte__session__certification__nom",
     ]
     readonly_fields = ["date_inscription"]
     inlines = [PaiementInline]
@@ -165,7 +207,7 @@ class PaiementAdmin(admin.ModelAdmin):
         "inscription__inscrit__prenom",
         "inscription__inscrit__email",
         "inscription__cohorte__nom",
-        "inscription__cohorte__certification__nom",
+        "inscription__cohorte__session__certification__nom",
         "reference",
     ]
     readonly_fields = ["created_at"]
@@ -181,7 +223,7 @@ class AttestationAdmin(admin.ModelAdmin):
         "date_delivrance",
         "generated_at",
     ]
-    list_filter = ["date_delivrance", "inscription__cohorte__certification"]
+    list_filter = ["date_delivrance", "inscription__cohorte__session__certification"]
     search_fields = ["numero", "inscription__inscrit__nom", "inscription__inscrit__prenom"]
     readonly_fields = ["numero", "generated_at"]
     ordering = ["-date_delivrance"]

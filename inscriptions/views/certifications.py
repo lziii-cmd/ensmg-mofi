@@ -19,7 +19,9 @@ from ..models import (
 @login_required
 def certifications_list(request):
     query = request.GET.get("q", "").strip()
-    certifications = Certification.objects.prefetch_related("cohortes__inscriptions__paiements")
+    certifications = Certification.objects.prefetch_related(
+        "sessions__cohortes__inscriptions__paiements"
+    )
 
     if query:
         for mot in query.split():
@@ -48,29 +50,30 @@ def certification_detail(request, pk):
     certification = get_object_or_404(Certification, pk=pk)
 
     if certification.a_options:
-        # Charger options avec leurs types_tarif et cohortes
+        # Charger options avec leurs types_tarif et sessions/cohortes
         options = certification.options.prefetch_related(
             "types_tarif",
-            "cohortes__inscriptions__paiements",
-            "cohortes__inscriptions__inscrit",
+            "sessions__cohortes__inscriptions__paiements",
+            "sessions__cohortes__inscriptions__inscrit",
         ).order_by("nom")
-        cohortes = None
+        sessions = None
         types_tarif = None
     else:
         options = None
-        cohortes = (
-            certification.cohortes.prefetch_related(
-                "inscriptions__paiements", "inscriptions__inscrit"
+        sessions = (
+            certification.sessions.prefetch_related(
+                "cohortes__inscriptions__paiements",
+                "cohortes__inscriptions__inscrit",
             )
             .filter(option__isnull=True)
-            .order_by("nom")
+            .order_by("date_debut")
         )
         types_tarif = certification.types_tarif.filter(actif=True).order_by("nom")
 
     context = {
         "certification": certification,
         "options": options,
-        "cohortes": cohortes,
+        "sessions": sessions,
         "types_tarif": types_tarif,
         "noms_catalogue": NomTypeTarif.objects.filter(actif=True).order_by("nom"),
         "active_page": "certifications",
@@ -393,7 +396,9 @@ def api_types_tarif(request):
 
     if cohorte_id:
         try:
-            cohorte = Cohorte.objects.select_related("certification", "option").get(pk=cohorte_id)
+            cohorte = Cohorte.objects.select_related(
+                "session__certification", "session__option"
+            ).get(pk=cohorte_id)
         except Cohorte.DoesNotExist:
             return JsonResponse({"tarifs": []})
 

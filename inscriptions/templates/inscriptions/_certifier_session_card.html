@@ -1,0 +1,76 @@
+{% comment %}
+Partial : carte d'une session dans la page certifier_sessions.
+Variables attendues :
+  - session   : objet Session annoté (nb_inscrits_total, nb_certifies_total)
+  - done      : booléen — True si session terminée (style vert)
+  - certification : objet Certification (disponible via context parent)
+{% endcomment %}
+<div class="col-md-6 col-xl-4">
+    <a href="{% url 'certifier_session_inscrits' certif_pk=certification.pk session_pk=session.pk %}"
+       class="text-decoration-none">
+        <div class="{% if done %}session-card-done{% else %}session-card{% endif %} p-3 h-100">
+
+            <div class="d-flex align-items-start justify-content-between mb-2">
+                <div style="min-width:0;flex:1;">
+                    <div class="fw-bold text-truncate" style="color:#2d3748;font-size:.95rem;">
+                        {{ session.nom }}
+                    </div>
+                    {% if session.date_debut %}
+                    <div class="text-muted" style="font-size:.78rem;">
+                        <i class="bi bi-calendar3 me-1"></i>{{ session.date_debut|date:"d/m/Y" }}
+                        {% if session.date_fin %}&rarr; {{ session.date_fin|date:"d/m/Y" }}{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% if done %}
+                <span class="stat-pill ms-2 flex-shrink-0" style="background:#d1fae5;color:#065f46;">
+                    <i class="bi bi-patch-check-fill"></i>100 %
+                </span>
+                {% elif session.nb_certifies_total > 0 %}
+                <span class="stat-pill ms-2 flex-shrink-0" style="background:#d1fae5;color:#065f46;">
+                    <i class="bi bi-patch-check-fill"></i>{{ session.nb_certifies_total }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mt-2">
+                <span class="stat-pill" style="background:#eef2ff;color:#3730a3;">
+                    <i class="bi bi-people-fill"></i>
+                    {{ session.nb_inscrits_total }} inscrit{{ session.nb_inscrits_total|pluralize }}
+                </span>
+                {% if not done %}
+                    {% with nb_attente=session.nb_inscrits_total|add:"-"|add:session.nb_certifies_total %}
+                    {% if nb_attente > 0 %}
+                    <span class="stat-pill" style="background:#fef3c7;color:#92400e;">
+                        <i class="bi bi-hourglass-split"></i>{{ nb_attente }} à certifier
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                {% endif %}
+            </div>
+
+            {% if session.nb_inscrits_total > 0 %}
+            <div class="progress-mini">
+                <div class="{% if done %}bar-done{% else %}bar-active{% endif %}"
+                     style="width:{% widthratio session.nb_certifies_total session.nb_inscrits_total 100 %}%;"></div>
+            </div>
+            <div class="mt-1" style="font-size:.72rem;color:#718096;">
+                Taux : {% widthratio session.nb_certifies_total session.nb_inscrits_total 100 %}%
+            </div>
+            {% endif %}
+
+            <div class="mt-3">
+                {% if done %}
+                <span class="btn btn-sm w-100" style="background:#d1fae5;color:#065f46;font-size:.8rem;border:1px solid #a7f3d0;">
+                    <i class="bi bi-eye me-1"></i>Voir les attestations
+                </span>
+                {% else %}
+                <span class="btn btn-primary btn-sm w-100" style="font-size:.8rem;">
+                    <i class="bi bi-arrow-right-circle me-1"></i>Gérer cette session
+                </span>
+                {% endif %}
+            </div>
+
+        </div>
+    </a>
+</div>

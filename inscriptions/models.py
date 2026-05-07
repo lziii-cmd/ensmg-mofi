@@ -29,27 +29,33 @@ class Certification(models.Model):
 
     @cached_property
     def nb_inscrits(self):
-        return Inscription.objects.filter(cohorte__certification=self).count()
+        return Inscription.objects.filter(cohorte__session__certification=self).count()
 
     @cached_property
     def nb_certifies(self):
-        return Inscription.objects.filter(cohorte__certification=self, statut="certifie").count()
+        return Inscription.objects.filter(
+            cohorte__session__certification=self, statut="certifie"
+        ).count()
 
     @cached_property
     def nb_en_formation(self):
         return Inscription.objects.filter(
-            cohorte__certification=self, statut="en_formation"
+            cohorte__session__certification=self, statut="en_formation"
         ).count()
 
     @cached_property
+    def nb_sessions(self):
+        return self.sessions.count()
+
+    @cached_property
     def nb_cohortes(self):
-        return self.cohortes.count()
+        return Cohorte.objects.filter(session__certification=self).count()
 
     @cached_property
     def montant_encaisse(self):
-        result = Paiement.objects.filter(inscription__cohorte__certification=self).aggregate(
-            total=Sum("montant")
-        )
+        result = Paiement.objects.filter(
+            inscription__cohorte__session__certification=self
+        ).aggregate(total=Sum("montant"))
         return result["total"] or 0
 
 
@@ -78,11 +84,15 @@ class OptionCertification(models.Model):
 
     @cached_property
     def nb_inscrits(self):
-        return Inscription.objects.filter(cohorte__option=self).count()
+        return Inscription.objects.filter(cohorte__session__option=self).count()
+
+    @cached_property
+    def nb_sessions(self):
+        return self.sessions.count()
 
     @cached_property
     def montant_encaisse(self):
-        result = Paiement.objects.filter(inscription__cohorte__option=self).aggregate(
+        result = Paiement.objects.filter(inscription__cohorte__session__option=self).aggregate(
             total=Sum("montant")
         )
         return result["total"] or 0
@@ -151,24 +161,92 @@ class TypeTarif(models.Model):
         return self.option or self.certification
 
 
-class Cohorte(models.Model):
+class Session(models.Model):
+    """Période pendant laquelle une formation est dispensée.
+    C'est la dimension temporelle (quand). Une session peut accueillir
+    une ou plusieurs cohortes en parallèle."""
+
+    MOIS_FR = {
+        1: "janvier",
+        2: "février",
+        3: "mars",
+        4: "avril",
+        5: "mai",
+        6: "juin",
+        7: "juillet",
+        8: "août",
+        9: "septembre",
+        10: "octobre",
+        11: "novembre",
+        12: "décembre",
+    }
+
     certification = models.ForeignKey(
         Certification,
         on_delete=models.CASCADE,
-        related_name="cohortes",
+        related_name="sessions",
         verbose_name="Certification",
     )
     option = models.ForeignKey(
         OptionCertification,
         on_delete=models.SET_NULL,
-        related_name="cohortes",
+        related_name="sessions",
         verbose_name="Option",
         null=True,
         blank=True,
     )
-    nom = models.CharField(max_length=200, verbose_name="Nom de la cohorte")
+    nom = models.CharField(max_length=200, verbose_name="Nom de la session")
     date_debut = models.DateField(null=True, blank=True, verbose_name="Date de début")
     date_fin = models.DateField(null=True, blank=True, verbose_name="Date de fin")
+    actif = models.BooleanField(default=True, verbose_name="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Session"
+        verbose_name_plural = "Sessions"
+        ordering = ["date_debut", "nom"]
+
+    def __str__(self):
+        if self.option:
+            return f"{self.option.nom} — {self.nom}"
+        return f"{self.certification.nom} — {self.nom}"
+
+    @classmethod
+    def nom_auto(cls, date_debut):
+        """Génère un nom de session à partir de la date de début."""
+        if not date_debut:
+            return "Session"
+        mois = cls.MOIS_FR.get(date_debut.month, "")
+        return f"Session de {mois} {date_debut.year}"
+
+    @cached_property
+    def nb_inscrits(self):
+        return Inscription.objects.filter(cohorte__session=self).count()
+
+    @cached_property
+    def nb_certifies(self):
+        return Inscription.objects.filter(cohorte__session=self, statut="certifie").count()
+
+    @cached_property
+    def montant_encaisse(self):
+        result = Paiement.objects.filter(inscription__cohorte__session=self).aggregate(
+            total=Sum("montant")
+        )
+        return result["total"] or 0
+
+
+class Cohorte(models.Model):
+    """Groupe d'apprenants qui suivent une formation ensemble.
+    C'est la dimension humaine et collective (qui). Une cohorte
+    est rattachée à une session (quand)."""
+
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.CASCADE,
+        related_name="cohortes",
+        verbose_name="Session",
+    )
+    nom = models.CharField(max_length=200, verbose_name="Nom de la cohorte")
     actif = models.BooleanField(default=True, verbose_name="Active")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -178,8 +256,26 @@ class Cohorte(models.Model):
         ordering = ["nom"]
 
     def __str__(self):
-        return f"{self.certification.nom} — {self.nom}"
+        return f"{self.session} — {self.nom}"
 
+    # ── Délégation vers Session (backward-compat) ────────────────────────────
+    @property
+    def certification(self):
+        return self.session.certification
+
+    @property
+    def option(self):
+        return self.session.option
+
+    @property
+    def date_debut(self):
+        return self.session.date_debut
+
+    @property
+    def date_fin(self):
+        return self.session.date_fin
+
+    # ── Statistiques ─────────────────────────────────────────────────────────
     @cached_property
     def nb_inscrits(self):
         return self.inscriptions.count()

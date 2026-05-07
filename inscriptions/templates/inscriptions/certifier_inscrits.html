@@ -6,7 +6,14 @@
 <li class="breadcrumb-item">
     <a href="{% url 'certifier_home' %}" class="text-decoration-none text-muted">Certifier</a>
 </li>
-<li class="breadcrumb-item active">{{ certification.nom }}</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'certifier_sessions' certification.pk %}" class="text-decoration-none text-muted">{{ certification.nom }}</a>
+</li>
+{% if session %}
+<li class="breadcrumb-item active">{{ session.nom }}</li>
+{% else %}
+<li class="breadcrumb-item active">Inscrits</li>
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -76,19 +83,30 @@
 {% block content %}
 <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
+        {% if session %}
+        <h1><i class="bi bi-patch-check-fill me-2 text-primary"></i>{{ session.nom }}</h1>
+        <p class="text-muted mb-0">
+            {{ certification.nom }}
+            {% if session.date_debut %}
+            &nbsp;·&nbsp;<i class="bi bi-calendar3 me-1"></i>{{ session.date_debut|date:"d/m/Y" }}{% if session.date_fin %} → {{ session.date_fin|date:"d/m/Y" }}{% endif %}
+            {% endif %}
+        </p>
+        {% else %}
         <h1><i class="bi bi-patch-check-fill me-2 text-primary"></i>{{ certification.nom }}</h1>
         <p class="text-muted mb-0">Gérez les certifications et générez les attestations.</p>
+        {% endif %}
     </div>
-    <a href="{% url 'certifier_home' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Retour
+    <a href="{% url 'certifier_sessions' certification.pk %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour aux sessions
     </a>
 </div>
 
 <!-- ── Two selector cards ── -->
-{% with total=inscriptions.count nb_certif=certifies.count %}
+{% with total=inscriptions.count|add:certifies.count nb_certif=certifies.count %}
 <div class="row g-3 mb-4">
 
-    <!-- Non certifiés -->
+    <!-- Non certifiés — masqué si tout le monde est certifié -->
+    {% if inscriptions.count > 0 %}
     <div class="col-md-6">
         <div class="cert-tab-card cert-tab-warning active-tab"
              id="tab-non-certif"
@@ -125,10 +143,11 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
-    <!-- Certifiés -->
-    <div class="col-md-6">
-        <div class="cert-tab-card cert-tab-success"
+    <!-- Certifiés — pleine largeur si aucun non-certifié -->
+    <div class="{% if inscriptions.count > 0 %}col-md-6{% else %}col-12{% endif %}">
+        <div class="cert-tab-card cert-tab-success {% if inscriptions.count == 0 %}active-tab{% endif %}"
              id="tab-certif"
              onclick="showPanel('certif')">
             {% if certifies.count > 0 %}
@@ -161,7 +180,7 @@
 {% endwith %}
 
 <!-- ── Panel: À certifier ── -->
-<div class="cert-panel show" id="panel-non-certif">
+<div class="cert-panel {% if inscriptions.count > 0 %}show{% endif %}" id="panel-non-certif">
 {% if inscriptions %}
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -182,6 +201,7 @@
 
     <form method="post" action="{% url 'certifier_action' certification.pk %}" id="formCertifier">
         {% csrf_token %}
+        {% if session %}<input type="hidden" name="session_pk" value="{{ session.pk }}">{% endif %}
         <div class="table-responsive">
             <table class="table table-hover mb-0" style="font-size:0.86rem;">
                 <thead style="background:#f8f9fe;">
@@ -354,7 +374,7 @@
 {% endfor %}
 
 <!-- ── Panel: Déjà certifiés ── -->
-<div class="cert-panel" id="panel-certif">
+<div class="cert-panel {% if inscriptions.count == 0 %}show{% endif %}" id="panel-certif">
 {% if certifies %}
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">

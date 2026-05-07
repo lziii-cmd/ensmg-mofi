@@ -38,9 +38,11 @@ def dashboard(request):
         inscriptions_qs = inscriptions_qs.filter(cohorte_id__in=filter_cohorte_ids)
         paiements_qs = paiements_qs.filter(inscription__cohorte_id__in=filter_cohorte_ids)
     elif filter_certif_ids:
-        inscriptions_qs = inscriptions_qs.filter(cohorte__certification_id__in=filter_certif_ids)
+        inscriptions_qs = inscriptions_qs.filter(
+            cohorte__session__certification_id__in=filter_certif_ids
+        )
         paiements_qs = paiements_qs.filter(
-            inscription__cohorte__certification_id__in=filter_certif_ids
+            inscription__cohorte__session__certification_id__in=filter_certif_ids
         )
 
     nb_inscrits = inscriptions_qs.values("inscrit").distinct().count()
@@ -52,7 +54,7 @@ def dashboard(request):
         taux_certification = int((nb_certifies / total_inscriptions) * 100)
 
     certifications = Certification.objects.prefetch_related(
-        "cohortes__inscriptions__paiements"
+        "sessions__cohortes__inscriptions__paiements"
     ).order_by("-created_at")
 
     if filter_certif_ids:
@@ -60,7 +62,7 @@ def dashboard(request):
 
     stats_certifications = []
     for cert in certifications:
-        cert_inscriptions = Inscription.objects.filter(cohorte__certification=cert)
+        cert_inscriptions = Inscription.objects.filter(cohorte__session__certification=cert)
         if filter_cohorte_ids:
             cert_inscriptions = cert_inscriptions.filter(cohorte_id__in=filter_cohorte_ids)
         nb_cert_inscrits = cert_inscriptions.count()
@@ -79,14 +81,14 @@ def dashboard(request):
                 "certification": cert,
                 "nb_inscrits": nb_cert_inscrits,
                 "nb_certifies": nb_cert_certifies,
-                "nb_cohortes": cert.cohortes.count(),
+                "nb_cohortes": cert.nb_sessions,
                 "taux": taux,
                 "montant_encaisse": montant,
             }
         )
 
     paiements_recents = paiements_qs.select_related(
-        "inscription__inscrit", "inscription__cohorte__certification"
+        "inscription__inscrit", "inscription__cohorte__session__certification"
     ).order_by("-date_paiement", "-created_at")[:8]
 
     stats_statut_qs = inscriptions_qs.values("statut").annotate(nb=Count("id"))
@@ -200,11 +202,13 @@ def dashboard_financier(request):
 
     stats_certifs = []
     for cert in Certification.objects.order_by("nom"):
-        nb_i = Inscription.objects.filter(cohorte__certification=cert).count()
-        nb_c = Inscription.objects.filter(cohorte__certification=cert, statut="certifie").count()
+        nb_i = Inscription.objects.filter(cohorte__session__certification=cert).count()
+        nb_c = Inscription.objects.filter(
+            cohorte__session__certification=cert, statut="certifie"
+        ).count()
         enc = (
             Paiement.objects.filter(
-                inscription__cohorte__certification=cert, statut="confirme"
+                inscription__cohorte__session__certification=cert, statut="confirme"
             ).aggregate(t=Sum("montant"))["t"]
             or 0
         )
@@ -221,7 +225,10 @@ def dashboard_financier(request):
 
     paiements_en_attente = (
         Paiement.objects.filter(statut="en_attente")
-        .select_related("inscription__inscrit", "inscription__cohorte__certification")
+        .select_related(
+            "inscription__inscrit",
+            "inscription__cohorte__session__certification",
+        )
         .order_by("-created_at")[:20]
     )
 

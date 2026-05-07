@@ -202,7 +202,7 @@
 }
 .field-error .form-control, .field-error .form-select { border-color: #e53e3e; }
 
-/* ─── Cascade sections (step 3) ───────────────────────── */
+/* ─── Cascade sections (step 2) ───────────────────────── */
 .cascade-section {
     padding: 1.25rem 0;
     border-bottom: 1px solid #edf1f7;
@@ -222,6 +222,55 @@
     font-size: 0.78rem; font-weight: 700;
 }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ─── Option cards (step 2 avec options) ──────────────── */
+.option-card-label {
+    display: block;
+    cursor: pointer;
+}
+.option-card-label input[type="radio"] {
+    position: absolute; opacity: 0; width: 0; height: 0;
+}
+.option-card-inner {
+    background: #fff;
+    border: 2px solid #e8edf5;
+    border-radius: 14px;
+    padding: 1.4rem 1.25rem;
+    text-align: center;
+    transition: all 0.18s;
+    user-select: none;
+    height: 100%;
+}
+.option-card-inner:hover {
+    border-color: #b4c0f8;
+    box-shadow: 0 4px 16px rgba(79,110,247,0.1);
+}
+.option-card-label input:checked + .option-card-inner {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(79,110,247,0.18);
+    background: #fafbff;
+}
+.option-card-label.disabled-card { cursor: not-allowed; }
+.option-card-label.disabled-card .option-card-inner {
+    opacity: 0.55; background: #f7fafc; border-style: dashed;
+}
+.option-card-label.disabled-card .option-card-inner:hover { border-color: #e2e8f0; }
+.opt-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.6rem;
+    color: var(--accent);
+}
+.opt-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 0.25rem;
+}
+.opt-meta {
+    font-size: 0.78rem;
+    color: #718096;
+}
 </style>
 {% endblock %}
 
@@ -291,25 +340,33 @@
             <div class="cascade-section">
                 <div class="cascade-title">
                     <span class="cascade-num">1</span>
-                    Votre option
+                    Choisissez votre option
                 </div>
                 <div class="row g-3">
                     {% for opt in options_data %}
                     <div class="col-md-6">
-                        <label class="cohorte-card-label{% if not opt.cohortes %} disabled-card{% endif %}">
+                        <label class="option-card-label{% if not opt.cohortes %} disabled-card{% endif %}">
                             <input type="radio" name="option_id" value="{{ opt.id }}"
                                    class="opt-radio" data-option-id="{{ opt.id }}"
                                    data-has-cohortes="{% if opt.cohortes %}1{% else %}0{% endif %}"
                                    {% if not opt.cohortes %}disabled{% endif %}>
-                            <div class="cohorte-card-inner">
-                                <div style="font-weight:700;color:var(--navy);font-size:1rem;">
-                                    <i class="bi bi-layers me-1" style="color:var(--accent);"></i>{{ opt.nom }}
+                            <div class="option-card-inner">
+                                <i class="bi bi-layers-fill opt-icon"></i>
+                                <div class="opt-title">{{ opt.nom }}</div>
+                                <div class="opt-meta">
+                                    {% if opt.tarifs %}
+                                        {% with min_t=opt.tarifs|first %}
+                                            À partir de <strong style="color:var(--accent);">{{ min_t.montant|floatformat:0 }} FCFA</strong>
+                                        {% endwith %}
+                                    {% endif %}
                                 </div>
-                                <div style="font-size:0.76rem;color:{% if opt.cohortes %}#a0aec0{% else %}#c53030{% endif %};margin-top:0.35rem;">
+                                <div class="opt-meta mt-1">
                                     {% if opt.cohortes %}
+                                        <i class="bi bi-calendar-check me-1 text-success"></i>
                                         {{ opt.cohortes|length }} session{{ opt.cohortes|length|pluralize }} disponible{{ opt.cohortes|length|pluralize }}
                                     {% else %}
-                                        <i class="bi bi-calendar-x me-1"></i>Aucune session ouverte
+                                        <i class="bi bi-calendar-x me-1 text-danger"></i>
+                                        Aucune session ouverte
                                     {% endif %}
                                 </div>
                             </div>
@@ -323,7 +380,7 @@
             <div class="cascade-section" id="section-cohortes" style="display:none;">
                 <div class="cascade-title">
                     <span class="cascade-num">2</span>
-                    Votre session
+                    Choisissez votre session
                 </div>
                 {% for opt in options_data %}
                 <div class="cohorte-group" data-option-id="{{ opt.id }}" style="display:none;">
@@ -335,11 +392,12 @@
                                 <input type="radio" name="cohorte_id" value="{{ c.pk }}"
                                        class="coh-radio" data-option-id="{{ opt.id }}">
                                 <div class="cohorte-card-inner">
-                                    <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">{{ c.nom }}</div>
+                                    <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">
+                                        <i class="bi bi-calendar3 me-1" style="color:var(--accent);"></i>{{ c.nom }}
+                                    </div>
                                     {% if c.date_debut %}
-                                    <div style="font-size:0.78rem;color:#718096;margin-top:0.2rem;">
-                                        <i class="bi bi-calendar3 me-1"></i>{{ c.date_debut|date:"d/m/Y" }}
-                                        {% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
+                                    <div style="font-size:0.78rem;color:#718096;margin-top:0.3rem;">
+                                        {{ c.date_debut|date:"d/m/Y" }}{% if c.date_fin %} → {{ c.date_fin|date:"d/m/Y" }}{% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -360,7 +418,7 @@
             <div class="cascade-section" id="section-tarifs" style="display:none;">
                 <div class="cascade-title">
                     <span class="cascade-num">3</span>
-                    Votre tarif
+                    Choisissez votre tarif
                 </div>
                 {% for opt in options_data %}
                 <div class="tarif-group" data-option-id="{{ opt.id }}" style="display:none;">
@@ -370,11 +428,11 @@
                         <div class="col-md-6">
                             <label class="cohorte-card-label">
                                 <input type="radio" name="type_tarif_id" value="{{ t.pk }}" class="tar-radio">
-                                <div class="cohorte-card-inner">
+                                <div class="cohorte-card-inner" style="text-align:center;">
                                     <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">
-                                        <i class="bi bi-tag me-1" style="color:var(--accent);"></i>{{ t.nom }}
+                                        <i class="bi bi-tag-fill me-1" style="color:var(--accent);"></i>{{ t.nom }}
                                     </div>
-                                    <div style="font-size:1.05rem;color:var(--accent);font-weight:700;margin-top:0.3rem;">
+                                    <div style="font-size:1.15rem;color:var(--accent);font-weight:800;margin-top:0.4rem;">
                                         {{ t.montant|floatformat:0|intcomma }} FCFA
                                     </div>
                                 </div>
@@ -786,35 +844,44 @@ function togglePw(id, btn) {
     }
 
     if (hasOptions) {
-        // 1) Option choisie → afficher SEULEMENT la section cohortes (tarifs caché tant qu'aucune cohorte)
+        // 1) Option choisie → afficher les cohortes de cette option, masquer tarifs
         form.querySelectorAll('.opt-radio').forEach(function(r) {
             r.addEventListener('change', function() {
                 if (this.disabled) return;
                 var optId = this.dataset.optionId;
                 var sectionC = document.getElementById('section-cohortes');
                 var sectionT = document.getElementById('section-tarifs');
-                sectionC.style.display = 'block';
-                sectionT.style.display = 'none';  // masqué tant qu'aucune cohorte
 
-                // Réinitialiser les radios cohorte/tarif
+                // Réinitialiser cohorte/tarif
                 form.querySelectorAll('input[name="cohorte_id"]').forEach(function(x) { x.checked = false; });
                 form.querySelectorAll('input[name="type_tarif_id"]').forEach(function(x) { x.checked = false; });
+                sectionT.style.display = 'none';
 
-                // Afficher uniquement les cohortes/tarifs de l'option choisie
+                // Afficher uniquement les cohortes de l'option choisie
                 form.querySelectorAll('.cohorte-group').forEach(function(g) {
                     g.style.display = (g.dataset.optionId === optId) ? 'block' : 'none';
                 });
                 form.querySelectorAll('.tarif-group').forEach(function(g) {
                     g.style.display = (g.dataset.optionId === optId) ? 'block' : 'none';
                 });
+
+                // Révéler la section cohortes et scroller dessus
+                sectionC.style.display = 'block';
+                setTimeout(function() {
+                    sectionC.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 80);
                 checkCanContinue();
             });
         });
 
-        // 2) Cohorte choisie → révéler la section tarifs
+        // 2) Cohorte choisie → révéler la section tarifs et scroller
         form.querySelectorAll('.coh-radio').forEach(function(r) {
             r.addEventListener('change', function() {
-                document.getElementById('section-tarifs').style.display = 'block';
+                var sectionT = document.getElementById('section-tarifs');
+                sectionT.style.display = 'block';
+                setTimeout(function() {
+                    sectionT.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 80);
             });
         });
     } else {

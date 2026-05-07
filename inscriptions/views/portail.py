@@ -15,6 +15,7 @@ from ..models import (
     Inscription,
     Inscrit,
     Paiement,
+    Session,
     TypeTarif,
 )
 from ..notifications import notifier_inscription, notifier_paiement_confirme
@@ -22,7 +23,7 @@ from ._base import _creer_compte_apprenant
 
 
 def _premier_type_tarif(cohorte):
-    """Retourne le premier TypeTarif actif d'une cohorte (option ou certification)."""
+    """Retourne le premier TypeTarif actif d'une cohorte (via sa session)."""
     if cohorte.option:
         tt = TypeTarif.objects.filter(option=cohorte.option, actif=True).order_by("montant").first()
         if tt:
@@ -34,40 +35,84 @@ def _premier_type_tarif(cohorte):
     )
 
 
-def _build_step3_context(certification, cohortes, error_msg=None):
+def _cohortes_pour_option(option):
     """
-    Construit le contexte pour l'étape 3 du wizard (choix option/cohorte/tarif).
+    Retourne une liste plate de dicts représentant les cohortes actives d'une option.
+    Le nom affiché est celui de la session (plus lisible pour l'apprenant).
+    Le pk est celui de la cohorte (utilisé comme radio value).
+    """
+    result = []
+    for s in option.sessions.filter(actif=True).prefetch_related("cohortes").order_by("date_debut"):
+        for c in s.cohortes.filter(actif=True):
+            result.append(
+                {
+                    "pk": c.pk,
+                    "nom": s.nom,  # Nom de session affiché à l'apprenant
+                    "date_debut": s.date_debut,
+                    "date_fin": s.date_fin,
+                }
+            )
+    return result
+
+
+def _cohortes_pour_certification(certification):
+    """
+    Retourne une liste plate de dicts représentant les cohortes actives
+    d'une certification sans option.
+    """
+    result = []
+    for s in (
+        Session.objects.filter(certification=certification, option=None, actif=True)
+        .prefetch_related("cohortes")
+        .order_by("date_debut")
+    ):
+        for c in s.cohortes.filter(actif=True):
+            result.append(
+                {
+                    "pk": c.pk,
+                    "nom": s.nom,
+                    "date_debut": s.date_debut,
+                    "date_fin": s.date_fin,
+                }
+            )
+    return result
+
+
+def _build_step3_context(certification, error_msg=None):
+    """
+    Construit le contexte pour l'étape 2 du wizard (choix option/session/cohorte/tarif).
     Structure passée au template :
       - has_options : bool
       - options_data : liste d'options avec leurs cohortes + tarifs (si has_options)
-      - cohortes_data / tarifs_data : si pas d'options
+        Chaque item : {id, nom, cohortes: [{pk, nom, date_debut, date_fin}], tarifs}
+      - cohortes / tarifs_data : si pas d'options
     """
     from ..models import OptionCertification
 
     ctx = {
         "certification": certification,
-        "cohortes": cohortes,
         "panel": "wizard",
-        "wizard_step": 3,
+        "wizard_step": 2,
         "cohorte_error": error_msg,
     }
 
     if certification.a_options:
         options_qs = (
             OptionCertification.objects.filter(certification=certification, actif=True)
-            .prefetch_related("cohortes", "types_tarif")
+            .prefetch_related("sessions__cohortes", "types_tarif")
             .order_by("nom")
         )
 
         options_data = []
         for opt in options_qs:
-            opt_cohortes = [c for c in opt.cohortes.all() if c.actif]
             opt_tarifs = [t for t in opt.types_tarif.all() if t.actif]
             options_data.append(
                 {
                     "id": opt.pk,
                     "nom": opt.nom,
-                    "cohortes": opt_cohortes,
+                    "cohortes": _cohortes_pour_option(
+                        opt
+                    ),  # clé "cohortes" attendue par le template
                     "tarifs": sorted(opt_tarifs, key=lambda x: x.montant),
                 }
             )
@@ -75,6 +120,7 @@ def _build_step3_context(certification, cohortes, error_msg=None):
         ctx["options_data"] = options_data
     else:
         ctx["has_options"] = False
+        ctx["cohortes"] = _cohortes_pour_certification(certification)  # clé "cohortes" attendue
         ctx["tarifs_data"] = list(
             TypeTarif.objects.filter(certification=certification, actif=True).order_by("montant")
         )
@@ -117,7 +163,6 @@ def portail_rejoindre(request, certif_pk):
             return redirect("dashboard")
 
     request.session["rejoindre_certif_id"] = certif_pk
-    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by("nom")
 
     if request.method == "POST":
         action = request.POST.get("action", "")
@@ -147,7 +192,6 @@ def portail_rejoindre(request, certif_pk):
                 "inscriptions/portail_rejoindre.html",
                 {
                     "certification": certification,
-                    "cohortes": cohortes,
                     "panel": "login",
                     "error_login": True,
                 },
@@ -176,7 +220,6 @@ def portail_rejoindre(request, certif_pk):
                 "inscriptions/portail_rejoindre.html",
                 {
                     "certification": certification,
-                    "cohortes": cohortes,
                     "panel": "wizard",
                     "wizard_step": 1,
                     "form_step1": form,
@@ -189,26 +232,27 @@ def portail_rejoindre(request, certif_pk):
             cohorte_id = request.POST.get("cohorte_id", "").strip()
             type_tarif_id = request.POST.get("type_tarif_id", "").strip()
 
-            # Valider la cohorte (doit appartenir à cette certification)
+            # Valider la cohorte (doit appartenir à cette certification via session)
             cohorte_sel = None
             if cohorte_id:
                 try:
-                    cohorte_sel = Cohorte.objects.select_related("option").get(
-                        pk=cohorte_id, certification=certification, actif=True
-                    )
+                    cohorte_sel = Cohorte.objects.select_related(
+                        "session__certification", "session__option"
+                    ).get(pk=cohorte_id, session__certification=certification, actif=True)
                 except Cohorte.DoesNotExist:
                     pass
 
             # Valider le tarif (doit appartenir à l'option de la cohorte, ou à la certification)
+            # Note : certification_id / option_id sont sur session, pas directement sur Cohorte
             type_tarif_sel = None
             if type_tarif_id and cohorte_sel:
                 try:
                     tt = TypeTarif.objects.get(pk=type_tarif_id, actif=True)
                     if cohorte_sel.option:
-                        if tt.option_id == cohorte_sel.option_id:
+                        if tt.option_id == cohorte_sel.session.option_id:
                             type_tarif_sel = tt
                     else:
-                        if tt.certification_id == cohorte_sel.certification_id:
+                        if tt.certification_id == cohorte_sel.session.certification_id:
                             type_tarif_sel = tt
                 except TypeTarif.DoesNotExist:
                     pass
@@ -229,7 +273,7 @@ def portail_rejoindre(request, certif_pk):
             return render(
                 request,
                 "inscriptions/portail_rejoindre.html",
-                _build_step3_context(certification, cohortes, error_msg),
+                _build_step3_context(certification, error_msg),
             )
 
         elif action == "wizard_step3":
@@ -239,9 +283,9 @@ def portail_rejoindre(request, certif_pk):
             if not all([step1, step2, step3_data]):
                 return redirect(f"/portail/rejoindre/{certif_pk}/?step=1")
             try:
-                cohorte_obj = Cohorte.objects.select_related("certification", "option").get(
-                    pk=step3_data["cohorte_id"]
-                )
+                cohorte_obj = Cohorte.objects.select_related(
+                    "session__certification", "session__option"
+                ).get(pk=step3_data["cohorte_id"])
             except Cohorte.DoesNotExist:
                 return redirect(f"/portail/rejoindre/{certif_pk}/?step=2")
 
@@ -325,7 +369,6 @@ def portail_rejoindre(request, certif_pk):
             "inscriptions/portail_rejoindre.html",
             {
                 "certification": certification,
-                "cohortes": cohortes,
                 "panel": "wizard",
                 "wizard_step": 1,
                 "form_step1": WizardStep1Form(initial=initial),
@@ -337,7 +380,7 @@ def portail_rejoindre(request, certif_pk):
         return render(
             request,
             "inscriptions/portail_rejoindre.html",
-            _build_step3_context(certification, cohortes),
+            _build_step3_context(certification),
         )
     elif step == 3:
         step1 = request.session.get("wizard_step1", {})
@@ -346,9 +389,9 @@ def portail_rejoindre(request, certif_pk):
         if not all([step1, step2, step3_data]):
             return redirect(f"/portail/rejoindre/{certif_pk}/?step=1")
         try:
-            cohorte_obj = Cohorte.objects.select_related("certification", "option").get(
-                pk=step3_data["cohorte_id"]
-            )
+            cohorte_obj = Cohorte.objects.select_related(
+                "session__certification", "session__option"
+            ).get(pk=step3_data["cohorte_id"])
         except Cohorte.DoesNotExist:
             return redirect(f"/portail/rejoindre/{certif_pk}/?step=2")
 
@@ -367,7 +410,6 @@ def portail_rejoindre(request, certif_pk):
             "inscriptions/portail_rejoindre.html",
             {
                 "certification": certification,
-                "cohortes": cohortes,
                 "panel": "wizard",
                 "wizard_step": 3,
                 "step1": step1,
@@ -383,7 +425,6 @@ def portail_rejoindre(request, certif_pk):
         "inscriptions/portail_rejoindre.html",
         {
             "certification": certification,
-            "cohortes": cohortes,
             "panel": "login" if panel == "login" else "",
             "wizard_step": 0,
             "form_step1": WizardStep1Form(),
@@ -460,9 +501,9 @@ def portail_wizard(request):
                 return redirect("/portail/inscription/?step=1")
 
             try:
-                cohorte = Cohorte.objects.select_related("certification", "option").get(
-                    pk=step3["cohorte_id"]
-                )
+                cohorte = Cohorte.objects.select_related(
+                    "session__certification", "session__option"
+                ).get(pk=step3["cohorte_id"])
             except Cohorte.DoesNotExist:
                 messages.error(request, "Cohorte invalide.")
                 return redirect("/portail/inscription/?step=2")
@@ -565,13 +606,13 @@ def portail_wizard(request):
             {
                 "id": co.pk,
                 "nom": co.nom,
-                "certif_id": co.certification_id,
-                "certif_nom": co.certification.nom,
-                "option_id": co.option_id,
+                "certif_id": co.session.certification_id,
+                "certif_nom": co.session.certification.nom,
+                "option_id": co.session.option_id,
             }
-            for co in Cohorte.objects.select_related("certification")
-            .filter(certification__actif=True, actif=True)
-            .order_by("certification__nom", "nom")
+            for co in Cohorte.objects.select_related("session__certification")
+            .filter(session__certification__actif=True, actif=True)
+            .order_by("session__certification__nom", "nom")
         ]
         # Tarifs par certification et par option
         tarifs_data = {"certif": {}, "option": {}}
@@ -609,9 +650,9 @@ def portail_wizard(request):
         cohorte = None
         if step3_data.get("cohorte_id"):
             try:
-                cohorte = Cohorte.objects.select_related("certification", "option").get(
-                    pk=step3_data["cohorte_id"]
-                )
+                cohorte = Cohorte.objects.select_related(
+                    "session__certification", "session__option"
+                ).get(pk=step3_data["cohorte_id"])
             except Cohorte.DoesNotExist:
                 pass
         if not all([step1, step2, cohorte]):
@@ -654,8 +695,10 @@ def portail_inscrire(request, certif_pk):
     if certification.a_options:
         return redirect("portail_rejoindre", certif_pk=certif_pk)
 
-    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by(
-        "date_debut"
+    cohortes = (
+        Cohorte.objects.select_related("session")
+        .filter(session__certification=certification, actif=True)
+        .order_by("session__date_debut")
     )
     types_tarif = TypeTarif.objects.filter(certification=certification, actif=True).order_by(
         "montant"
@@ -689,12 +732,12 @@ def portail_inscrire(request, certif_pk):
             "type_tarif_id": type_tarif_id,
         }
 
-        # Valider cohorte choisie
+        # Valider cohorte choisie (appartient à cette certification via session)
         cohorte = None
         if cohorte_id:
             try:
                 cohorte = Cohorte.objects.get(
-                    pk=cohorte_id, certification=certification, actif=True
+                    pk=cohorte_id, session__certification=certification, actif=True
                 )
             except (Cohorte.DoesNotExist, ValueError):
                 pass
@@ -962,6 +1005,17 @@ def portail_paiement(request, pk):
 
         is_staff_reg = request.session.pop("wizard_by_staff", False)
         request.session.pop("pending_inscription_id", None)
+        paiement_redirect = request.session.pop("paiement_skip_redirect", None)
+
+        # Si l'apprenant vient de son espace (bouton "Payer" du dashboard),
+        # le rediriger directement là-bas avec un message flash — pas la page
+        # "nouveau compte" qui serait inappropriée pour un utilisateur existant.
+        if paiement_redirect and not is_staff_reg and not username:
+            messages.success(
+                request,
+                "✓ Paiement enregistré avec succès. " "L'administration le confirmera sous 24–48h.",
+            )
+            return redirect(paiement_redirect)
 
         return render(
             request,
@@ -1107,3 +1161,15 @@ def portail_intouch_ipn(request, pk):
 
 # Backward-compatible alias
 portail_paytech_ipn = portail_intouch_ipn
+
+
+def credentials_page(request):
+    """Page publique listant tous les comptes apprenants (demo/dev)."""
+    comptes = CompteApprenant.objects.select_related("inscrit", "user").order_by(
+        "inscrit__nom", "inscrit__prenom"
+    )
+    return render(
+        request,
+        "inscriptions/credentials.html",
+        {"comptes": comptes},
+    )

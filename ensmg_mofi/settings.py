@@ -7,6 +7,15 @@ from pathlib import Path
 
 import dj_database_url
 
+# Charger le fichier .env si présent (dev local)
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get(
@@ -16,6 +25,12 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+
+# URL de base du site utilisée pour les QR codes et liens absolus.
+# En dev local : laisser vide (utilise build_absolute_uri).
+# Pour accès depuis un autre appareil (iPad via Tailscale) :
+#   SITE_URL=http://100.79.146.21:8002
+SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

@@ -1,0 +1,61 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}{{ titre }} — ENSMG Certification{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifications_list' %}" class="text-decoration-none text-muted">Certifications</a>
+</li>
+<li class="breadcrumb-item">
+    <a href="{% url 'certification_detail' certification.pk %}" class="text-decoration-none text-muted">{{ certification.nom|truncatechars:30 }}</a>
+</li>
+{% if option %}
+<li class="breadcrumb-item text-muted">{{ option.nom|truncatechars:20 }}</li>
+{% endif %}
+<li class="breadcrumb-item active">{{ action }} session</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+
+        <div class="card">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-semibold" style="font-size:1rem;">
+                    <i class="bi bi-calendar2-week me-2 text-primary"></i>{{ titre }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold" style="font-size:0.88rem;">
+                            {{ field.label }}{% if field.field.required %}<span class="text-danger ms-1">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger mt-1" style="font-size:0.82rem;">
+                            {% for e in field.errors %}{{ e }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="text-muted mt-1" style="font-size:0.78rem;">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{{ action }}
+                        </button>
+                        <a href="{% url 'certification_detail' certification.pk %}" class="btn btn-outline-secondary">
+                            Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -64,7 +64,7 @@
         font-weight: 700;
     }
 
-    /* Radio cards for cohortes and tarifs */
+    /* Radio cards — sessions (horizontal) */
     .option-card { position: relative; margin-bottom: 0.5rem; }
     .option-card input[type="radio"] { position: absolute; opacity: 0; width: 0; }
     .option-card label {
@@ -80,14 +80,35 @@
         transition: all 0.15s;
         margin: 0;
     }
-    .option-card label:hover { border-color: #cbd5e0; background: #f7fafc; }
+    .option-card label:hover { border-color: #b4c0f8; background: #f7fafc; }
     .option-card input[type="radio"]:checked + label {
         border-color: var(--accent);
         background: var(--accent-light);
     }
     .option-card .oc-title { font-weight: 600; color: #1a2340; font-size: 0.9rem; }
     .option-card .oc-meta { font-size: 0.78rem; color: #718096; margin-top: 0.15rem; }
-    .option-card .oc-price { font-weight: 700; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
+
+    /* Tarif cards (grandes, centrées) */
+    .tarif-card { position: relative; }
+    .tarif-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .tarif-card-inner {
+        border: 2px solid #e8edf5;
+        border-radius: 12px;
+        padding: 1.1rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        background: #fff;
+        height: 100%;
+    }
+    .tarif-card-inner:hover { border-color: #b4c0f8; box-shadow: 0 4px 14px rgba(79,110,247,0.1); }
+    .tarif-card input:checked + .tarif-card-inner {
+        border-color: var(--accent);
+        background: var(--accent-light);
+        box-shadow: 0 4px 18px rgba(79,110,247,0.15);
+    }
+    .tarif-card-name { font-weight: 600; color: #1a2340; font-size: 0.9rem; }
+    .tarif-card-price { font-size: 1.15rem; font-weight: 800; color: var(--accent); margin-top: 0.4rem; }
 
     .profile-options {
         display: grid;
@@ -274,19 +295,22 @@
                 </div>
                 {% if errors.type_tarif %}<div class="errorlist mb-2"><li>{{ errors.type_tarif }}</li></div>{% endif %}
                 {% if types_tarif %}
+                    <div class="row g-3">
                     {% for tt in types_tarif %}
-                    <div class="option-card">
-                        <input type="radio" name="type_tarif_id" id="tar_{{ tt.pk }}" value="{{ tt.pk }}"
-                               {% if form_data.type_tarif_id == tt.pk|stringformat:"s" %}checked{% endif %}>
-                        <label for="tar_{{ tt.pk }}">
-                            <div>
-                                <div class="oc-title">{{ tt.nom }}</div>
-                                {% if tt.description %}<div class="oc-meta">{{ tt.description }}</div>{% endif %}
-                            </div>
-                            <div class="oc-price">{{ tt.montant|floatformat:0|intcomma }} FCFA</div>
-                        </label>
-                    </div>
+                        <div class="col-6">
+                            <label class="tarif-card d-block">
+                                <input type="radio" name="type_tarif_id" id="tar_{{ tt.pk }}" value="{{ tt.pk }}"
+                                       {% if form_data.type_tarif_id == tt.pk|stringformat:"s" %}checked{% endif %}>
+                                <div class="tarif-card-inner">
+                                    <div class="tarif-card-name">
+                                        <i class="bi bi-tag-fill me-1" style="color:var(--accent);"></i>{{ tt.nom }}
+                                    </div>
+                                    <div class="tarif-card-price">{{ tt.montant|floatformat:0|intcomma }} FCFA</div>
+                                </div>
+                            </label>
+                        </div>
                     {% endfor %}
+                    </div>
                 {% else %}
                     <div class="text-muted" style="font-size:0.85rem;">Aucun tarif configuré pour cette certification.</div>
                 {% endif %}
@@ -417,13 +441,19 @@
 
     document.querySelectorAll('input[name="cohorte_id"]').forEach(r => {
         r.addEventListener('change', function() {
-            if (secTarif) secTarif.classList.remove('hidden');
+            if (secTarif) {
+                secTarif.classList.remove('hidden');
+                setTimeout(() => secTarif.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+            }
         });
     });
 
     document.querySelectorAll('input[name="type_tarif_id"]').forEach(r => {
         r.addEventListener('change', function() {
-            if (secIdentite) secIdentite.classList.remove('hidden');
+            if (secIdentite) {
+                secIdentite.classList.remove('hidden');
+                setTimeout(() => secIdentite.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+            }
         });
     });
 })();

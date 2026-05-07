@@ -2,37 +2,45 @@
 API REST — ENSMG Certification.
 Endpoints DRF avec JWT authentication + webhooks Wave / Orange Money.
 """
+
 import hashlib
 import hmac
 import logging
+
 from django.conf import settings
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import Group, User
 from django.utils import timezone
-from rest_framework import viewsets, status, generics
-from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Certification, Cohorte, Inscrit, Inscription, Paiement, Attestation
-from .serializers import (
-    CertificationSerializer, CohorteSerializer, InscritSerializer,
-    InscritCreateSerializer, InscriptionSerializer, PaiementSerializer,
-    AttestationSerializer, UserRoleSerializer,
-    WaveWebhookSerializer, OrangeMoneyWebhookSerializer,
-)
-from .permissions import (
-    IsAdministrateur, IsAdminOrResponsable, IsAdminOrComptable, IsStaffOrReadOnly,
-)
+from .models import Attestation, Certification, Cohorte, Inscription, Inscrit, Paiement
 from .notifications import notifier_paiement_confirme
+from .permissions import IsAdministrateur, IsAdminOrComptable, IsStaffOrReadOnly
+from .serializers import (
+    AttestationSerializer,
+    CertificationSerializer,
+    CohorteSerializer,
+    InscriptionSerializer,
+    InscritCreateSerializer,
+    InscritSerializer,
+    OrangeMoneyWebhookSerializer,
+    PaiementSerializer,
+    UserRoleSerializer,
+    WaveWebhookSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # ── Certifications ────────────────────────────────────────────────────────────
 
+
 class CertificationViewSet(viewsets.ModelViewSet):
     """CRUD certifications. Lecture libre (staff), écriture admin uniquement."""
+
     queryset = Certification.objects.all().order_by("nom")
     serializer_class = CertificationSerializer
     permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
@@ -40,8 +48,11 @@ class CertificationViewSet(viewsets.ModelViewSet):
 
 # ── Cohortes ──────────────────────────────────────────────────────────────────
 
+
 class CohorteViewSet(viewsets.ModelViewSet):
-    queryset = Cohorte.objects.select_related("certification").order_by("-date_debut")
+    queryset = Cohorte.objects.select_related("session__certification", "session__option").order_by(
+        "-session__date_debut", "nom"
+    )
     serializer_class = CohorteSerializer
     permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
 
@@ -49,7 +60,7 @@ class CohorteViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         certif_id = self.request.query_params.get("certification")
         if certif_id:
-            qs = qs.filter(certification_id=certif_id)
+            qs = qs.filter(session__certification_id=certif_id)
         actif = self.request.query_params.get("actif")
         if actif is not None:
             qs = qs.filter(actif=(actif.lower() == "true"))
@@ -57,6 +68,7 @@ class CohorteViewSet(viewsets.ModelViewSet):
 
 
 # ── Inscrits ──────────────────────────────────────────────────────────────────
+
 
 class InscritViewSet(viewsets.ModelViewSet):
     queryset = Inscrit.objects.all().order_by("nom", "prenom")
@@ -71,18 +83,21 @@ class InscritViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         q = self.request.query_params.get("q")
         if q:
-            qs = qs.filter(nom__icontains=q) | qs.filter(prenom__icontains=q) | qs.filter(email__icontains=q)
+            qs = (
+                qs.filter(nom__icontains=q)
+                | qs.filter(prenom__icontains=q)
+                | qs.filter(email__icontains=q)
+            )
         return qs
 
 
 # ── Inscriptions ──────────────────────────────────────────────────────────────
 
+
 class InscriptionViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Inscription.objects
-        .select_related("inscrit", "cohorte__certification")
-        .order_by("-date_inscription")
-    )
+    queryset = Inscription.objects.select_related(
+        "inscrit", "cohorte__session__certification"
+    ).order_by("-date_inscription")
     serializer_class = InscriptionSerializer
     permission_classes = [IsAuthenticated]
 
@@ -102,12 +117,11 @@ class InscriptionViewSet(viewsets.ModelViewSet):
 
 # ── Paiements ──────────────────────────────────────────────────────────────────
 
+
 class PaiementViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Paiement.objects
-        .select_related("inscription__inscrit", "inscription__cohorte__certification")
-        .order_by("-date_paiement")
-    )
+    queryset = Paiement.objects.select_related(
+        "inscription__inscrit", "inscription__cohorte__session__certification"
+    ).order_by("-date_paiement")
     serializer_class = PaiementSerializer
     permission_classes = [IsAuthenticated, IsAdminOrComptable]
 
@@ -126,7 +140,9 @@ class PaiementViewSet(viewsets.ModelViewSet):
         """Confirmer un paiement en attente."""
         paiement = self.get_object()
         if paiement.statut == "confirme":
-            return Response({"detail": "Paiement déjà confirmé."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Paiement déjà confirmé."}, status=status.HTTP_400_BAD_REQUEST
+            )
         paiement.statut = "confirme"
         paiement.save(update_fields=["statut"])
         notifier_paiement_confirme(paiement)
@@ -135,12 +151,11 @@ class PaiementViewSet(viewsets.ModelViewSet):
 
 # ── Attestations ──────────────────────────────────────────────────────────────
 
+
 class AttestationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = (
-        Attestation.objects
-        .select_related("inscription__inscrit", "inscription__cohorte__certification")
-        .order_by("-generated_at")
-    )
+    queryset = Attestation.objects.select_related(
+        "inscription__inscrit", "inscription__cohorte__session__certification"
+    ).order_by("-generated_at")
     serializer_class = AttestationSerializer
     permission_classes = [IsAuthenticated]
 
@@ -153,6 +168,7 @@ class AttestationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # ── Utilisateurs / Rôles ──────────────────────────────────────────────────────
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related("groups").order_by("username")
@@ -180,8 +196,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
 # ── Profil courant ────────────────────────────────────────────────────────────
 
+
 class MeView(generics.RetrieveAPIView):
     """Retourne le profil de l'utilisateur authentifié."""
+
     serializer_class = UserRoleSerializer
     permission_classes = [IsAuthenticated]
 
@@ -191,11 +209,13 @@ class MeView(generics.RetrieveAPIView):
 
 # ── Webhooks ──────────────────────────────────────────────────────────────────
 
+
 class WaveWebhookView(APIView):
     """
     Endpoint POST pour les notifications de paiement Wave.
     Wave envoie un header X-Wave-Signature (HMAC-SHA256) pour authentifier la requête.
     """
+
     permission_classes = [AllowAny]
 
     def _verify_signature(self, request):
@@ -237,6 +257,7 @@ class WaveWebhookView(APIView):
             notes="Paiement automatique via webhook Wave",
         )
         from .notifications import notifier_paiement
+
         notifier_paiement(paiement)
         logger.info("Wave webhook: paiement %s créé (inscription %s)", paiement.pk, inscription_id)
         return Response({"detail": "Paiement enregistré.", "paiement_id": paiement.pk})
@@ -246,6 +267,7 @@ class OrangeMoneyWebhookView(APIView):
     """
     Endpoint POST pour les notifications de paiement Orange Money.
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -272,9 +294,13 @@ class OrangeMoneyWebhookView(APIView):
             reference=data["txnid"],
             statut="confirme",
             date_paiement=timezone.now().date(),
-            notes=f"Paiement automatique via webhook Orange Money (msisdn: {data.get('msisdn', '')})",
+            notes=(
+                "Paiement automatique via webhook Orange Money"
+                f" (msisdn: {data.get('msisdn', '')})"
+            ),
         )
         from .notifications import notifier_paiement
+
         notifier_paiement(paiement)
         logger.info("OM webhook: paiement %s créé (inscription %s)", paiement.pk, inscription_id)
         return Response({"detail": "Paiement enregistré.", "paiement_id": paiement.pk})

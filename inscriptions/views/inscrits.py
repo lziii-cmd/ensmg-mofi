@@ -21,7 +21,7 @@ def inscrits_list(request):
     statut_filter = request.GET.get("statut", "")
 
     inscrits = Inscrit.objects.prefetch_related(
-        "inscriptions__cohorte__certification", "inscriptions__paiements"
+        "inscriptions__cohorte__session__certification", "inscriptions__paiements"
     ).order_by("-date_inscription")
 
     if query:
@@ -38,7 +38,7 @@ def inscrits_list(request):
 
     if certification_filter:
         inscrits = inscrits.filter(
-            inscriptions__cohorte__certification__pk=certification_filter
+            inscriptions__cohorte__session__certification__pk=certification_filter
         ).distinct()
 
     if statut_filter:
@@ -50,7 +50,7 @@ def inscrits_list(request):
         inscrits = inscrits.filter(inscriptions__cohorte_id__in=filter_cohorte_ids).distinct()
     elif filter_certif_ids:
         inscrits = inscrits.filter(
-            inscriptions__cohorte__certification_id__in=filter_certif_ids
+            inscriptions__cohorte__session__certification_id__in=filter_certif_ids
         ).distinct()
 
     certifications_all = Certification.objects.order_by("nom")
@@ -62,7 +62,7 @@ def inscrits_list(request):
             Prefetch(
                 "inscriptions",
                 queryset=Inscription.objects.select_related(
-                    "cohorte__certification"
+                    "cohorte__session__certification"
                 ).prefetch_related("paiements"),
             )
         )
@@ -146,7 +146,7 @@ def inscrits_list(request):
 def inscrit_detail(request, pk):
     inscrit = get_object_or_404(Inscrit, pk=pk)
     inscriptions = (
-        inscrit.inscriptions.select_related("cohorte__certification")
+        inscrit.inscriptions.select_related("cohorte__session__certification")
         .prefetch_related("paiements")
         .order_by("-date_inscription")
     )
@@ -196,7 +196,9 @@ def admin_inscription_directe(request, pk, certif_pk):
     """Admin: enroll an inscrit in a specific certification (choose cohorte)."""
     inscrit = get_object_or_404(Inscrit, pk=pk)
     certification = get_object_or_404(Certification, pk=certif_pk)
-    cohortes = Cohorte.objects.filter(certification=certification, actif=True).order_by("nom")
+    cohortes = Cohorte.objects.filter(session__certification=certification, actif=True).order_by(
+        "nom"
+    )
 
     errors = {}
 
@@ -208,7 +210,7 @@ def admin_inscription_directe(request, pk, certif_pk):
         if cohorte_id:
             try:
                 cohorte = Cohorte.objects.get(
-                    pk=cohorte_id, certification=certification, actif=True
+                    pk=cohorte_id, session__certification=certification, actif=True
                 )
             except Cohorte.DoesNotExist:
                 errors["cohorte"] = "Cohorte invalide."
@@ -412,9 +414,9 @@ def inscription_wizard(request):
         cohorte = None
         if cohorte_id:
             try:
-                cohorte = Cohorte.objects.select_related("certification", "option").get(
-                    pk=cohorte_id
-                )
+                cohorte = Cohorte.objects.select_related(
+                    "session__certification", "session__option"
+                ).get(pk=cohorte_id)
             except Cohorte.DoesNotExist:
                 messages.error(request, "Cohorte invalide.")
                 return _render_wizard()

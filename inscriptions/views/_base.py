@@ -134,8 +134,8 @@ def _auto_transition_statuts():
 
     candidates = Inscription.objects.filter(
         statut="inscrit",
-        cohorte__date_debut__lte=today,
-        cohorte__date_fin__gte=today,
+        cohorte__session__date_debut__lte=today,
+        cohorte__session__date_fin__gte=today,
     ).prefetch_related("paiements")
 
     to_promote = [
@@ -148,7 +148,7 @@ def _auto_transition_statuts():
 
     Inscription.objects.filter(
         statut="en_formation",
-        cohorte__date_fin__lt=today,
+        cohorte__session__date_fin__lt=today,
     ).update(statut="formation_terminee")
 
 

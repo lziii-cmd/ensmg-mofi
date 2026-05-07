@@ -40,8 +40,8 @@
             <i class="bi bi-plus-circle me-1"></i>Nouvelle option
         </a>
         {% else %}
-        <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success btn-sm">
-            <i class="bi bi-plus-circle me-1"></i>Nouvelle cohorte
+        <a href="{% url 'session_ajouter_certif' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Nouvelle session
         </a>
         <a href="{% url 'type_tarif_ajouter_certif' certification.pk %}" class="btn btn-outline-success btn-sm">
             <i class="bi bi-tag me-1"></i>Nouveau tarif
@@ -223,15 +223,15 @@
                         <i class="bi bi-people me-1"></i>{{ option.nb_inscrits }} inscrit{{ option.nb_inscrits|pluralize }}
                     </span>
                     <span class="text-muted" style="font-size:0.78rem;">
-                        <i class="bi bi-collection me-1"></i>{{ option.cohortes.count }} cohorte{{ option.cohortes.count|pluralize }}
+                        <i class="bi bi-collection me-1"></i>{{ option.nb_sessions }} session{{ option.nb_sessions|pluralize }}
                     </span>
                 </div>
             </div>
 
             <!-- Actions droite -->
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <a href="{% url 'cohorte_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
-                    <i class="bi bi-plus-circle me-1"></i>Cohorte
+                <a href="{% url 'session_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
+                    <i class="bi bi-plus-circle me-1"></i>Session
                 </a>
                 <button class="btn btn-sm btn-outline-primary" style="font-size:0.78rem;"
                         data-bs-toggle="collapse" data-bs-target="#panel-tarifs-opt-{{ option.pk }}">
@@ -315,22 +315,41 @@
         {% endwith %}
     </div>
 
-    <!-- Cohortes de l'option -->
-    {% with cohortes_option=option.cohortes.all %}
-    {% if cohortes_option %}
+    <!-- Sessions et cohortes de l'option -->
+    {% with sessions_option=option.sessions.all %}
+    {% if sessions_option %}
     <div class="card-body p-0">
-        {% for cohorte in cohortes_option %}
+        {% for session in sessions_option %}
+        <div class="border-top bg-light px-4 py-2 d-flex align-items-center justify-content-between" style="font-size:0.82rem;">
+            <span class="fw-semibold text-primary">
+                <i class="bi bi-calendar2-week me-1"></i>{{ session.nom }}
+                {% if session.date_debut %}<span class="text-muted fw-normal ms-2">{{ session.date_debut|date:"d/m/Y" }}{% if session.date_fin %} → {{ session.date_fin|date:"d/m/Y" }}{% endif %}</span>{% endif %}
+            </span>
+            <div class="d-flex gap-1">
+                <a href="{% url 'cohorte_ajouter_dans_session' session.pk %}" class="btn btn-outline-success btn-sm" style="font-size:0.72rem;" title="Ajouter une cohorte">
+                    <i class="bi bi-people-fill me-1"></i>+ Cohorte
+                </a>
+                <a href="{% url 'session_modifier' session.pk %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.72rem;" title="Modifier la session">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <a href="{% url 'session_supprimer' session.pk %}" class="btn btn-outline-danger btn-sm" style="font-size:0.72rem;" title="Supprimer la session">
+                    <i class="bi bi-trash"></i>
+                </a>
+            </div>
+        </div>
+        {% for cohorte in session.cohortes.all %}
         {% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=certification nested=True %}
+        {% endfor %}
         {% endfor %}
     </div>
     {% else %}
     <div class="card-body py-3 px-4 bg-light border-top">
         <div class="d-flex align-items-center gap-3">
-            <i class="bi bi-collection text-muted" style="font-size:1.2rem;"></i>
+            <i class="bi bi-calendar2 text-muted" style="font-size:1.2rem;"></i>
             <div>
-                <p class="mb-1 text-muted" style="font-size:0.84rem;">Aucune cohorte pour cette option.</p>
-                <a href="{% url 'cohorte_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
-                    <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
+                <p class="mb-1 text-muted" style="font-size:0.84rem;">Aucune session pour cette option.</p>
+                <a href="{% url 'session_ajouter_option' option.pk %}" class="btn btn-sm btn-success" style="font-size:0.78rem;">
+                    <i class="bi bi-plus-circle me-1"></i>Créer une session
                 </a>
             </div>
         </div>
@@ -360,22 +379,70 @@
 <!-- ── MODE SANS OPTIONS ──────────────────────────────────────────────────── -->
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h6 class="mb-0 text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:.6px;">
-        <i class="bi bi-collection me-2"></i>Cohortes ({{ cohortes|length }})
+        <i class="bi bi-calendar2-week me-2"></i>Sessions ({{ sessions|length }})
     </h6>
 </div>
 
-{% if cohortes %}
-{% for cohorte in cohortes %}
-{% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=certification %}
+{% if sessions %}
+{% for session in sessions %}
+<div class="card mb-3">
+    <!-- En-tête session -->
+    <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#f8faff;">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bi bi-calendar2-week text-primary" style="font-size:0.9rem;"></i>
+            <a href="{% url 'session_detail' session.pk %}" class="fw-semibold text-decoration-none text-dark" style="font-size:0.9rem;">
+                {{ session.nom }}
+            </a>
+            {% if session.date_debut %}
+            <span class="text-muted" style="font-size:0.76rem;">
+                <i class="bi bi-calendar2 me-1"></i>{{ session.date_debut|date:"d/m/Y" }}{% if session.date_fin %} → {{ session.date_fin|date:"d/m/Y" }}{% endif %}
+            </span>
+            {% endif %}
+            <span class="text-muted" style="font-size:0.76rem;">
+                <i class="bi bi-people me-1"></i>{{ session.nb_inscrits }} inscrit{{ session.nb_inscrits|pluralize }}
+            </span>
+            {% if not session.actif %}
+            <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.68rem;">Inactive</span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-1">
+            <a href="{% url 'cohorte_ajouter_dans_session' session.pk %}" class="btn btn-sm btn-outline-success" style="font-size:0.76rem;" title="Ajouter une cohorte">
+                <i class="bi bi-people-fill me-1"></i>+ Cohorte
+            </a>
+            <a href="{% url 'session_modifier' session.pk %}" class="btn btn-sm btn-outline-secondary" style="font-size:0.76rem;" title="Modifier">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'session_supprimer' session.pk %}" class="btn btn-sm btn-outline-danger" style="font-size:0.76rem;" title="Supprimer">
+                <i class="bi bi-trash"></i>
+            </a>
+        </div>
+    </div>
+    <!-- Cohortes de la session -->
+    <div class="card-body p-0">
+    {% for cohorte in session.cohortes.all %}
+    {% include "inscriptions/_cohorte_card.html" with cohorte=cohorte certification=certification nested=True %}
+    {% empty %}
+    <div class="px-4 py-3 d-flex align-items-center gap-3 bg-light">
+        <i class="bi bi-people text-muted" style="font-size:1.1rem; opacity:.5;"></i>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="text-muted" style="font-size:0.82rem;">Aucune cohorte dans cette session.</span>
+            <a href="{% url 'cohorte_ajouter_dans_session' session.pk %}" class="btn btn-sm btn-outline-success" style="font-size:0.76rem;">
+                <i class="bi bi-plus-circle me-1"></i>Ajouter une cohorte
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+    </div>
+</div>
 {% endfor %}
 {% else %}
 <div class="card">
     <div class="card-body py-5 text-center">
-        <i class="bi bi-collection text-muted" style="font-size:2.5rem; opacity:.4;"></i>
-        <p class="mt-3 mb-1 fw-semibold text-muted">Aucune cohorte</p>
-        <p class="text-muted mb-3" style="font-size:0.84rem;">Créez la première cohorte pour cette certification.</p>
-        <a href="{% url 'cohorte_ajouter' certification.pk %}" class="btn btn-success btn-sm">
-            <i class="bi bi-plus-circle me-1"></i>Créer une cohorte
+        <i class="bi bi-calendar2 text-muted" style="font-size:2.5rem; opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold text-muted">Aucune session</p>
+        <p class="text-muted mb-3" style="font-size:0.84rem;">Créez la première session pour cette certification.</p>
+        <a href="{% url 'session_ajouter_certif' certification.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Créer une session
         </a>
     </div>
 </div>

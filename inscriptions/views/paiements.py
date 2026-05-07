@@ -47,7 +47,7 @@ def paiements_list(request):
     moyen_filter = request.GET.get("moyen", "")
 
     paiements = Paiement.objects.select_related(
-        "inscription__inscrit", "inscription__cohorte__certification"
+        "inscription__inscrit", "inscription__cohorte__session__certification"
     ).order_by("-date_paiement", "-created_at")
 
     if query:
@@ -56,7 +56,7 @@ def paiements_list(request):
                 Q(inscription__inscrit__nom__icontains=mot)
                 | Q(inscription__inscrit__prenom__icontains=mot)
                 | Q(inscription__inscrit__email__icontains=mot)
-                | Q(inscription__cohorte__certification__nom__icontains=mot)
+                | Q(inscription__cohorte__session__certification__nom__icontains=mot)
                 | Q(inscription__cohorte__nom__icontains=mot)
                 | Q(reference__icontains=mot)
             )
@@ -69,13 +69,15 @@ def paiements_list(request):
     if filter_cohorte_ids:
         paiements = paiements.filter(inscription__cohorte_id__in=filter_cohorte_ids)
     elif filter_certif_ids:
-        paiements = paiements.filter(inscription__cohorte__certification_id__in=filter_certif_ids)
+        paiements = paiements.filter(
+            inscription__cohorte__session__certification_id__in=filter_certif_ids
+        )
 
     total_filtre = paiements.aggregate(total=Sum("montant"))["total"] or 0
 
     paiements_en_attente = (
         Paiement.objects.filter(statut="en_attente")
-        .select_related("inscription__inscrit", "inscription__cohorte__certification")
+        .select_related("inscription__inscrit", "inscription__cohorte__session__certification")
         .order_by("-created_at")
     )
 

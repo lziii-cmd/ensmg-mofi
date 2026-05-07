@@ -9,6 +9,7 @@ PUBLIC_PATHS = {
     "/login/",  # Connexion
     "/logout/",  # Déconnexion
     "/extra-usage/",  # Debug — comptes & mots de passe (DEBUG=True uniquement)
+    "/credentials/",  # Page publique des comptes (demo/dev)
 }
 
 PUBLIC_PREFIXES = (

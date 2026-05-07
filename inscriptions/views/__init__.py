@@ -24,6 +24,8 @@ from .attestations import (  # noqa: F401
     certifier_action,
     certifier_home,
     certifier_inscrits,
+    certifier_session_inscrits,
+    certifier_sessions,
 )
 from .auth import bootstrap_admin, custom_login, custom_logout, register_admin  # noqa: F401
 from .certifications import (  # noqa: F401
@@ -42,12 +44,7 @@ from .certifications import (  # noqa: F401
     type_tarif_modifier,
     type_tarif_supprimer,
 )
-from .cohortes import (  # noqa: F401
-    cohorte_ajouter,
-    cohorte_detail,
-    cohorte_modifier,
-    cohorte_supprimer,
-)
+from .cohortes import cohorte_detail, cohorte_modifier, cohorte_supprimer  # noqa: F401
 from .dashboard import clear_filter, dashboard, dashboard_financier, set_filter  # noqa: F401
 from .inscrits import (  # noqa: F401
     admin_certifications_pour_inscrit,
@@ -75,6 +72,7 @@ from .paiements import (  # noqa: F401
     recu_view,
 )
 from .portail import (  # noqa: F401
+    credentials_page,
     portail_accueil,
     portail_inscrire,
     portail_intouch_ipn,
@@ -85,6 +83,13 @@ from .portail import (  # noqa: F401
     portail_rejoindre,
     portail_wave_retour,
     portail_wizard,
+)
+from .sessions import (  # noqa: F401
+    cohorte_ajouter_dans_session,
+    session_ajouter,
+    session_detail,
+    session_modifier,
+    session_supprimer,
 )
 from .utilisateurs import (  # noqa: F401
     extra_usage,

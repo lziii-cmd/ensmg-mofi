@@ -11,11 +11,13 @@ def api_cohortes(request):
     cohortes = []
     if certif_ids:
         qs = (
-            Cohorte.objects.filter(certification_id__in=certif_ids)
-            .select_related("certification")
+            Cohorte.objects.filter(session__certification_id__in=certif_ids)
+            .select_related("session__certification")
             .order_by("nom")
         )
-        cohortes = [{"id": c.pk, "nom": c.nom, "certification": c.certification.nom} for c in qs]
+        cohortes = [
+            {"id": c.pk, "nom": c.nom, "certification": c.session.certification.nom} for c in qs
+        ]
     return JsonResponse({"cohortes": cohortes})
 
 
@@ -42,7 +44,7 @@ def api_inscription_solde(request):
         return JsonResponse({"error": "missing pk"}, status=400)
     try:
         ic = (
-            Inscription.objects.select_related("cohorte__certification", "inscrit")
+            Inscription.objects.select_related("cohorte__session__certification", "inscrit")
             .prefetch_related("paiements")
             .get(pk=pk)
         )

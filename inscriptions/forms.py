@@ -8,6 +8,7 @@ from .models import (
     Inscrit,
     OptionCertification,
     Paiement,
+    Session,
     TypeTarif,
 )
 
@@ -103,35 +104,38 @@ class TypeTarifForm(forms.ModelForm):
         }
 
 
-class CohorteForm(forms.ModelForm):
+class SessionForm(forms.ModelForm):
     class Meta:
-        model = Cohorte
+        model = Session
         fields = ["nom", "date_debut", "date_fin", "actif"]
         widgets = {
             "nom": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Nom de la cohorte",
-                }
+                attrs={"class": "form-control", "placeholder": "Ex : Session de juin 2026"}
             ),
-            "date_debut": forms.DateInput(
-                attrs={
-                    "class": "form-control",
-                    "type": "date",
-                }
-            ),
-            "date_fin": forms.DateInput(
-                attrs={
-                    "class": "form-control",
-                    "type": "date",
-                }
+            "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+        labels = {
+            "nom": "Nom de la session",
+            "date_debut": "Date de début",
+            "date_fin": "Date de fin",
+            "actif": "Session active",
+        }
+
+
+class CohorteForm(forms.ModelForm):
+    class Meta:
+        model = Cohorte
+        fields = ["nom", "actif"]
+        widgets = {
+            "nom": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "Ex : Cohorte A, Cohorte du matin"}
             ),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "nom": "Nom de la cohorte",
-            "date_debut": "Date de début",
-            "date_fin": "Date de fin",
             "actif": "Cohorte active",
         }
 
@@ -328,7 +332,7 @@ class PaiementForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["inscription"].queryset = Inscription.objects.select_related(
-            "inscrit", "cohorte__certification"
+            "inscrit", "cohorte__session__certification"
         ).order_by("inscrit__nom", "inscrit__prenom")
         self.fields["inscription"].label_from_instance = (
             lambda obj: f"{obj.inscrit.prenom} {obj.inscrit.nom} — {obj.cohorte}"
@@ -392,9 +396,9 @@ class ImportExcelForm(forms.Form):
         help_text="Format accepté : .xlsx",
     )
     cohorte = forms.ModelChoiceField(
-        queryset=Cohorte.objects.select_related("certification").order_by(
-            "certification__nom", "nom"
-        ),
+        queryset=Cohorte.objects.select_related(
+            "session__certification", "session__option"
+        ).order_by("session__certification__nom", "session__nom", "nom"),
         label="Cohorte cible",
         help_text="Les inscrits importés seront inscrits à cette cohorte.",
         widget=forms.Select(attrs={"class": "form-select"}),
@@ -607,8 +611,8 @@ class WizardStep3Form(forms.Form):
     certif_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     cohorte = forms.ModelChoiceField(
         queryset=Cohorte.objects.filter(actif=True)
-        .select_related("certification")
-        .order_by("certification__nom", "nom"),
+        .select_related("session__certification", "session__option")
+        .order_by("session__certification__nom", "session__nom", "nom"),
         label="Cohorte",
         empty_label="— Sélectionner une cohorte —",
         widget=forms.Select(attrs={"class": "form-select"}),
@@ -617,7 +621,7 @@ class WizardStep3Form(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["cohorte"].label_from_instance = (
-            lambda obj: f"{obj.certification.nom} — {obj.nom}"
+            lambda obj: f"{obj.certification.nom} — {obj.session.nom} — {obj.nom}"
         )
 
 

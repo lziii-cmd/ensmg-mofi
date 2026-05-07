@@ -1,0 +1,284 @@
+{% extends 'inscriptions/base.html' %}
+
+{% block title %}Certifier — {{ certification.nom }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">
+    <a href="{% url 'certifier_home' %}" class="text-decoration-none text-muted">Certifier</a>
+</li>
+<li class="breadcrumb-item active">{{ certification.nom }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Onglets filtre ── */
+.cs-tabs {
+    display: inline-flex;
+    background: #f1f3f9;
+    border-radius: 14px;
+    padding: 4px;
+    gap: 4px;
+}
+.cs-tab {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .5rem 1.2rem;
+    border-radius: 10px;
+    font-size: .86rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: #718096;
+    transition: all .2s;
+    white-space: nowrap;
+    position: relative;
+}
+.cs-tab:hover { color: #2d3748; background: rgba(255,255,255,.6); }
+.cs-tab.active {
+    background: #fff;
+    color: #2d3748;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+.cs-tab.active.tab-encours { color: var(--accent); }
+.cs-tab.active.tab-cloture  { color: #059669; }
+
+.cs-tab-badge {
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .1rem .45rem;
+    border-radius: 20px;
+    line-height: 1.4;
+}
+.tab-encours .cs-tab-badge { background: #eef2ff; color: #3730a3; }
+.tab-encours.active .cs-tab-badge { background: #dbeafe; color: var(--accent); }
+.tab-cloture .cs-tab-badge { background: #d1fae5; color: #065f46; }
+
+/* ── Sections ── */
+.cs-section { display: none; }
+.cs-section.visible { display: block; }
+
+/* ── Session cards ── */
+.session-card {
+    border-radius: 14px;
+    border: 1.5px solid #e8edf5;
+    background: #fff;
+    transition: all .2s;
+    height: 100%;
+}
+.session-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 6px 24px rgba(79,110,247,.12);
+    transform: translateY(-2px);
+}
+.session-card-done {
+    border-radius: 14px;
+    border: 1.5px solid #a7f3d0;
+    background: #f0fdf4;
+    transition: all .2s;
+    height: 100%;
+}
+.session-card-done:hover {
+    border-color: #059669;
+    box-shadow: 0 4px 16px rgba(5,150,105,.12);
+    transform: translateY(-2px);
+}
+.stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .75rem;
+    padding: .2rem .6rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.option-header {
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: .7rem 1rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(90deg,#f0f4ff,transparent);
+}
+.option-header-done {
+    border-left: 4px solid #059669;
+    border-radius: 10px;
+    padding: .7rem 1rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(90deg,#f0fdf4,transparent);
+}
+.progress-mini { height: 5px; border-radius: 10px; background: #e8edf5; margin-top: .5rem; }
+.bar-active  { height: 5px; border-radius: 10px; background: var(--accent); }
+.bar-done    { height: 5px; border-radius: 10px; background: #059669; }
+
+/* Fade-in section */
+.cs-section.visible {
+    animation: fadeInSection .18s ease;
+}
+@keyframes fadeInSection {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1><i class="bi bi-layers-fill me-2 text-primary"></i>{{ certification.nom }}</h1>
+        <p class="text-muted mb-0">Sélectionnez une session pour gérer les certifications.</p>
+    </div>
+    <a href="{% url 'certifier_home' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+</div>
+
+<!-- ── Onglets filtre ── -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div class="cs-tabs">
+        <button class="cs-tab tab-encours{% if nb_actives > 0 %} active{% endif %}"
+                id="btn-encours"
+                onclick="switchTab('encours')">
+            <i class="bi bi-hourglass-split"></i>
+            En cours
+            {% if nb_actives > 0 %}
+            <span class="cs-tab-badge">{{ nb_actives }}</span>
+            {% endif %}
+        </button>
+        <button class="cs-tab tab-cloture{% if nb_actives == 0 %} active{% endif %}"
+                id="btn-cloture"
+                onclick="switchTab('cloture')">
+            <i class="bi bi-patch-check-fill"></i>
+            Clôturées
+            {% if nb_terminees > 0 %}
+            <span class="cs-tab-badge">{{ nb_terminees }}</span>
+            {% endif %}
+        </button>
+    </div>
+    <span class="text-muted" style="font-size:.8rem;">
+        <i class="bi bi-info-circle me-1"></i>
+        {{ nb_actives }} session{{ nb_actives|pluralize }} en cours &bull; {{ nb_terminees }} clôturée{{ nb_terminees|pluralize }}
+    </span>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SECTION "EN COURS"
+════════════════════════════════════════════════ -->
+<div class="cs-section{% if nb_actives > 0 %} visible{% endif %}" id="section-encours">
+
+{% if has_options %}
+    {% for grp in options_data %}
+    {% if grp.actives %}
+    <div class="mb-4">
+        <div class="option-header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-bookmark-fill" style="color:var(--accent);"></i>
+                <span class="fw-bold">{{ grp.option.nom }}</span>
+                <span class="stat-pill" style="background:#fef3c7;color:#92400e;">
+                    {{ grp.actives|length }} à certifier
+                </span>
+            </div>
+        </div>
+        <div class="row g-3">
+            {% for session in grp.actives %}
+            {% include "inscriptions/_certifier_session_card.html" with session=session done=False %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% if nb_actives == 0 %}
+    <div class="card border-0" style="background:#f0fdf4;">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-patch-check-fill text-success" style="font-size:2.5rem;"></i>
+            <p class="mt-3 mb-0 fw-semibold text-success">Toutes les sessions sont clôturées !</p>
+            <p class="text-muted mt-1" style="font-size:.85rem;">Basculez sur l'onglet "Clôturées" pour consulter les attestations.</p>
+        </div>
+    </div>
+    {% endif %}
+
+{% else %}
+    {% if sessions_actives %}
+    <div class="row g-3">
+        {% for session in sessions_actives %}
+        {% include "inscriptions/_certifier_session_card.html" with session=session done=False %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card border-0" style="background:#f0fdf4;">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-patch-check-fill text-success" style="font-size:2.5rem;"></i>
+            <p class="mt-3 mb-0 fw-semibold text-success">Toutes les sessions sont clôturées !</p>
+            <p class="text-muted mt-1" style="font-size:.85rem;">Basculez sur l'onglet "Clôturées" pour consulter les attestations.</p>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SECTION "CLÔTURÉES"
+════════════════════════════════════════════════ -->
+<div class="cs-section{% if nb_actives == 0 %} visible{% endif %}" id="section-cloture">
+
+{% if has_options %}
+    {% for grp in options_data %}
+    {% if grp.terminees %}
+    <div class="mb-4">
+        <div class="option-header-done">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-bookmark-check-fill text-success"></i>
+                <span class="fw-bold">{{ grp.option.nom }}</span>
+                <span class="stat-pill" style="background:#d1fae5;color:#065f46;">
+                    <i class="bi bi-patch-check-fill"></i>{{ grp.terminees|length }} clôturée{{ grp.terminees|length|pluralize }}
+                </span>
+            </div>
+        </div>
+        <div class="row g-3">
+            {% for session in grp.terminees %}
+            {% include "inscriptions/_certifier_session_card.html" with session=session done=True %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% if nb_terminees == 0 %}
+    <div class="card border-0" style="background:#f8f9fe;">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-hourglass-split text-muted" style="font-size:2.5rem;"></i>
+            <p class="mt-3 mb-0 fw-semibold text-muted">Aucune session clôturée pour l'instant.</p>
+        </div>
+    </div>
+    {% endif %}
+
+{% else %}
+    {% if sessions_terminees %}
+    <div class="row g-3">
+        {% for session in sessions_terminees %}
+        {% include "inscriptions/_certifier_session_card.html" with session=session done=True %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card border-0" style="background:#f8f9fe;">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-hourglass-split text-muted" style="font-size:2.5rem;"></i>
+            <p class="mt-3 mb-0 fw-semibold text-muted">Aucune session clôturée pour l'instant.</p>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(tab) {
+    ['encours', 'cloture'].forEach(function(t) {
+        document.getElementById('section-' + t).classList.toggle('visible', t === tab);
+        document.getElementById('btn-' + t).classList.toggle('active', t === tab);
+    });
+}
+</script>
+{% endblock %}

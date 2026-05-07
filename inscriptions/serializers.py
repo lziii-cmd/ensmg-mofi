@@ -41,7 +41,10 @@ class CertificationSerializer(serializers.ModelSerializer):
 
 
 class CohorteSerializer(serializers.ModelSerializer):
-    certification_nom = serializers.ReadOnlyField(source="certification.nom")
+    session_nom = serializers.ReadOnlyField(source="session.nom")
+    session_date_debut = serializers.ReadOnlyField(source="session.date_debut")
+    session_date_fin = serializers.ReadOnlyField(source="session.date_fin")
+    certification_nom = serializers.ReadOnlyField(source="session.certification.nom")
     nb_inscrits = serializers.ReadOnlyField()
     nb_certifies = serializers.ReadOnlyField()
 
@@ -49,11 +52,12 @@ class CohorteSerializer(serializers.ModelSerializer):
         model = Cohorte
         fields = [
             "id",
-            "certification",
+            "session",
+            "session_nom",
+            "session_date_debut",
+            "session_date_fin",
             "certification_nom",
             "nom",
-            "date_debut",
-            "date_fin",
             "actif",
             "nb_inscrits",
             "nb_certifies",
@@ -103,7 +107,8 @@ class InscritCreateSerializer(InscritSerializer):
 
 class InscriptionSerializer(serializers.ModelSerializer):
     inscrit_nom = serializers.ReadOnlyField(source="inscrit.nom_complet")
-    certification_nom = serializers.ReadOnlyField(source="cohorte.certification.nom")
+    certification_nom = serializers.ReadOnlyField(source="cohorte.session.certification.nom")
+    session_nom = serializers.ReadOnlyField(source="cohorte.session.nom")
     cohorte_nom = serializers.ReadOnlyField(source="cohorte.nom")
     total_paye = serializers.ReadOnlyField()
     reste_a_payer = serializers.ReadOnlyField()
@@ -131,7 +136,9 @@ class InscriptionSerializer(serializers.ModelSerializer):
 
 class PaiementSerializer(serializers.ModelSerializer):
     inscrit_nom = serializers.ReadOnlyField(source="inscription.inscrit.nom_complet")
-    certification_nom = serializers.ReadOnlyField(source="inscription.cohorte.certification.nom")
+    certification_nom = serializers.ReadOnlyField(
+        source="inscription.cohorte.session.certification.nom"
+    )
 
     class Meta:
         model = Paiement
@@ -153,7 +160,9 @@ class PaiementSerializer(serializers.ModelSerializer):
 
 class AttestationSerializer(serializers.ModelSerializer):
     inscrit_nom = serializers.ReadOnlyField(source="inscription.inscrit.nom_complet")
-    certification_nom = serializers.ReadOnlyField(source="inscription.cohorte.certification.nom")
+    certification_nom = serializers.ReadOnlyField(
+        source="inscription.cohorte.session.certification.nom"
+    )
 
     class Meta:
         model = Attestation
